@@ -12,6 +12,49 @@ local colorLabels = {"red", "green", "blue", "alpha"}
 local screenWidth = pso.read_u16(0x00A46C48)
 local screenHeight = pso.read_u16(0x00A46C4A)
 
+local function scalex(x) return (x / 100) * screenWidth end
+local function scaley(y) return (y / 100) * screenHeight end
+
+local horizontalAnchors = {} -- {['left']=0, ['center']=screenWidth/2, ['right']=screenWidth}
+horizontalAnchors['left'] = function(x, width)
+	return scalex(x)
+end
+
+horizontalAnchors['center'] = function(x, width)
+	width = scalex(width)
+	local result = scalex(x) + (screenWidth - width) / 2
+	if result + width > screenWidth then result = screenWidth - width end
+	-- print('did the thing')
+	return result
+end
+
+horizontalAnchors['right'] = function(x, width)
+	width = scalex(width)
+	local result = screenWidth - scalex(x) - width
+	if result + width > screenWidth then result = screenWidth - width end
+	-- print(result)
+	return result
+end
+
+local verticalAnchors = {} -- {['top']=0, ['center']=screenHeight/2, ['bottom']=screenHeight}
+verticalAnchors['top'] = function(y, height)
+	return scaley(y)
+end
+
+verticalAnchors['center'] = function(y, height)
+	height = scaley(height)
+	local result = scaley(y) + (screenHeight - height) / 2
+	if result + height > screenHeight then result = screenHeight - height end
+	return result
+end
+
+verticalAnchors['bottom'] = function(y, height)
+	height = scaley(height)
+	local result = screenHeight - scaley(y) - height
+	if result + height > screenHeight then result = screenHeight - height end
+	return result
+end
+
 local data = {}
 local dfNames = {}
 
@@ -135,15 +178,17 @@ do --define widgetConfig functions
 	end
 
 	--number == integer unless it turns out I need floats too
-	widgetConfig.number = function(argName, item, req, minValue, maxValue)
+	widgetConfig.number = function(argName, item, req, minValue, maxValue, step, format)
 		minValue = minValue or 0
 		maxValue = maxValue or 0
+		format = format or ': %.0f'
+		step = step or 1
 		if req == "optional" then
 			if imgui.Button("clear##" .. argName) then item.args[argName]=nil end
 			imgui.SameLine()
 		end
 		local displayValue = item.args[argName] or 1
-		local changed, newValue = imgui.DragFloat("##" .. argName, displayValue, 1, minValue, maxValue, argName .. ": %.0f")
+		local changed, newValue = imgui.DragFloat("##" .. argName, displayValue, step, minValue, maxValue, argName .. format)
 		if changed then item.args[argName]=newValue end
 	end
 
@@ -185,11 +230,11 @@ do --define widgetConfig functions
 	end
 
 	widgetConfig.xpos = function(argName, item, req)
-		widgetConfig.number(argName, item, req, 0, screenWidth)
+		widgetConfig.number(argName, item, req, 0, 100, 0.01, ': %.2f')
 	end
 	
 	widgetConfig.ypos = function(argName, item, req)
-		widgetConfig.number(argName, item, req, -1, screenHeight)
+		widgetConfig.number(argName, item, req, 0, 100, 0.01, ': %.2f')
 	end
 	
 	widgetConfig.color = function(argName, item, req)
@@ -703,6 +748,10 @@ do --define widgets and widgetSpecs
 	widgetSpecs.progressBar = {progressFunction={pf,r}, barGradient={cg,o}, barColor={c,o}, showFullBar={b,o}, overlayFunction={sf,o}, overlay={s,o}, textColor={c,o}, width={x,o}, height={y,o}}
 	widgetDefaults.progressBar = {progressFunction="Player HP"}
 	widgets.progressBar = function(window, a)
+		local width, height = -1, -1
+		if a.width then width = scalex(a.width) end
+		if a.height then height = scaley(a.height) end
+			
 		local progress = psodata.progressFunctions[a.progressFunction]()
 		local gfs = data["global font scale"] or 1
 		local barColor = {0.5, 0.5, 0.5, 1}
@@ -734,7 +783,7 @@ do --define widgets and widgetSpecs
 		if a.textColor then
 			imgui.PushStyleColor("Text", unpack(a.textColor))
 		end
-		imgui.ProgressBar(progress, a.width or -1, (a.height or 15) * gfs, overlay)
+		imgui.ProgressBar(progress, width, height, overlay)
 		if a.textColor then imgui.PopStyleColor() end
 		imgui.PopStyleColor()
 	end -- widgets.progressBar = function
@@ -808,9 +857,13 @@ local function presentWindow(windowName)
 	local window = data.windowList[windowName]
 	if window.optionsChanged or window.thisIsNew then
 		window.thisIsNew = nil
-		imgui.SetNextWindowPos(window.x - (window.w / 2), window.y - (window.h / 2), "Always")
+		local x = horizontalAnchors[window.horizontalAnchor](window.x, window.w)
+		local y = verticalAnchors[window.verticalAnchor](window.y, window.h)
+		imgui.SetNextWindowPos(x, y, "Always")
 		if not (window.options[5] == "AlwaysAutoResize") then
-			imgui.SetNextWindowSize(window.w, window.h, "Always")
+			imgui.SetNextWindowSize(scalex(window.w), scaley(window.h), "Always")
+			-- print('w:' .. scalex(window.w) .. ' h:' .. scaley(window.h))
+			-- print('w:' .. window.w .. ' h:' .. window.h)
 		end
 	end
 	local transparentWindow = window.transparent
@@ -861,27 +914,46 @@ local function presentOptions(windowName)
 	imgui.SetNextWindowSize(400, 600, "FirstUseEver")
 	local success
 	success, window.openOptions = imgui.Begin(windowName .. " Options", true, "AlwaysAutoResize")
+	local gfs = 1
 	if data["global font scale"] then
-		imgui.SetWindowFontScale(data["global font scale"])
+		gfs = data["global font scale"]
+		imgui.SetWindowFontScale(gfs)
 		imgui.PushItemWidth(150 * data["global font scale"])
 	else
 		imgui.PushItemWidth(150)
 	end
 	local changed = false
+	-- local newValue
 
-	changed, window.x = imgui.DragFloat("##X" .. windowName, window.x, 1.0, 0, screenWidth, "X: %.0f")
-	if changed then window.optionsChanged = true end
+	-- changed, newValue = imgui.DragFloat("##X" .. windowName, scalex(window.x), 0.01, 0, screenWidth, "X: %.0f")
+	changed, window.x = imgui.DragFloat("##X" .. windowName, window.x, 0.01, 0, 100, "X: %.2f%%")
+	if changed then
+		-- window.x = newValue / screenWidth * 100
+		window.optionsChanged = true
+	end
 	
 	imgui.SameLine()
-	changed, window.y = imgui.DragFloat("##Y" .. windowName, window.y, 1.0, 0, screenHeight, "Y: %.0f")
-	if changed then window.optionsChanged = true end
+	-- changed, newValue = imgui.DragFloat("##Y" .. windowName, scaley(window.y), 0.01, 0, screenHeight, "Y: %.0f")
+	changed, window.y = imgui.DragFloat("##Y" .. windowName, window.y, 0.01, 0, 100, "Y: %.2f%%")
+	if changed then
+		-- window.y = newValue / screenHeight * 100
+		window.optionsChanged = true
+	end
 	
-	changed, window.w = imgui.DragFloat("##W" .. windowName, window.w, 1.0, 0, screenWidth, "Width: %.0f")
-	if changed then window.optionsChanged = true end
+	-- changed, newValue = imgui.DragFloat("##W" .. windowName, scalex(window.w), 0.01, 0, screenWidth, "Width: %.0f")
+	changed, window.w = imgui.DragFloat("##W" .. windowName, window.w, 0.01, 0, 100, "Width: %.2f%%")
+	if changed then
+		-- window.w = newValue / screenWidth * 100
+		window.optionsChanged = true
+	end
 	
 	imgui.SameLine()
-	changed, window.h = imgui.DragFloat("##H" .. windowName, window.h, 1.0, 0, screenHeight, "Height: %.0f")
-	if changed then window.optionsChanged = true end
+	-- changed, newValue = imgui.DragFloat("##H" .. windowName, scaley(window.h), 0.01, 0, screenHeight, "Height: %.0f")
+	changed, window.h = imgui.DragFloat("##H" .. windowName, window.h, 0.01, 0, 100, "Height: %.2f%%")
+	if changed then
+		-- window.h = newValue / screenHeight * 100
+		window.optionsChanged = true
+	end
 	imgui.PopItemWidth()
 	
 	changed, window.fontScale = imgui.DragFloat("##WFS" .. windowName, window.fontScale, 0.01, 0.5, 15.0, "Font Scale: %1.2f")
@@ -896,6 +968,30 @@ local function presentOptions(windowName)
 	flagCheckBox(windowName, {label="No Scroll Bar",options=window.options,index=4,flag="NoScrollbar"})
 	
 	flagCheckBox(windowName, {label="Always Auto Resize",options=window.options,index=5,flag="AlwaysAutoResize"})
+	
+	local horizontalPositions = {'left', 'center', 'right'}
+	local verticalPositions = {'top', 'center', 'bottom'}
+	
+	-- imgui.PushItemWidth(48)
+	showText({1,1,1,1}, 'Window Position:')
+	for _, vpos in ipairs(verticalPositions) do
+		for hi, hpos in ipairs(horizontalPositions) do
+			if not (vpos == 'center' and hpos == 'center') then
+				if hpos ~= 'left' then imgui.SameLine((((hi-1)*36)+8)*gfs) end
+				local label = '   '
+				if window.horizontalAnchor == hpos and window.verticalAnchor == vpos then
+					label = ' X '
+				end
+				if imgui.Button(label .. '##' .. vpos .. hpos) then
+					window.horizontalAnchor = hpos
+					window.verticalAnchor = vpos
+					window.optionsChanged = true
+					-- print('window anchor set to: ' .. vpos .. ' ' .. hpos)
+				end -- if imgui.Button(label .. '##' .. vpos .. hpos)
+			end -- if not (vpos == 'center' and hpos == 'center')
+		end -- for _, hpos in ipairs(horizontalPositions)
+	end -- for _, vpos in ipairs(verticalPositions)
+	-- imgui.PopItemWidth()
 	
 	imgui.End()
 end

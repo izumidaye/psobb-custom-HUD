@@ -15,7 +15,9 @@ local screenHeight = pso.read_u16(0x00A46C4A)
 local function scalex(x) return (x / 100) * screenWidth end
 local function scaley(y) return (y / 100) * screenHeight end
 
-local horizontalAnchors = {} -- {['left']=0, ['center']=screenWidth/2, ['right']=screenWidth}
+local checkMemoryOffset = 0
+
+local horizontalAnchors = {}
 horizontalAnchors['left'] = function(x, width)
 	return scalex(x)
 end
@@ -36,7 +38,7 @@ horizontalAnchors['right'] = function(x, width)
 	return result
 end
 
-local verticalAnchors = {} -- {['top']=0, ['center']=screenHeight/2, ['bottom']=screenHeight}
+local verticalAnchors = {}
 verticalAnchors['top'] = function(y, height)
 	return scaley(y)
 end
@@ -183,13 +185,16 @@ do --define widgetConfig functions
 		maxValue = maxValue or 0
 		format = format or ': %.0f'
 		step = step or 1
-		if req == "optional" then
-			if imgui.Button("clear##" .. argName) then item.args[argName]=nil end
+		if req == 'optional' then
+			if imgui.Button('clear##' .. argName) then item.args[argName]=nil end
 			imgui.SameLine()
 		end
 		local displayValue = item.args[argName] or 1
-		local changed, newValue = imgui.DragFloat("##" .. argName, displayValue, step, minValue, maxValue, argName .. format)
+		local changed, newValue = imgui.DragFloat('##finetune' .. argName, displayValue, step, minValue, maxValue, argName .. format)
 		if changed then item.args[argName]=newValue end
+		imgui.SameLine()
+		changed, newValue = imgui.DragFloat('##' .. argName, displayValue, 1, minValue, maxValue, argName .. format)
+		if changed then item.args[argName] = newValue end
 	end
 
 	widgetConfig.boolean = function(argName, item, req)
@@ -806,6 +811,12 @@ local function presentWindowList()
 	imgui.SetNextWindowSize(600,300,"FirstUseEver")
 	local success
 	success, data["show window list"] = imgui.Begin("Custom HUD Window List", true, "AlwaysAutoResize")
+	
+	local changed, newValue = imgui.InputInt("##checkMemoryOffset", checkMemoryOffset)
+	-- imgui.SameLine()
+	if changed then checkMemoryOffset = newValue end
+	showText({1,1,1,1}, '+' .. checkMemoryOffset .. ': ' .. pso.read_u32(0x00A97F44 + checkMemoryOffset))
+	
 	local gfs = data["global font scale"] or 1
 	imgui.SetWindowFontScale(gfs)
 	local delete, deleteWindow
@@ -835,7 +846,33 @@ local function presentWindowList()
 		-- end
 		local offset = newWindowCount * 36
 		newWindowCount = newWindowCount + 1
-		data.windowList["new window " .. (newWindowCount)] = {thisIsNew=true, x=offset, y=offset, w=200, h=200, enabled=true, openOptions=false, openEditor=false, newWidgetType=1, optionsChanged=false, fontScale=1, textColor={1,1,1,1}, transparent=false, options={"", "", "", "", ""}, displayList={{widgetType="showString", args={text="Kittens!!"}}}}
+		data.windowList["new window " .. (newWindowCount)] =
+			{
+			thisIsNew=true,
+			x=offset,
+			y=offset,
+			w=200,
+			h=200,
+			enabled=true,
+			openOptions=false,
+			openEditor=false,
+			newWidgetType=1,
+			optionsChanged=false,
+			fontScale=1,
+			textColor={1,1,1,1},
+			transparent=false,
+			options={"", "", "", "", ""},
+			hideField=true,
+			hideMenuStates =
+				{
+				['main menu']=false,
+				['team chat']=false,
+				['quick menu']=false,
+				['ship service menu']=false,
+				['any menu']=false
+				},
+			displayList={{widgetType="showString", args={text="Kittens!!"}}}
+			}
 	end
 	imgui.SameLine()
 	if imgui.Button("Save Configuration") then save() end
@@ -855,6 +892,16 @@ local function presentWindow(windowName)
 "args" format: arguments to be used with "command"; program must ensure that "args" are valid arguments for "command"
 ]]
 	local window = data.windowList[windowName]
+	if
+		window.hideMenuStates[psodata.menuState()]
+	or
+		(window.hideMenuStates['any menu'] and (psodata.menuState() ~= 'no menu'))
+	or
+		(window.hideField and (psodata.currentLocation() ~= 'field'))
+	then
+		-- print(psodata.currentLocation())
+		return
+	end
 	if window.optionsChanged or window.thisIsNew then
 		window.thisIsNew = nil
 		local x = horizontalAnchors[window.horizontalAnchor](window.x, window.w)
@@ -926,34 +973,34 @@ local function presentOptions(windowName)
 	-- local newValue
 
 	-- changed, newValue = imgui.DragFloat("##X" .. windowName, scalex(window.x), 0.01, 0, screenWidth, "X: %.0f")
-	changed, window.x = imgui.DragFloat("##X" .. windowName, window.x, 0.01, 0, 100, "X: %.2f%%")
-	if changed then
-		-- window.x = newValue / screenWidth * 100
-		window.optionsChanged = true
-	end
+	changed, window.x = imgui.DragFloat("##Xfinetune" .. windowName, window.x, 0.01, 0, 100, "X: %.2f%%")
+	if changed then window.optionsChanged = true end
+	imgui.SameLine()
+	changed, window.x = imgui.DragFloat("##X" .. windowName, window.x, 1, 0, 100, "X: %.2f%%")
+	if changed then window.optionsChanged = true end
 	
 	imgui.SameLine()
 	-- changed, newValue = imgui.DragFloat("##Y" .. windowName, scaley(window.y), 0.01, 0, screenHeight, "Y: %.0f")
-	changed, window.y = imgui.DragFloat("##Y" .. windowName, window.y, 0.01, 0, 100, "Y: %.2f%%")
-	if changed then
-		-- window.y = newValue / screenHeight * 100
-		window.optionsChanged = true
-	end
+	changed, window.y = imgui.DragFloat("##Yfinetune" .. windowName, window.y, 0.01, 0, 100, "Y: %.2f%%")
+	if changed then window.optionsChanged = true end
+	imgui.SameLine()
+	changed, window.y = imgui.DragFloat("##Y" .. windowName, window.y, 1, 0, 100, "Y: %.2f%%")
+	if changed then window.optionsChanged = true end
 	
 	-- changed, newValue = imgui.DragFloat("##W" .. windowName, scalex(window.w), 0.01, 0, screenWidth, "Width: %.0f")
-	changed, window.w = imgui.DragFloat("##W" .. windowName, window.w, 0.01, 0, 100, "Width: %.2f%%")
-	if changed then
-		-- window.w = newValue / screenWidth * 100
-		window.optionsChanged = true
-	end
+	changed, window.w = imgui.DragFloat("##Wfinetune" .. windowName, window.w, 0.01, 0, 100, "Width: %.2f%%")
+	if changed then window.optionsChanged = true end
+	imgui.SameLine()
+	changed, window.w = imgui.DragFloat("##W" .. windowName, window.w, 1, 0, 100, "Width: %.2f%%")
+	if changed then window.optionsChanged = true end
 	
 	imgui.SameLine()
 	-- changed, newValue = imgui.DragFloat("##H" .. windowName, scaley(window.h), 0.01, 0, screenHeight, "Height: %.0f")
-	changed, window.h = imgui.DragFloat("##H" .. windowName, window.h, 0.01, 0, 100, "Height: %.2f%%")
-	if changed then
-		-- window.h = newValue / screenHeight * 100
-		window.optionsChanged = true
-	end
+	changed, window.h = imgui.DragFloat("##Hfinetune" .. windowName, window.h, 0.01, 0, 100, "Height: %.2f%%")
+	if changed then window.optionsChanged = true end
+	imgui.SameLine()
+	changed, window.h = imgui.DragFloat("##H" .. windowName, window.h, 1, 0, 100, "Height: %.2f%%")
+	if changed then window.optionsChanged = true end
 	imgui.PopItemWidth()
 	
 	changed, window.fontScale = imgui.DragFloat("##WFS" .. windowName, window.fontScale, 0.01, 0.5, 15.0, "Font Scale: %1.2f")
@@ -993,6 +1040,15 @@ local function presentOptions(windowName)
 	end -- for _, vpos in ipairs(verticalPositions)
 	-- imgui.PopItemWidth()
 	
+	showText({1,1,1,1}, 'hide window when menu is open:')
+	for index, state in ipairs(psodata.menuStates) do
+		if imgui.Checkbox(state .. "##" .. windowName, window.hideMenuStates[state]) then
+			window.hideMenuStates[state] = not window.hideMenuStates[state]
+		end
+	end
+	if imgui.Checkbox('hide window when not in field##' .. windowName, window.hideField) then
+		window.hideField = not window.hideField
+	end
 	imgui.End()
 end
 
@@ -1164,7 +1220,7 @@ local function init()
 	psodata.setActive("ata")
 	psodata.setActive("party")
 	psodata.setActive("floorItems")
-	-- psodata.setActive("inventory")
+	psodata.setActive("inventory")
 	psodata.setActive("bank")
 	psodata.setActive("sessionTime")
 	

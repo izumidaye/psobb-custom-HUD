@@ -363,11 +363,38 @@ local function readPlayerMonsterData(playerAddr)
 	return player
 end
 
+psodata.menuStates = {'main menu', 'team chat', 'quick menu', 'ship service menu', 'any menu'}
+
 psodata.retrievePsoData = function()
 	loadPmtAddress()
 	local playerAddr = getSelf()
 	if playerAddr ~= 0 then
-		GameData.menuState = pso.read_u32(0x00A97F44)
+		if pso.read_u32(0x00A97F44) == 1 then
+			GameData.menuState = 'main menu'
+		elseif pso.read_u32(0x00A97F44) == 2 then
+			GameData.menuState = 'team chat'
+		elseif pso.read_u32(0x00A985B0) == 1 then
+			GameData.menuState = 'quick menu'
+		elseif pso.read_u32(0x00A48A9C) == 1 then
+			GameData.menuState = 'ship service menu'
+		else
+			GameData.menuState = 'no menu'
+		end
+	
+		-- GameData.mainMenu = pso.read_u32(0x00A97F44) == 1
+		-- GameData.teamChat = pso.read_u32(0x00A97F44) == 2
+		-- GameData.quickMenu = pso.read_u32(0x083EB4D0) == 1
+		-- GameData.anyMenu = pso.read_u32(0x00A21CCC) == 1
+		-- GameData.questMenuState = pso.read_u32(0x00A96050)
+		-- GameData.bankMenuState = pso.read_u32(0x00A95EDC)
+		-- GameData.shipServiceMenu = pso.read_u32(0x00A48A9C) == 1
+		
+		-- trying to figure out how to detect word select and quick symbol
+		-- local temp = pso.read_u32(00AAD79C)
+		-- temp = pso.read_u32(temp + 304)
+		-- temp = pso.read_u32(temp
+		
+		-- word select is 2; quick symbol is 3
 		
 		if ActiveGameData.xp then
 			local pltAddress = pso.read_u32(0x00A94878)
@@ -436,6 +463,13 @@ psodata.retrievePsoData = function()
 		if ActiveGameData.sessionTime then
 			local now = os.time()
 			local location = pso.read_u32(0x00AAFC9C + 0x04)
+			if location == _lobby then
+				GameData.currentLocation = 'lobby'
+			elseif location == _pioneer2 then
+				GameData.currentLocation = 'pioneer 2'
+			else
+				GameData.currentLocation = 'field'
+			end
 			if location ~= _lobby then
 				if location == lastLocation then
 					local frameTime = now - lastTime
@@ -567,12 +601,49 @@ psodata.retrievePsoData = function()
 	end -- check: player data present or not
 end -- local function retrievePsoData
 
+psodata.menuState = function() return GameData.menuState end
+
+psodata.currentLocation = function() return GameData.currentLocation end
+
 psodata.setActive = function(dataGroup) ActiveGameData[dataGroup] = true end
 
 psodata.activeDataReset = function() ActiveGameData = {} end
 
 psodata.init = function()
-	GameData = {menuState=0, level=0, thisLevelXp=0, toNextLevel=0, levelProgress=0, levelProgressFloat=0, meseta=0, sessionTime=0, elapsedTime=0, sessionXp=0, sessionXpRate=0, dungeonTime=0, dungeonXpRate=0, inventorySpaceUsed=0, bankSpaceUsed=0, floorItems={}, inventory={}, bank={}, party={}, monsterList={}, playerHP=0, playerHPmax=0, playerFrozen=false, playerConfused=false, playerParalyzed=false, playerDefTech=initTechData(), playerAtkTech=initTechData(), playerTP=0, playerTPmax=0, playerInvulnerabilityTime=0}
+	GameData =
+		{
+		menuState='no menu',
+		currentLocation='',
+		level=0,
+		thisLevelXp=0,
+		toNextLevel=0,
+		levelProgress=0,
+		levelProgressFloat=0,
+		meseta=0,
+		sessionTime=0,
+		elapsedTime=0,
+		sessionXp=0,
+		sessionXpRate=0,
+		dungeonTime=0,
+		dungeonXpRate=0,
+		inventorySpaceUsed=0,
+		bankSpaceUsed=0,
+		floorItems={},
+		inventory={},
+		bank={},
+		party={},
+		monsterList={},
+		playerHP=0,
+		playerHPmax=0,
+		playerFrozen=false,
+		playerConfused=false,
+		playerParalyzed=false,
+		playerDefTech=initTechData(),
+		playerAtkTech=initTechData(),
+		playerTP=0,
+		playerTPmax=0,
+		playerInvulnerabilityTime=0
+		}
 	GameData.player = {hp=0, hpMax=0, tp=0, tpMax=0, ata=0, statusFrozen=false, statusConfused=false, statusParalyzed=false, invulnerabilityTime=0, defTech=initTechData(), atkTech=initTechData()}
 	-- GameData.inventory =
 		-- {

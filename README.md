@@ -6,7 +6,7 @@ this addon is not even close to complete; but it has most of the core features i
 
 * chat log
 * window transparency
-* option to hide custom HUD elements when menus or dialogs are open
+* option to hide custom HUD elements when word select or quick symbol is open
 * widget and window presets
 * automatic HUD profile selection based on character name
 * and a ton of little gui tweaks and special features to improve user-friendliness.

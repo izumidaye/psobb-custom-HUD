@@ -33,6 +33,7 @@ local ActiveGameData = {} -- indicates which data are in use
 local sessionStartXp
 local pmtAddress = nil
 local psodata = {}
+psodata.menuStates = {'main menu open', 'lower screen menu open', 'full screen menu open', 'any menu open'}
 local GameData = {}
 local lastTime, lastLocation
 
@@ -363,38 +364,30 @@ local function readPlayerMonsterData(playerAddr)
 	return player
 end
 
-psodata.menuStates = {'main menu', 'team chat', 'quick menu', 'ship service menu', 'any menu'}
-
 psodata.retrievePsoData = function()
 	loadPmtAddress()
 	local playerAddr = getSelf()
 	if playerAddr ~= 0 then
-		if pso.read_u32(0x00A97F44) == 1 then
-			GameData.menuState = 'main menu'
-		elseif pso.read_u32(0x00A97F44) == 2 then
-			GameData.menuState = 'team chat'
-		elseif pso.read_u32(0x00A985B0) == 1 then
-			GameData.menuState = 'quick menu'
-		elseif pso.read_u32(0x00A48A9C) == 1 then
-			GameData.menuState = 'ship service menu'
-		else
-			GameData.menuState = 'no menu'
+		for _, menu in ipairs(psodata.menuStates) do
+			GameData[menu] = false
+		end
+		if pso.read_u32(0x009FF3D4) ~= 1 then -- any menu open
+			GameData['any menu open'] = true
+			GameData['lower screen menu open'] = true -- pretty much every menu uses the lower part of the screen
+			if pso.read_u32(0x00A97F44) == 1 then
+				GameData['main menu open'] = true
+			elseif (pso.read_u32(0x00A48A9C) == 1) or ((psodata.currentLocation() == 'lobby') and (pso.read_u32(0x00AAB218) ~= 0))then -- shops and stuff, also lobby counter
+				GameData['full screen menu open'] = true
+			end
+		elseif pso.read_u32(0x00A97F44) == 2 then -- team chat
+			GameData['lower screen menu open'] = true
 		end
 	
-		-- GameData.mainMenu = pso.read_u32(0x00A97F44) == 1
-		-- GameData.teamChat = pso.read_u32(0x00A97F44) == 2
-		-- GameData.quickMenu = pso.read_u32(0x083EB4D0) == 1
-		-- GameData.anyMenu = pso.read_u32(0x00A21CCC) == 1
-		-- GameData.questMenuState = pso.read_u32(0x00A96050)
-		-- GameData.bankMenuState = pso.read_u32(0x00A95EDC)
-		-- GameData.shipServiceMenu = pso.read_u32(0x00A48A9C) == 1
+		-- 0x00A97F44 main menu (== 1) and team chat (== 2)
+		-- 0x00A48A9C bank, quest counter, shops, tekker, clinic (== 1)
+		-- 0x009FF3D4 almost any menu (~= 1)
 		
-		-- trying to figure out how to detect word select and quick symbol
-		-- local temp = pso.read_u32(00AAD79C)
-		-- temp = pso.read_u32(temp + 304)
-		-- temp = pso.read_u32(temp
-		
-		-- word select is 2; quick symbol is 3
+		-- print(GameData.menuState)
 		
 		if ActiveGameData.xp then
 			local pltAddress = pso.read_u32(0x00A94878)
@@ -598,10 +591,12 @@ psodata.retrievePsoData = function()
 		-- for i, ma in ipairs(monsterAddrList) do print(i .. " " .. ma) end
 		end -- if ActiveGameData.monsterList
 		
+	else
+		GameData.currentLocation = 'login'
 	end -- check: player data present or not
 end -- local function retrievePsoData
 
-psodata.menuState = function() return GameData.menuState end
+psodata.get = function(key) return GameData[key] end
 
 psodata.currentLocation = function() return GameData.currentLocation end
 
@@ -644,22 +639,7 @@ psodata.init = function()
 		playerTPmax=0,
 		playerInvulnerabilityTime=0
 		}
-	GameData.player = {hp=0, hpMax=0, tp=0, tpMax=0, ata=0, statusFrozen=false, statusConfused=false, statusParalyzed=false, invulnerabilityTime=0, defTech=initTechData(), atkTech=initTechData()}
-	-- GameData.inventory =
-		-- {
-		-- {["index"]=1, ["type"]="weapon", ["equipped"]=false, ["name"]="Sword", ["wrapped"]=false, ["killcount"]=0, ["untekked"]=false, ["isSrank"]=false, ["SrankName"]="", ["special"]="none", ["Native"]=0, ["A. Beast"]=0, ["Machine"]=10, ["Dark"]=0, ["Hit"]=5},
-		-- {["index"]=2, ["type"]="frame", ["equipped"]=false, ["name"]="Frame", ["wrapped"]=false, ["slots"]=2, ["defense"]=1, ["defenseMax"]=5, ["evade"]=2, ["evadeMax"]=5},
-		-- {["index"]=3, ["type"]="barrier", ["equipped"]=false, ["name"]="Barrier", ["wrapped"]=false, ["defense"]=4, ["defenseMax"]=4, ["evade"]=0, ["evadeMax"]=4},
-		-- {["index"]=4, ["type"]="unit", ["equipped"]=false, ["name"]="Elf/Arm", ["wrapped"]=false, ["killcount"]=0, ["unitMod"]=0},
-		-- {["index"]=5, ["type"]="mag", ["equipped"]=true, ["name"]="Diwari", ["wrapped"]=false, ["def"]=5, ["pow"]=150, ["dex"]=45, ["mind"]=0, ["sync"]=120, ["iq"]=200, ["color"]="blue", ["pb"]="", ["timer"]=0},
-		-- {["index"]=6, ["type"]="tool", ["name"]="Resta", ["wrapped"]=false, ["techniqueLevel"]=5},
-		-- {["index"]=7, ["type"]="tool", ["name"]="Difluid", ["wrapped"]=false, ["quantity"]=8},
-		-- {["index"]=8, ["type"]="meseta", ["name"]="Meseta", ["wrapped"]=false, ["quantity"]=300}
-		-- }
-	-- GameData.party =
-		-- {
-			-- {["hp"]=500, ["hpMax"]=600, ["statusFrozen"]=false, ["statusConfused"]=false, ["statusParalyzed"]=false, ["defTech"]=nil, ["atkTech"]=nil, ["tp"]=300, ["tpMax"]=400, ["invulnerabilityTime"]=0, ["name"]="Wednesday"}
-		-- }
+	-- GameData.player = {hp=0, hpMax=0, tp=0, tpMax=0, ata=0, statusFrozen=false, statusConfused=false, statusParalyzed=false, invulnerabilityTime=0, defTech=initTechData(), atkTech=initTechData()}
 	initSessionTime()
 end
 
@@ -674,19 +654,19 @@ do -- define psodata getter functions
 	sf["Player Maximum HP"] = function() return GameData.playerHPmax end
 	sf["Player Current TP"] = function() return GameData.playerTP end
 	sf["Player Maximum TP"] = function() return GameData.playerTPmax end
-	sf["Player Invulnerability Time Remaining"] = function() return GameData.playerInvulnerabilityTime end
+	sf["Invulnerability Time"] = function() return GameData.playerInvulnerabilityTime end
 	sf["Player Level"] = function() return GameData.level end
-	sf["XP From Beginning to End of Current Player Level"] = function() return GameData.thisLevelXp end
-	sf["Player XP Progress to Next Level"] = function() return GameData.levelProgress end
+	sf["Current Level Base XP"] = function() return GameData.thisLevelXp end
+	sf["Current Level XP Progress"] = function() return GameData.levelProgress end
 	sf["Player ATA"] = function() return GameData.ata end
 	sf["Player Meseta Carried"] = function() return GameData.meseta end
 	sf["Session Time Elapsed"] = function() return GameData.elapsedTime end
 	sf["Session XP Accumulated"] = function() return GameData.sessionXp end
-	sf["Session Time Elapsed in Dungeon"] = function() return GameData.dungeonTime end
-	sf["Number of Inventory Slots Used"] = function() return GameData.inventorySpaceUsed end
-	sf["Number of Inventory Slots Free"] = function() return 30 - GameData.inventorySpaceUsed end
-	sf["Number of Bank Slots Used"] = function() return GameData.bankSpaceUsed end
-	sf["Number of Bank Slots Free"] = function() return 200 - GameData.bankSpaceUsed end
+	sf["Session Time in Dungeon"] = function() return GameData.dungeonTime end
+	sf["Inventory Slots Used"] = function() return GameData.inventorySpaceUsed end
+	sf["Inventory Slots Free"] = function() return 30 - GameData.inventorySpaceUsed end
+	sf["Bank Slots Used"] = function() return GameData.bankSpaceUsed end
+	sf["Bank Slots Free"] = function() return 200 - GameData.bankSpaceUsed end
 	sf["Bank Meseta"] = function() return GameData.bankMeseta end
 	-- sf["Player HP: Current/Maximum"] = function() return GameData.playerHP .. "/" .. GameData.playerHPmax end
 	-- sf["Player TP: Current/Maximum"] = function() return GameData.playerTP .. "/" .. GameData.playerTPmax end
@@ -757,17 +737,6 @@ do -- define psodata getter functions
 		['tool'] = {'index', 'type', 'name', 'wrapped', 'quantity'},
 		['meseta'] = {'index', 'type', 'name', 'wrapped', 'quantity'}
 		}
-	psodata.listSubFields['Bank Items'] = psodata.listSubFields['Floor Items']
-		-- {
-		-- ['weapon'] = {'index', 'type', 'name', 'wrapped', 'killcount', 'untekked', 'isSrank', 'SrankName', 'special', 'Native', 'A. Beast', 'Machine', 'Dark', 'Hit'},
-		-- ['frame'] = {'index', 'type', 'name', 'wrapped', 'slots', 'defense', 'defenseMax', 'evade', 'evadeMax'},
-		-- ['barrier'] = {'index', 'type', 'name', 'wrapped', 'defense', 'defenseMax', 'evade', 'evadeMax'},
-		-- ['unit'] = {'index', 'type', 'name', 'wrapped', 'killcount', 'unitMod'},
-		-- ['mag'] = {'index', 'type', 'name', 'wrapped', 'def', 'pow', 'dex', 'mind', 'sync', 'iq', 'color', 'pb'},
-		-- ['technique disk'] = {'index', 'type', 'name', 'wrapped', 'techniqueLevel'},
-		-- ['tool'] = {'index', 'type', 'name', 'wrapped', 'quantity'},
-		-- ['meseta'] = {'index', 'type', 'name', 'wrapped', 'quantity'}
-		-- }
 	psodata.listFields['Party Members'] = {'hp', 'hpMax', 'statusFrozen', 'statusConfused', 'statusParalyzed', 'defTech', 'atkTech', 'tp', 'tpMax', 'invulnerabilityTime', 'name'}
 	psodata.listFields['Monsters in Current Room'] = {'hp', 'hpMax', 'statusFrozen', 'statusConfused', 'statusParalyzed', 'defTech', 'atkTech', 'name'}
 
@@ -778,6 +747,7 @@ do -- define psodata getter functions
 			end
 		end
 	end
+	psodata.listSubFields['Bank Items'] = psodata.listSubFields['Floor Items']
 
 	for _, list in pairs(psodata.listFields) do
 		for index, value in pairs(list) do
@@ -785,12 +755,8 @@ do -- define psodata getter functions
 		end
 	end
 
-	-- df.menuState = function() return GameData.menuState end
-	-- sf["Player Status: Deband / Zalure"] = function() return GameData.playerDefTech end
-	-- sf["Player Status: Shifta / Jellen"] = function() return GameData.playerAtkTech end
-
 end
 
-psodata.getGameData = function(fieldName) return df[fieldName]() end
+-- psodata.getGameData = function(fieldName) return df[fieldName]() end
 
 return psodata

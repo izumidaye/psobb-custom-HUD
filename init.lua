@@ -7,10 +7,55 @@ Catherine S (IzumiDaye/NeonLuna)
 local core_mainmenu = require("core_mainmenu")
 local psodata = require("Custom HUD.psodata")
 
-local colorLabels = {"red", "green", "blue", "alpha"}
+local colorLabels = {"r", "g", "b", "a"}
 
 local screenWidth = pso.read_u16(0x00A46C48)
 local screenHeight = pso.read_u16(0x00A46C4A)
+
+local function scalex(x) return (x / 100) * screenWidth end
+local function scaley(y) return (y / 100) * screenHeight end
+
+local checkMemoryOffset = 0
+
+local horizontalAnchors = {}
+horizontalAnchors['left'] = function(x, width)
+	return scalex(x)
+end
+
+horizontalAnchors['center'] = function(x, width)
+	width = scalex(width)
+	local result = scalex(x) + (screenWidth - width) / 2
+	if result + width > screenWidth then result = screenWidth - width end
+	-- print('did the thing')
+	return result
+end
+
+horizontalAnchors['right'] = function(x, width)
+	width = scalex(width)
+	local result = screenWidth - scalex(x) - width
+	if result + width > screenWidth then result = screenWidth - width end
+	-- print(result)
+	return result
+end
+
+local verticalAnchors = {}
+verticalAnchors['top'] = function(y, height)
+	return scaley(y)
+end
+
+verticalAnchors['center'] = function(y, height)
+	height = scaley(height)
+	local result = scaley(y) + (screenHeight - height) / 2
+	if result + height > screenHeight then result = screenHeight - height end
+	return result
+end
+
+verticalAnchors['bottom'] = function(y, height)
+	height = scaley(height)
+	local result = screenHeight - scaley(y) - height
+	if result + height > screenHeight then result = screenHeight - height end
+	return result
+end
 
 local data = {}
 local dfNames = {}
@@ -25,12 +70,15 @@ end
 local function buildComboList(itemList)
 	local resultList = {}
 	local count = 1
+	local longest = 0
 	for key, _ in pairs(itemList) do
 		table.insert(resultList, key)
+		if string.len(key) > longest then longest = string.len(key) end
 		-- resultList[count] = key
 		-- resultList[key] = count
 		-- count = count + 1
 	end
+	resultList.longest = longest
 	table.sort(resultList, compareString)
 	for index, name in ipairs(resultList) do
 		resultList[name] = index
@@ -122,112 +170,152 @@ end
 local widgetConfig = {}
 do --define widgetConfig functions
 
-	widgetConfig.string = function(argName, item, req)
+	widgetConfig.string = function(argName, data, req)
 		imgui.Text(argName)
 		imgui.SameLine()
 		if req == "optional" then
-			if imgui.Button("clear##" .. argName) then item.args[argName]=nil end
+			if imgui.Button("clear##" .. argName) then data[argName]=nil end
 			imgui.SameLine()
 		end
-		local displayValue = item.args[argName] or ""
+		local displayValue = data[argName] or ""
 		local changed, newValue = imgui.InputText("##" .. argName, displayValue, 100)
-		if changed then item.args[argName]=newValue end
+		if changed then data[argName]=newValue end
 	end
 
 	--number == integer unless it turns out I need floats too
-	widgetConfig.number = function(argName, item, req, minValue, maxValue)
+	widgetConfig.number = function(argName, data, req, minValue, maxValue, step, format)
 		minValue = minValue or 0
-		maxValue = maxValue or 0
-		if req == "optional" then
-			if imgui.Button("clear##" .. argName) then item.args[argName]=nil end
+		maxValue = maxValue or 1
+		format = format or ': %.0f'
+		step = step or 1
+		if req == 'optional' then
+			if imgui.Button('clear##' .. argName) then data[argName]=nil end
 			imgui.SameLine()
 		end
-		local displayValue = item.args[argName] or 1
-		local changed, newValue = imgui.DragFloat("##" .. argName, displayValue, 1, minValue, maxValue, argName .. ": %.0f")
-		if changed then item.args[argName]=newValue end
+		local displayValue = data[argName] or 1
+		imgui.Text(argName .. ':')
+		imgui.SameLine()
+		imgui.PushItemWidth(64)
+		local changed, changed2, newValue
+		changed, newValue = imgui.DragFloat('##' .. argName, displayValue, 1, minValue, maxValue, format)
+		if changed then data[argName]=newValue end
+		imgui.SameLine()
+		imgui.PopItemWidth()
+		imgui.PushItemWidth(72)
+		changed2, newValue = imgui.DragFloat('##finetune' .. argName, displayValue, step, minValue, maxValue, 'fine tune')
+		if changed2 then data[argName] = newValue end
+		imgui.PopItemWidth()
+		return changed or changed2
+	end
+	
+	widgetConfig.slownumber = function(argName, data, req, minValue, maxValue, step, format)
+		minValue = minValue or 0
+		maxValue = maxValue or 1
+		format = format or '%.1f'
+		step = step or 1
+		if req == 'optional' then
+			if imgui.Button('clear##' .. argName) then data[argName]=nil end
+			imgui.SameLine()
+		end
+		imgui.Text(argName)
+		imgui.SameLine()
+		imgui.PushItemWidth(96)
+		local changed, newValue = imgui.InputFloat('##' .. argName, data[argName], step, 1, 1, format)
+		imgui.PopItemWidth()
+		if changed then
+			if newValue < minValue then
+				newValue = minValue
+			elseif newValue > maxValue then
+				newValue = maxValue
+			end
+			data[argName] = newValue
+		end
 	end
 
-	widgetConfig.boolean = function(argName, item, req)
+	widgetConfig.boolean = function(argName, data, req)
 		if req == "optional" then
-			if imgui.Button("clear##" .. argName) then item.args[argName]=nil end
+			if imgui.Button("clear##" .. argName) then data[argName]=nil end
 			imgui.SameLine()
 		end
-		local displayValue = item.args[argName] or false
+		local displayValue = data[argName] or false
 		local changed, newValue = imgui.Checkbox(argName, displayValue)
-		if changed then item.args[argName] = newValue end
+		if changed then data[argName] = newValue end
+		-- return changed
 	end
 
-	local dataFunction = function(argName, item, req, fType)
+	local dataFunction = function(argName, data, req, fType)
 		imgui.Text(argName)
 		imgui.SameLine()
 		if req == "optional" then
-			if imgui.Button("clear##" .. argName) then item.args[argName]=nil end
+			if imgui.Button("clear##" .. argName) then data[argName]=nil end
 			imgui.SameLine()
 		end
-		local changed, newValue = imgui.Combo("##" .. argName, dfNames[fType][item.args[argName]] or 1, dfNames[fType], #dfNames[fType])
-		if changed then item.args[argName] = dfNames[fType][newValue] end
+		imgui.PushItemWidth(8 + (8 * dfNames[fType].longest))
+		local changed, newValue = imgui.Combo("##" .. argName, dfNames[fType][data[argName]] or 1, dfNames[fType], #dfNames[fType])
+		imgui.PopItemWidth()
+		if changed then data[argName] = dfNames[fType][newValue] end
 	end
 	
-	widgetConfig.stringFunction = function(argName, item, req)
-		dataFunction(argName, item, req, "stringFunction")
+	widgetConfig.stringFunction = function(argName, data, req)
+		dataFunction(argName, data, req, "stringFunction")
 	end
 
-	widgetConfig.listFunction = function(argName, item, req)
-		dataFunction(argName, item, req, "listFunction")
+	widgetConfig.listFunction = function(argName, data, req)
+		dataFunction(argName, data, req, "listFunction")
 	end
 
-	widgetConfig.booleanFunction = function(argName, item, req)
-		dataFunction(argName, item, req, "booleanFunction")
+	widgetConfig.booleanFunction = function(argName, data, req)
+		dataFunction(argName, data, req, "booleanFunction")
 	end
 
-	widgetConfig.progressFunction = function(argName, item, req)
-		dataFunction(argName, item, req, "progressFunction")
+	widgetConfig.progressFunction = function(argName, data, req)
+		dataFunction(argName, data, req, "progressFunction")
 	end
 
-	widgetConfig.xpos = function(argName, item, req)
-		widgetConfig.number(argName, item, req, 0, screenWidth)
+	widgetConfig.xpos = function(argName, data, req)
+		return widgetConfig.number(argName, data, req, 0, 100, 0.01, '%.2f')
 	end
 	
-	widgetConfig.ypos = function(argName, item, req)
-		widgetConfig.number(argName, item, req, -1, screenHeight)
+	widgetConfig.ypos = function(argName, data, req)
+		return widgetConfig.number(argName, data, req, 0, 100, 0.01, '%.2f')
 	end
 	
-	widgetConfig.color = function(argName, item, req)
+	widgetConfig.color = function(argName, data, req)
 		imgui.Text(argName)
 		imgui.SameLine()
-		if req == "optional" then
-			if imgui.Button("clear##" .. argName) then item.args[argName]=nil end
+		if data[argName] and req == "optional" then
+			if imgui.Button("clear##" .. argName) then data[argName]=nil end
 			imgui.SameLine()
 		end
-		if not item.args[argName] then
+		if not data[argName] then
 			if imgui.Button("edit##" .. argName) then
-				item.args[argName] = {0.5, 0.5, 0.5, 1}
+				data[argName] = {0.5, 0.5, 0.5, 1}
 			end
 		else
 			local gfs = data["global font scale"] or 1
-			imgui.PushItemWidth(64 * gfs)
+			imgui.PushItemWidth(40 * gfs)
 			for i = 1,4 do
 				imgui.SameLine()
-				local changed, newValue = imgui.DragFloat("##" .. argName .. colorLabels[i], item.args[argName][i] * 255, 1, 0, 255, colorLabels[i] .. ":%.0f")
-				if changed then item.args[argName][i] = newValue / 255 end
+				local changed, newValue = imgui.DragFloat("##" .. argName .. colorLabels[i], data[argName][i] * 255, 1, 0, 255, colorLabels[i] .. ":%.0f")
+				if changed then data[argName][i] = newValue / 255 end
 			end
 			imgui.PopItemWidth()
 			imgui.SameLine()
-			imgui.ColorButton(unpack(item.args[argName]))
+			imgui.ColorButton(unpack(data[argName]))
 		end
 	end
 	
-	widgetConfig.colorGradient = function(argName, item, req)
-		local gradientList = item.args[argName]
+	widgetConfig.colorGradient = function(argName, data, req)
+		local gradientList = data[argName]
 		imgui.Text(argName)
 		imgui.SameLine()
 		if req == "optional" then
-			if imgui.Button("clear##" .. argName) then item.args[argName]=nil end
+			if imgui.Button("clear##" .. argName) then data[argName]=nil end
 		end
 		if not gradientList then
 			imgui.SameLine()
 			if imgui.Button("edit##" .. argName) then
-				item.args[argName] = {{0,{0, 0, 0, 1}},{1,{1, 1, 1, 1}}}
+				data[argName] = {{0,{0, 0, 0, 1}},{1,{1, 1, 1, 1}}}
 			end
 		else -- not gradientList
 			local addNew, addIndex = false, 1
@@ -291,7 +379,7 @@ do --define widgetConfig functions
 				local newColor = {0, 0, 0, 1}
 				if addIndex == 1 then
 					newLevel[1] = gradientList[1][1] + step
-				elseif addIndex > #item.args[argName] then
+				elseif addIndex > #data[argName] then
 					newLevel[1] = gradientList[#gradientList][1] - step
 				else
 					newLevel[1] = (gradientList[addIndex-1][1] + gradientList[addIndex][1]) / 2
@@ -307,20 +395,20 @@ do --define widgetConfig functions
 		end -- if not gradientList
 	end -- widgetConfig.colorGradient = function
 
-	widgetConfig.compositeString = function(argName, item, req)
-		local segmentList = item.args[argName]
+	widgetConfig.compositeString = function(argName, data, req)
+		local segmentList = data[argName]
 		local anyChange = false
 		imgui.Text(argName)
 		if req == "optional" then
 			imgui.SameLine()
 			if segmentList then
 				if imgui.Button("clear##" .. argName) then
-					item.args[argName]=nil
+					data[argName]=nil
 					anyChange = true
 				end
 			else -- segmentList == nil
 				if imgui.Button("edit##" .. argName) then
-					item.args[argName] = newCompositeString()
+					data[argName] = newCompositeString()
 					anyChange = true
 					-- possible contents:
 					-- "whatever" - a string to be displayed
@@ -424,7 +512,7 @@ do --define widgetConfig functions
 		return formatTable
 	end -- local function newFormatList
 
-	widgetConfig['format list'] = function(argName, item, req)
+	widgetConfig['format list'] = function(argName, data, req)
 		--[[
 		'format list' is a collection of data that specifies how to transform a row of fields in a table into a displayable string.
 		components:
@@ -434,10 +522,10 @@ do --define widgetConfig functions
 		+ sub format table - used if source list has subtypes; format data for each subtype
 		+ sub field table - used if source list has subtypes; list of used fields for each subtype
 		]]
-		local formatTable = item.args[argName]
+		local formatTable = data[argName]
 		if not formatTable then
 			formatTable = newFormatList('Party Members')
-			item.args[argName] = formatTable
+			data[argName] = formatTable
 		end
 		local sourceFunction = formatTable['list source function']
 		local subEditIndex
@@ -524,7 +612,7 @@ do --define widgetConfig functions
 		if changed then
 			anyChange = true
 			sourceFunction = dfNames['listFunction'][newValue]
-			item.args[argName] = newFormatList(sourceFunction)
+			data[argName] = newFormatList(sourceFunction)
 		end -- if changed
 		if anyChange then
 			formatData['format string'] = ''
@@ -560,7 +648,7 @@ do --define widgetConfig functions
 	local r = "required"
 ]]
 
-end
+end -- do -- define widgetConfig functions
 
 local widgets = {}
 local widgetSpecs = {}
@@ -691,6 +779,7 @@ do --define widgets and widgetSpecs
 		if a.sourceCS then
 			local functionResults = {}
 			for index, name in ipairs(a.sourceCS.functionList) do
+				-- print(name)
 				functionResults[index] = psodata.stringFunctions[name]()
 			end
 			-- sourceCS.displayString = 
@@ -703,6 +792,10 @@ do --define widgets and widgetSpecs
 	widgetSpecs.progressBar = {progressFunction={pf,r}, barGradient={cg,o}, barColor={c,o}, showFullBar={b,o}, overlayFunction={sf,o}, overlay={s,o}, textColor={c,o}, width={x,o}, height={y,o}}
 	widgetDefaults.progressBar = {progressFunction="Player HP"}
 	widgets.progressBar = function(window, a)
+		local width, height = -1, -1
+		if a.width then width = scalex(a.width) end
+		if a.height then height = scaley(a.height) end
+			
 		local progress = psodata.progressFunctions[a.progressFunction]()
 		local gfs = data["global font scale"] or 1
 		local barColor = {0.5, 0.5, 0.5, 1}
@@ -734,7 +827,7 @@ do --define widgets and widgetSpecs
 		if a.textColor then
 			imgui.PushStyleColor("Text", unpack(a.textColor))
 		end
-		imgui.ProgressBar(progress, a.width or -1, (a.height or 15) * gfs, overlay)
+		imgui.ProgressBar(progress, width, height, overlay)
 		if a.textColor then imgui.PopStyleColor() end
 		imgui.PopStyleColor()
 	end -- widgets.progressBar = function
@@ -757,15 +850,23 @@ local function presentWindowList()
 	imgui.SetNextWindowSize(600,300,"FirstUseEver")
 	local success
 	success, data["show window list"] = imgui.Begin("Custom HUD Window List", true, "AlwaysAutoResize")
-	local gfs = data["global font scale"] or 1
+	
+	-- local changed, newValue = imgui.InputInt("##checkMemoryOffset", checkMemoryOffset)
+	-- imgui.SameLine()
+	-- if changed then checkMemoryOffset = newValue end
+	-- showText({1,1,1,1}, '+' .. checkMemoryOffset .. ': ' .. pso.read_u32(0x00A97F44 + checkMemoryOffset))
+	
+	local gfs = 1 -- data["global font scale"] or 1
 	imgui.SetWindowFontScale(gfs)
+	widgetConfig.slownumber('global font scale', data, 'required', 1, 12, 0.1, '%.1f')
+	
 	local delete, deleteWindow
 	for windowName, window in pairs(data.windowList) do
 		imgui.TextColored(1, 1, 1, 1, windowName)
 		imgui.SameLine(200 * gfs)
 		if imgui.Button("Show/Hide##" .. windowName) then window.enabled = not window.enabled end
 		imgui.SameLine(280 * gfs)
-		if imgui.Button("Options##" .. windowName) then window.openOptions = not window.openOptions end
+		-- if imgui.Button("Options##" .. windowName) then window.openOptions = not window.openOptions end
 		imgui.SameLine(344 * gfs)
 		if imgui.Button("Window Editor##" .. windowName) then
 			window.openEditor = not window.openEditor
@@ -786,7 +887,33 @@ local function presentWindowList()
 		-- end
 		local offset = newWindowCount * 36
 		newWindowCount = newWindowCount + 1
-		data.windowList["new window " .. (newWindowCount)] = {thisIsNew=true, x=offset, y=offset, w=200, h=200, enabled=true, openOptions=false, openEditor=false, newWidgetType=1, optionsChanged=false, fontScale=1, textColor={1,1,1,1}, transparent=false, options={"", "", "", "", ""}, displayList={{widgetType="showString", args={text="Kittens!!"}}}}
+		data.windowList["new window " .. (newWindowCount)] =
+			{
+			thisIsNew=true,
+			x=offset,
+			y=offset,
+			w=200,
+			h=200,
+			enabled=true,
+			openOptions=false,
+			openEditor=false,
+			newWidgetType=1,
+			optionsChanged=false,
+			fontScale=1,
+			textColor={1,1,1,1},
+			transparent=false,
+			options={"", "", "", "", ""},
+			hideField=true,
+			hideMenuStates =
+				{
+				['main menu']=false,
+				['team chat']=false,
+				['quick menu']=false,
+				['ship service menu']=false,
+				['any menu']=false
+				},
+			displayList={{widgetType="showString", args={text="Kittens!!"}}}
+			}
 	end
 	imgui.SameLine()
 	if imgui.Button("Save Configuration") then save() end
@@ -806,15 +933,34 @@ local function presentWindow(windowName)
 "args" format: arguments to be used with "command"; program must ensure that "args" are valid arguments for "command"
 ]]
 	local window = data.windowList[windowName]
+	-- if (window.hideMenuStates['any menu open'] and not psodata.get('no menu open')) or (window.hideField and (psodata.currentLocation() ~= 'field')) then return end
+	if (window.hideLobby and (psodata.currentLocation() == 'lobby')) or (window.hideField and (psodata.currentLocation() ~= 'field')) or (psodata.currentLocation() == 'login') then return end
+	for _, menu in ipairs(psodata.menuStates) do
+		if psodata.get(menu) and window.hideMenuStates[menu] then return end
+	end
+	-- if
+		-- window.hideMenuStates[psodata.menuState()]
+	-- or
+		-- (window.hideMenuStates['any menu'] and (psodata.menuState() ~= 'no menu'))
+	-- or
+		-- (window.hideField and (psodata.currentLocation() ~= 'field'))
+	-- then
+		-- print(psodata.currentLocation())
+		-- return
+	-- end
 	if window.optionsChanged or window.thisIsNew then
 		window.thisIsNew = nil
-		imgui.SetNextWindowPos(window.x - (window.w / 2), window.y - (window.h / 2), "Always")
-		if not (window.options[5] == "AlwaysAutoResize") then
-			imgui.SetNextWindowSize(window.w, window.h, "Always")
+		local x = horizontalAnchors[window.horizontalAnchor](window.x, window.w)
+		local y = verticalAnchors[window.verticalAnchor](window.y, window.h)
+		imgui.SetNextWindowPos(x, y, 'Always')
+		if not (window.options[5] == 'AlwaysAutoResize') then
+			imgui.SetNextWindowSize(scalex(window.w), scaley(window.h), 'Always')
+			-- print('w:' .. scalex(window.w) .. ' h:' .. scaley(window.h))
+			-- print('w:' .. window.w .. ' h:' .. window.h)
 		end
 	end
-	local transparentWindow = window.transparent
-	if transparentWindow then imgui.PushStyleColor("WindowBg", 0, 0, 0, 0) end
+	local bgcolor = window['background color']
+	if bgcolor then imgui.PushStyleColor("WindowBg", unpack(bgcolor)) end
 	
 	imgui.Begin(windowName, nil, window.options)
 	if data["global font scale"] then
@@ -839,7 +985,7 @@ local function presentWindow(windowName)
 	imgui.End()
 	
 	window.optionsChanged = false
-	if transparentWindow then imgui.PopStyleColor() end
+	if bgcolor then imgui.PopStyleColor() end
 end
 
 local function flagCheckBox(windowName, a)
@@ -855,50 +1001,12 @@ local function flagCheckBox(windowName, a)
 	end
 end
 
-local function presentOptions(windowName)
-	-- "options" format: list {noTitleBar, noResize, noMove, noScrollBar, AlwaysAutoResize}
-	local window = data.windowList[windowName]
-	imgui.SetNextWindowSize(400, 600, "FirstUseEver")
-	local success
-	success, window.openOptions = imgui.Begin(windowName .. " Options", true, "AlwaysAutoResize")
-	if data["global font scale"] then
-		imgui.SetWindowFontScale(data["global font scale"])
-		imgui.PushItemWidth(150 * data["global font scale"])
-	else
-		imgui.PushItemWidth(150)
-	end
-	local changed = false
-
-	changed, window.x = imgui.DragFloat("##X" .. windowName, window.x, 1.0, 0, screenWidth, "X: %.0f")
-	if changed then window.optionsChanged = true end
-	
-	imgui.SameLine()
-	changed, window.y = imgui.DragFloat("##Y" .. windowName, window.y, 1.0, 0, screenHeight, "Y: %.0f")
-	if changed then window.optionsChanged = true end
-	
-	changed, window.w = imgui.DragFloat("##W" .. windowName, window.w, 1.0, 0, screenWidth, "Width: %.0f")
-	if changed then window.optionsChanged = true end
-	
-	imgui.SameLine()
-	changed, window.h = imgui.DragFloat("##H" .. windowName, window.h, 1.0, 0, screenHeight, "Height: %.0f")
-	if changed then window.optionsChanged = true end
-	imgui.PopItemWidth()
-	
-	changed, window.fontScale = imgui.DragFloat("##WFS" .. windowName, window.fontScale, 0.01, 0.5, 15.0, "Font Scale: %1.2f")
-	if changed then window.optionsChanged = true end
-	
-	flagCheckBox(windowName, {label="No Title Bar",options=window.options,index=1,flag="NoTitleBar"})
-	
-	flagCheckBox(windowName, {label="No Resize",options=window.options,index=2,flag="NoResize"})
-	
-	flagCheckBox(windowName, {label="No Move",options=window.options,index=3,flag="NoMove"})
-	
-	flagCheckBox(windowName, {label="No Scroll Bar",options=window.options,index=4,flag="NoScrollbar"})
-	
-	flagCheckBox(windowName, {label="Always Auto Resize",options=window.options,index=5,flag="AlwaysAutoResize"})
-	
-	imgui.End()
-end
+local posoptions = {x='xpos', y='ypos', w='xpos', h='ypos'}
+local windowflags = {'NoTitleBar', 'NoResize', 'NoMove', 'NoScrollBar', 'AlwaysAutoResize'}
+local flaglabels = {'no title bar', 'no resize', 'no move', 'no scroll bar', 'auto resize'}
+local horizontalPositions = {'left', 'center', 'right'}
+local verticalPositions = {'top', 'center', 'bottom'}
+-- {'main menu', 'team chat', 'quick menu', 'ship service menu', 'any menu'}
 
 local function presentWindowEditor(windowName)
 	local window = data.windowList[windowName]
@@ -908,19 +1016,71 @@ local function presentWindowEditor(windowName)
 	local gfs = data["global font scale"] or 1
 	imgui.SetWindowFontScale(gfs)
 	
-	widgets.showString(window, {text="Title:"})
-	imgui.SameLine()
-	local newTitle, changed
-	changed, newTitle = imgui.InputText("##Title", windowName, 30)
-	if changed then
-		if verifyNewWindowName(newTitle) then
-			data.windowList[windowName], data.windowList[newTitle] = nil, data.windowList[windowName]
-			windowName = newTitle
-		else
-			imgui.SameLine()
-			showText({1,0.25,0.25,1}, 'window name must be unique')
+	if imgui.TreeNodeEx('options##' .. windowName, 'DefaultOpen') then
+		imgui.Text('Title:')
+		imgui.SameLine()
+		local newTitle, changed
+		changed, newTitle = imgui.InputText('##Title', windowName, 30)
+		if changed then
+			if verifyNewWindowName(newTitle) then
+				data.windowList[windowName], data.windowList[newTitle] = nil, data.windowList[windowName]
+				windowName = newTitle
+			else -- invalid new window title
+				imgui.SameLine()
+				showText({1,0.25,0.25,1}, 'window name must be unique')
+			end -- if verifyNewWindowName(newTitle)
+		end -- if changed
+		
+		local dragmin, dragmax
+		for option, type in pairs(posoptions) do
+			if widgetConfig[type](option, window, true, 0, 100, 0.01, '%.2f%%') then
+				window.optionsChanged = true
+			end
+		end -- for option, type in pairs(posoptions)
+		
+		showText({1,1,1,1}, 'Window Position:')
+		for _, vpos in ipairs(verticalPositions) do
+			for hi, hpos in ipairs(horizontalPositions) do
+				if not (vpos == 'center' and hpos == 'center') then
+					if hpos ~= 'left' then imgui.SameLine((((hi-1)*36)+30)*gfs) end
+					local label = '   '
+					if window.horizontalAnchor == hpos and window.verticalAnchor == vpos then
+						label = ' X '
+					end
+					if imgui.Button(label .. '##' .. vpos .. hpos) then
+						window.horizontalAnchor = hpos
+						window.verticalAnchor = vpos
+						window.optionsChanged = true
+						-- print('window anchor set to: ' .. vpos .. ' ' .. hpos)
+					end -- if imgui.Button(label .. '##' .. vpos .. hpos)
+				end -- if not (vpos == 'center' and hpos == 'center')
+			end -- for _, hpos in ipairs(horizontalPositions)
+		end -- for _, vpos in ipairs(verticalPositions)
+		
+		widgetConfig.number('fontScale', window, 'required', 1, 12, 0.1, '%.1f')
+		widgetConfig.color('textColor', window, 'required')
+		widgetConfig.color('background color', window, 'optional')
+		for i = 1, 5 do
+			flagCheckBox(windowName, {label=flaglabels[i], options=window.options, index=i, flag=windowflags[i]})
+		end -- for i = 1, 5
+	
+		showText({1,1,1,1}, 'hide window when:')
+		for index, state in ipairs(psodata.menuStates) do
+			widgetConfig.boolean(state, window.hideMenuStates, true)
+			-- if imgui.Checkbox(state .. "##" .. windowName, window.hideMenuStates[state]) then
+				-- window.hideMenuStates[state] = not window.hideMenuStates[state]
+			-- end
 		end
-	end
+		-- widgetConfig.boolean('any menu open', window.hideMenuStates, true)
+		if imgui.Checkbox('not in field##' .. windowName, window.hideField) then
+			window.hideField = not window.hideField
+		end
+		if imgui.Checkbox('in lobby##' .. windowName, window.hideLobby) then
+			window.hideLobby = not window.hideLobby
+		end
+		
+		imgui.TreePop()
+	end -- if imgui.TreeNodeEx('options##' .. windowName, 'DefaultOpen')
 	
 	local addNew, addIndex = false, 1
 	local delete, deleteIndex = false, 1
@@ -1022,7 +1182,7 @@ local function presentItemEditor(windowName)
 	
 	for name, args in pairs(widgetSpecs[item.widgetType]) do
 		imgui.Separator()
-		widgetConfig[args[1]](name,item,args[2])
+		widgetConfig[args[1]](name,item.args,args[2])
 	end
 	
 	imgui.End()
@@ -1068,7 +1228,7 @@ local function init()
 	psodata.setActive("ata")
 	psodata.setActive("party")
 	psodata.setActive("floorItems")
-	-- psodata.setActive("inventory")
+	psodata.setActive("inventory")
 	psodata.setActive("bank")
 	psodata.setActive("sessionTime")
 	

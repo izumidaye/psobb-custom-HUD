@@ -12,127 +12,121 @@ local colorLabels = {"r", "g", "b", "a"}
 local screenWidth = pso.read_u16(0x00A46C48)
 local screenHeight = pso.read_u16(0x00A46C4A)
 
-local function scalex(x) return (x / 100) * screenWidth end
-local function scaley(y) return (y / 100) * screenHeight end
-
-local checkMemoryOffset = 0
-
-local horizontalAnchors = {}
-horizontalAnchors['left'] = function(x, width)
-	return scalex(x)
+-- position and size values are stored as percentages; these functions scale those values based on the current game window size.
+local function scalex(x, w)
+	local result
+	if w then
+		result = (x / 100) * (screenWidth - scalex(w))
+	else
+		result = (x / 100) * screenWidth
+	end
+	return result
 end
-
-horizontalAnchors['center'] = function(x, width)
-	width = scalex(width)
-	local result = scalex(x) + (screenWidth - width) / 2
-	if result + width > screenWidth then result = screenWidth - width end
-	-- print('did the thing')
+local function scaley(y, h)
+	local result
+	if h then
+		result = (y / 100) * (screenHeight - scaley(h))
+	else
+		result = (y / 100) * screenHeight
+	end
 	return result
 end
 
-horizontalAnchors['right'] = function(x, width)
-	width = scalex(width)
-	local result = screenWidth - scalex(x) - width
-	if result + width > screenWidth then result = screenWidth - width end
-	-- print(result)
-	return result
-end
-
-local verticalAnchors = {}
-verticalAnchors['top'] = function(y, height)
-	return scaley(y)
-end
-
-verticalAnchors['center'] = function(y, height)
-	height = scaley(height)
-	local result = scaley(y) + (screenHeight - height) / 2
-	if result + height > screenHeight then result = screenHeight - height end
-	return result
-end
-
-verticalAnchors['bottom'] = function(y, height)
-	height = scaley(height)
-	local result = screenHeight - scaley(y) - height
-	if result + height > screenHeight then result = screenHeight - height end
-	return result
-end
+-- local checkMemoryOffset = 0
 
 local data = {}
 local dfNames = {}
 
-data.windowList = {}
-data.colorPalette = {}
+-- data.windowList = {}
+-- data.colorPalette = {}
+-- data['debuginfo'] = {}
+-- 'data' will be overwritten in init(), so initializing here doesn't work
 
 local function compareString(string1, string2)
+-- case-agnostic alphabetization
 	return string.lower(string1) < string.lower(string2)
 end
 
 local function buildComboList(itemList)
+-- takes a string-indexed table, and returns an alphabetized index array with built-in reverse lookup.
+	
 	local resultList = {}
 	local count = 1
 	local longest = 0
+	-- space needed when list is displayed in a combo box
+	
 	for key, _ in pairs(itemList) do
 		table.insert(resultList, key)
 		if string.len(key) > longest then longest = string.len(key) end
-		-- resultList[count] = key
-		-- resultList[key] = count
-		-- count = count + 1
-	end
+	end -- for key, _ in pairs(itemList)
 	resultList.longest = longest
+	
 	table.sort(resultList, compareString)
 	for index, name in ipairs(resultList) do
 		resultList[name] = index
 	end
+	
 	return resultList
-end
-
-local function addReverseLookup(sourceList)
-	for key, value in ipairs(sourceList) do
-		sourceList[value] = key
-	end
-end
+end -- local function buildComboList(itemList)
 
 local function serialize(sourceData, currentOffset)
+-- convert entire table into a string, so it can be written to a file. recurses for nested tables.
+	
 	currentOffset = currentOffset or 0
-	local indent = string.rep(" ", currentOffset)
+	local indent = string.rep(' ', currentOffset)
+	-- indentation within nested tables
+	
 	local dataType = type(sourceData)
-	local result = ""
-	if dataType == "number" then
+	local result = ''
+	
+	if dataType == 'number' then
 		result = result .. sourceData
-	elseif dataType == "string" then
-		result = string.format("\"%s\"", sourceData)
-	elseif dataType == "boolean" then
+		
+	elseif dataType == 'string' then
+		result = string.format('\'%s\'', sourceData)
+		
+	elseif dataType == 'boolean' then
 		if sourceData then
-			result = "true"
+			result = 'true'
 		else
-			result = "false"
+			result = 'false'
 		end
-	elseif dataType == "table" then
-		-- local containsTables = false
-		local optionalLineBreak = ""
-		local tableEnding = "}"
-		result = result .. "{"
+		
+	elseif dataType == 'table' then
+		
+		local optionalLineBreak = ''
+		local tableEnding = '}'
+		result = result .. '{'
+		local containsTable = false
 		for _, value in pairs(sourceData) do
-			if type(value) == "table" then
-				-- containsTables = true
-				optionalLineBreak = "\n" .. indent
-				tableEnding = "\n" .. indent .. "}"
-			end
-		end
+			if type(value) == 'table' then containsTable = true end
+		end -- for _, value in pairs(sourceData)
+		if containsTable then
+			optionalLineBreak = '\n' .. indent
+			tableEnding = '\n' .. indent .. '}'
+		end -- if containsTable
+		-- if sourceData contains any tables, then put each element of sourceData on a separate line, with proper indentation; if sourceData contains no tables, then put all its elements on one line.
+		
 		for key, value in pairs(sourceData) do
-			if type(key) == "number" then
-				key = ""
-			else
-				key = string.format("[%s]=", serialize(key))
-			end
-			result = result .. optionalLineBreak .. key .. serialize(value, currentOffset + 2) .. ","
-		end
+			if type(key) == 'number' then
+				key = ''
+			else -- not a number
+				key = string.format('[%s]=', serialize(key))
+			end -- if type(key) == 'number'
+			result = result .. optionalLineBreak .. key .. serialize(value, currentOffset + 2) .. ','
+			-- recursion is fun! :)
+			
+		end -- for key, value in pairs(sourceData)
 		result = result .. tableEnding
+		
 	end -- dataType switch
+	
 	return result
 end -- local function serialize(sourceData)
 
 local function save()
+-- saves current HUD configuration to disk as a runnable lua script.
+
 	local file = io.open("addons/Custom HUD/profile.lua", "w")
 	if file then
 		io.output(file)
@@ -143,8 +137,13 @@ local function save()
 end
 
 local function load()
+-- loads saved HUD configuration from disk.
+
 	local dataLoaded, tempData = pcall(require, "Custom HUD.profile")
 	if dataLoaded then data = tempData end
+	for _, window in pairs(data.windowList) do
+		window.optionchanged = true
+	end
 	return dataLoaded
 end
 
@@ -841,6 +840,24 @@ do --define widgets and widgetSpecs
 
 end -- do --define widgets and widgetSpecs
 
+local function updatedebug(key, value)
+	data.debuginfo[key] = value
+end
+
+local function presentDebugWindow()
+	imgui.SetNextWindowSize(600, 300, 'FirstUseEver')
+	local success
+	success, data['show debug window'] = imgui.Begin('Custom HUD Debug Window', true, 'AlwaysAutoResize')
+	local gfs = data["global font scale"] or 1
+	imgui.SetWindowFontScale(gfs)
+	
+	for key, value in pairs(data.debuginfo) do
+		imgui.Text(key .. ': ' .. value)
+	end
+	
+	imgui.End()
+end
+
 local function verifyNewWindowName(newName)
 	return newName and (not data.windowList[newName])
 end
@@ -855,6 +872,8 @@ local function presentWindowList()
 	-- imgui.SameLine()
 	-- if changed then checkMemoryOffset = newValue end
 	-- showText({1,1,1,1}, '+' .. checkMemoryOffset .. ': ' .. pso.read_u32(0x00A97F44 + checkMemoryOffset))
+	
+	widgetConfig.boolean('show debug window', data, true)
 	
 	local gfs = 1 -- data["global font scale"] or 1
 	imgui.SetWindowFontScale(gfs)
@@ -889,7 +908,6 @@ local function presentWindowList()
 		newWindowCount = newWindowCount + 1
 		data.windowList["new window " .. (newWindowCount)] =
 			{
-			thisIsNew=true,
 			x=offset,
 			y=offset,
 			w=200,
@@ -898,20 +916,14 @@ local function presentWindowList()
 			openOptions=false,
 			openEditor=false,
 			newWidgetType=1,
-			optionsChanged=false,
+			optionchanged=true,
 			fontScale=1,
 			textColor={1,1,1,1},
 			transparent=false,
 			options={"", "", "", "", ""},
+			hideLobby=true,
 			hideField=true,
-			hideMenuStates =
-				{
-				['main menu']=false,
-				['team chat']=false,
-				['quick menu']=false,
-				['ship service menu']=false,
-				['any menu']=false
-				},
+			hideMenuStates = {['full screen menu open']=true},
 			displayList={{widgetType="showString", args={text="Kittens!!"}}}
 			}
 	end
@@ -926,38 +938,30 @@ end
 
 local function presentWindow(windowName)
 --[[
-"window" attributes (*denotes required): list {*title, *id, *x, *y, *w, *h, enabled, openOptions, openEditor, optionsChanged, fontScale, textColor, transparent, *options, *displayList}
+"window" attributes (*denotes required): list {*title, *id, *x, *y, *w, *h, enabled, openOptions, openEditor, optionchanged, fontScale, textColor, transparent, *options, *displayList}
 "options" format: list {noTitleBar, noResize, noMove, noScrollBar, AlwaysAutoResize}
 "displayList": list of display "item"s
 "item" format: list {command, args}
 "args" format: arguments to be used with "command"; program must ensure that "args" are valid arguments for "command"
 ]]
 	local window = data.windowList[windowName]
-	-- if (window.hideMenuStates['any menu open'] and not psodata.get('no menu open')) or (window.hideField and (psodata.currentLocation() ~= 'field')) then return end
-	if (window.hideLobby and (psodata.currentLocation() == 'lobby')) or (window.hideField and (psodata.currentLocation() ~= 'field')) or (psodata.currentLocation() == 'login') then return end
+	if (window.hideLobby and (psodata.currentLocation() == 'lobby')) or (window.hideField and (psodata.currentLocation() ~= 'field'))--[[ or (psodata.currentLocation() == 'login')]] then return end
 	for _, menu in ipairs(psodata.menuStates) do
 		if psodata.get(menu) and window.hideMenuStates[menu] then return end
 	end
-	-- if
-		-- window.hideMenuStates[psodata.menuState()]
-	-- or
-		-- (window.hideMenuStates['any menu'] and (psodata.menuState() ~= 'no menu'))
-	-- or
-		-- (window.hideField and (psodata.currentLocation() ~= 'field'))
-	-- then
-		-- print(psodata.currentLocation())
-		-- return
-	-- end
-	if window.optionsChanged or window.thisIsNew then
-		window.thisIsNew = nil
-		local x = horizontalAnchors[window.horizontalAnchor](window.x, window.w)
-		local y = verticalAnchors[window.verticalAnchor](window.y, window.h)
-		imgui.SetNextWindowPos(x, y, 'Always')
+	updatedebug(windowName .. ' option changed', serialize(window.optionchanged))
+	if window.optionchanged then
+		imgui.SetNextWindowPos(scalex(window.x, window.w), scaley(window.y, window.h), 'Always')
 		if not (window.options[5] == 'AlwaysAutoResize') then
 			imgui.SetNextWindowSize(scalex(window.w), scaley(window.h), 'Always')
-			-- print('w:' .. scalex(window.w) .. ' h:' .. scaley(window.h))
-			-- print('w:' .. window.w .. ' h:' .. window.h)
+			-- updatedebug(windowName .. ' scaled w:', scalex(window.w))
+			-- updatedebug(windowName .. ' scaled h:', scaley(window.h))
+			-- updatedebug(windowName .. ' w:', window.w)
+			-- updatedebug(windowName .. ' h:', window.h)
 		end
+		window.optionchanged = false
+	else
+		-- print('option not changed')
 	end
 	local bgcolor = window['background color']
 	if bgcolor then imgui.PushStyleColor("WindowBg", unpack(bgcolor)) end
@@ -984,9 +988,8 @@ local function presentWindow(windowName)
 		
 	imgui.End()
 	
-	window.optionsChanged = false
 	if bgcolor then imgui.PopStyleColor() end
-end
+end -- local function presentWindow(windowName)
 
 local function flagCheckBox(windowName, a)
 	local window = data.windowList[windowName]
@@ -997,13 +1000,13 @@ local function flagCheckBox(windowName, a)
 		else
 			opt[a.index] = a.flag
 		end
-		window.optionsChanged = true
+		window.optionchanged = true
 	end
 end
 
 local posoptions = {x='xpos', y='ypos', w='xpos', h='ypos'}
-local windowflags = {'NoTitleBar', 'NoResize', 'NoMove', 'NoScrollBar', 'AlwaysAutoResize'}
-local flaglabels = {'no title bar', 'no resize', 'no move', 'no scroll bar', 'auto resize'}
+-- local windowflags = {'NoTitleBar', 'NoResize', 'NoMove', 'NoScrollBar', 'AlwaysAutoResize'}
+-- local flaglabels = {'no title bar', 'no resize', 'no move', 'no scroll bar', 'auto resize'}
 local horizontalPositions = {'left', 'center', 'right'}
 local verticalPositions = {'top', 'center', 'bottom'}
 -- {'main menu', 'team chat', 'quick menu', 'ship service menu', 'any menu'}
@@ -1031,47 +1034,27 @@ local function presentWindowEditor(windowName)
 			end -- if verifyNewWindowName(newTitle)
 		end -- if changed
 		
-		local dragmin, dragmax
 		for option, type in pairs(posoptions) do
-			if widgetConfig[type](option, window, true, 0, 100, 0.01, '%.2f%%') then
-				window.optionsChanged = true
-			end
+			if widgetConfig[type](option, window, true, 0, 100, 0.01, '%.2f%%') then window.optionchanged = true end
 		end -- for option, type in pairs(posoptions)
-		
-		showText({1,1,1,1}, 'Window Position:')
-		for _, vpos in ipairs(verticalPositions) do
-			for hi, hpos in ipairs(horizontalPositions) do
-				if not (vpos == 'center' and hpos == 'center') then
-					if hpos ~= 'left' then imgui.SameLine((((hi-1)*36)+30)*gfs) end
-					local label = '   '
-					if window.horizontalAnchor == hpos and window.verticalAnchor == vpos then
-						label = ' X '
-					end
-					if imgui.Button(label .. '##' .. vpos .. hpos) then
-						window.horizontalAnchor = hpos
-						window.verticalAnchor = vpos
-						window.optionsChanged = true
-						-- print('window anchor set to: ' .. vpos .. ' ' .. hpos)
-					end -- if imgui.Button(label .. '##' .. vpos .. hpos)
-				end -- if not (vpos == 'center' and hpos == 'center')
-			end -- for _, hpos in ipairs(horizontalPositions)
-		end -- for _, vpos in ipairs(verticalPositions)
 		
 		widgetConfig.number('fontScale', window, 'required', 1, 12, 0.1, '%.1f')
 		widgetConfig.color('textColor', window, 'required')
 		widgetConfig.color('background color', window, 'optional')
-		for i = 1, 5 do
-			flagCheckBox(windowName, {label=flaglabels[i], options=window.options, index=i, flag=windowflags[i]})
-		end -- for i = 1, 5
+		
+		flagCheckBox(windowName, {label='no title bar', options=window.options, index=1, flag='NoTitleBar'})
+		flagCheckBox(windowName, {label='no resize', options=window.options, index=2, flag='NoResize'})
+		flagCheckBox(windowName, {label='no move', options=window.options, index=3, flag='NoMove'})
+		flagCheckBox(windowName, {label='no scroll bar', options=window.options, index=4, flag='NoScrollBar'})
+		flagCheckBox(windowName, {label='auto resize', options=window.options, index=5, flag='AlwaysAutoResize'})
+		-- for i = 1, 5 do
+			-- flagCheckBox(windowName, {label=flaglabels[i], options=window.options, index=i, flag=windowflags[i]})
+		-- end -- for i = 1, 5
 	
-		showText({1,1,1,1}, 'hide window when:')
+		imgui.Text('hide window when:')
 		for index, state in ipairs(psodata.menuStates) do
 			widgetConfig.boolean(state, window.hideMenuStates, true)
-			-- if imgui.Checkbox(state .. "##" .. windowName, window.hideMenuStates[state]) then
-				-- window.hideMenuStates[state] = not window.hideMenuStates[state]
-			-- end
 		end
-		-- widgetConfig.boolean('any menu open', window.hideMenuStates, true)
 		if imgui.Checkbox('not in field##' .. windowName, window.hideField) then
 			window.hideField = not window.hideField
 		end
@@ -1097,7 +1080,7 @@ local function presentWindowEditor(windowName)
 		imgui.PushID(index)
 		moveUp, moveDown = false, false
 		
-		widgets.showString(window, {newLine=true,text=item.widgetType})
+		imgui.Text(item.widgetType)
 		
 		if index > 1 then
 			imgui.SameLine(200 * gfs)
@@ -1196,6 +1179,7 @@ end -- local function presentColorPalette
 local function present()
 	psodata.retrievePsoData()
 	if data["show window list"] then presentWindowList() end
+	if data['show debug window'] then presentDebugWindow() end
 	for windowName, window in pairs(data.windowList) do
 		if window.enabled then presentWindow(windowName) end
 		if window.openOptions then presentOptions(windowName) end
@@ -1233,17 +1217,19 @@ local function init()
 	psodata.setActive("sessionTime")
 	
 	if not load() then
-		data.windowList["Test Window"] = {x=500, y=300, w=200, h=200, enabled=true, openOptions=false, openEditor=false, newWidgetType=1, optionsChanged=false, fontScale=1, textColor={1,1,1,1}, transparent=false, options={"", "", "", "", ""}, displayList={{widgetType="showString", args={text="Kittens!!"}}}}
+		data.windowList["Test Window"] = {x=500, y=300, w=200, h=200, enabled=true, openOptions=false, openEditor=false, newWidgetType=1, optionchanged=true, fontScale=1, textColor={1,1,1,1}, transparent=false, options={"", "", "", "", ""}, displayList={{widgetType="showString", args={text="Kittens!!"}}}}
 
-		data.windowList["French Fries"] = {x=800, y=100, w=200, h=200, enabled=true, openOptions=false, openEditor=false, newWidgetType=1, optionsChanged=false, fontScale=1, textColor={1,1,1,1}, transparent=false, options={"", "", "", "", ""}, displayList={{widgetType="showString", args={text="Muffins!!"}},{widgetType="showMemValue", args={sourceFunction="Player HP: Current/Maximum"}}}}
+		data.windowList["French Fries"] = {x=800, y=100, w=200, h=200, enabled=true, openOptions=false, openEditor=false, newWidgetType=1, optionchanged=true, fontScale=1, textColor={1,1,1,1}, transparent=false, options={"", "", "", "", ""}, displayList={{widgetType="showString", args={text="Muffins!!"}},{widgetType="showMemValue", args={sourceFunction="Player HP: Current/Maximum"}}}}
 
 		data["global font scale"] = 1
 		data["show window list"] = true
 	end
 	
-	for _, window in pairs(data.windowList) do
-		window.thisIsNew = true
-	end
+	data.debuginfo = {}
+	
+	-- for _, window in pairs(data.windowList) do
+		-- window.thisIsNew = true
+	-- end
 	
 	local function mainMenuButtonHandler()
 		data["show window list"] = not data["show window list"]

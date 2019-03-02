@@ -35,7 +35,8 @@ local pmtAddress = nil
 local psodata = {}
 psodata.menuStates = {'main menu open', 'lower screen menu open', 'full screen menu open', 'any menu open'}
 local GameData = {}
-local lastTime, lastLocation
+local lastTime = os.time()
+local lastLocation
 
 local function getSelf()
 	return pso.read_u32(_playerArray + pso.read_u32(_myPlayerIndex) * 4)
@@ -365,6 +366,13 @@ local function readPlayerMonsterData(playerAddr)
 end
 
 psodata.retrievePsoData = function()
+	if not psodata.screenWidth then
+		psodata.screenWidth = pso.read_u16(0x00A46C48)
+		psodata.screenHeight = pso.read_u16(0x00A46C4A)
+	end
+	local frameTime = os.time() - lastTime
+	GameData.totalTime = GameData.totalTime + frameTime
+	
 	loadPmtAddress()
 	local playerAddr = getSelf()
 	if playerAddr ~= 0 then
@@ -454,7 +462,6 @@ psodata.retrievePsoData = function()
 		
 		local _lobby, _pioneer2 = 0xF, 0
 		if ActiveGameData.sessionTime then
-			local now = os.time()
 			local location = pso.read_u32(0x00AAFC9C + 0x04)
 			if location == _lobby then
 				GameData.currentLocation = 'lobby'
@@ -465,7 +472,6 @@ psodata.retrievePsoData = function()
 			end
 			if location ~= _lobby then
 				if location == lastLocation then
-					local frameTime = now - lastTime
 					GameData.elapsedTime = GameData.elapsedTime + frameTime
 					GameData.sessionXp = pso.read_u32(playerAddr + 0xE48) - sessionStartXp
 					-- GameData.sessionXpRate = GameData.sessionXp / GameData.elapsedTime
@@ -483,7 +489,6 @@ psodata.retrievePsoData = function()
 				end -- if location == lastLocation
 			end -- if location ~= _lobby
 			lastLocation = location
-			lastTime = now
 		end -- if ActiveGameData.sessionTime
 		
 		if ActiveGameData.floorItems or ActiveGameData.inventory then
@@ -594,6 +599,7 @@ psodata.retrievePsoData = function()
 	else
 		GameData.currentLocation = 'login'
 	end -- check: player data present or not
+	lastTime = os.time()
 end -- local function retrievePsoData
 
 psodata.get = function(key) return GameData[key] end
@@ -607,7 +613,6 @@ psodata.activeDataReset = function() ActiveGameData = {} end
 psodata.init = function()
 	GameData =
 		{
-		menuState='no menu',
 		currentLocation='',
 		level=0,
 		thisLevelXp=0,
@@ -615,6 +620,7 @@ psodata.init = function()
 		levelProgress=0,
 		levelProgressFloat=0,
 		meseta=0,
+		totalTime=0,
 		sessionTime=0,
 		elapsedTime=0,
 		sessionXp=0,

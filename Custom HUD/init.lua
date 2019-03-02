@@ -9,29 +9,6 @@ local psodata = require("Custom HUD.psodata")
 
 local colorLabels = {"r", "g", "b", "a"}
 
-local screenWidth = pso.read_u16(0x00A46C48)
-local screenHeight = pso.read_u16(0x00A46C4A)
-
--- position and size values are stored as percentages; these functions scale those values based on the current game window size.
-local function scalex(x, w)
-	local result
-	if w then
-		result = (x / 100) * (screenWidth - scalex(w))
-	else
-		result = (x / 100) * screenWidth
-	end
-	return result
-end
-local function scaley(y, h)
-	local result
-	if h then
-		result = (y / 100) * (screenHeight - scaley(h))
-	else
-		result = (y / 100) * screenHeight
-	end
-	return result
-end
-
 -- local checkMemoryOffset = 0
 
 local data = {}
@@ -41,6 +18,29 @@ local dfNames = {}
 -- data.colorPalette = {}
 -- data['debuginfo'] = {}
 -- 'data' will be overwritten in init(), so initializing here doesn't work
+
+local function round(number) return math.floor(number + 0.5) end
+
+-- position and size values are stored as percentages; these functions scale those values based on the current game window size.
+local function scalex(x, w)
+	local result
+	if w then
+		result = (x / 100) * psodata.screenWidth * (1 - w / 100)
+	else
+		result = (x / 100) * psodata.screenWidth
+	end
+	return round(result)
+end
+
+local function scaley(y, h)
+	local result
+	if h then
+		result = (y / 100) * psodata.screenHeight * (1 - h / 100)
+	else
+		result = (y / 100) * psodata.screenHeight
+	end
+	return round(result)
+end
 
 local function compareString(string1, string2)
 -- case-agnostic alphabetization
@@ -57,7 +57,8 @@ local function buildComboList(itemList)
 	
 	for key, _ in pairs(itemList) do
 		table.insert(resultList, key)
-		if string.len(key) > longest then longest = string.len(key) end
+		-- if string.len(key) > longest then longest = string.len(key) end
+		longest = math.max(longest, string.len(key))
 	end -- for key, _ in pairs(itemList)
 	resultList.longest = longest
 	
@@ -182,7 +183,7 @@ do --define widgetConfig functions
 	end
 
 	--number == integer unless it turns out I need floats too
-	widgetConfig.number = function(argName, data, req, minValue, maxValue, step, format)
+	widgetConfig.number = function(argName, data, req, minValue, maxValue, step, format, displayValue)
 		minValue = minValue or 0
 		maxValue = maxValue or 1
 		format = format or ': %.0f'
@@ -191,17 +192,19 @@ do --define widgetConfig functions
 			if imgui.Button('clear##' .. argName) then data[argName]=nil end
 			imgui.SameLine()
 		end
-		local displayValue = data[argName] or 1
+		local editValue = data[argName] or 1
+		displayValue = displayValue or editValue
+		displayValue = string.format(format, displayValue)
 		imgui.Text(argName .. ':')
 		imgui.SameLine()
 		imgui.PushItemWidth(64)
 		local changed, changed2, newValue
-		changed, newValue = imgui.DragFloat('##' .. argName, displayValue, 1, minValue, maxValue, format)
+		changed, newValue = imgui.DragFloat('##' .. argName, editValue, 1, minValue, maxValue, displayValue)
 		if changed then data[argName]=newValue end
 		imgui.SameLine()
 		imgui.PopItemWidth()
 		imgui.PushItemWidth(72)
-		changed2, newValue = imgui.DragFloat('##finetune' .. argName, displayValue, step, minValue, maxValue, 'fine tune')
+		changed2, newValue = imgui.DragFloat('##finetune' .. argName, editValue, step, minValue, maxValue, 'fine tune')
 		if changed2 then data[argName] = newValue end
 		imgui.PopItemWidth()
 		return changed or changed2
@@ -271,12 +274,12 @@ do --define widgetConfig functions
 		dataFunction(argName, data, req, "progressFunction")
 	end
 
-	widgetConfig.xpos = function(argName, data, req)
-		return widgetConfig.number(argName, data, req, 0, 100, 0.01, '%.2f')
+	widgetConfig.xpos = function(argName, data, req, displayvalue)
+		return widgetConfig.number(argName, data, req, 0, 100, 0.01, '%u', displayvalue)
 	end
 	
-	widgetConfig.ypos = function(argName, data, req)
-		return widgetConfig.number(argName, data, req, 0, 100, 0.01, '%.2f')
+	widgetConfig.ypos = function(argName, data, req, displayvalue)
+		return widgetConfig.number(argName, data, req, 0, 100, 0.01, '%u', displayvalue)
 	end
 	
 	widgetConfig.color = function(argName, data, req)
@@ -796,6 +799,7 @@ do --define widgets and widgetSpecs
 		if a.height then height = scaley(a.height) end
 			
 		local progress = psodata.progressFunctions[a.progressFunction]()
+		if progress ~= progress then progress = 0 end
 		local gfs = data["global font scale"] or 1
 		local barColor = {0.5, 0.5, 0.5, 1}
 		if a.barGradient then
@@ -841,6 +845,8 @@ do --define widgets and widgetSpecs
 end -- do --define widgets and widgetSpecs
 
 local function updatedebug(key, value)
+	if value then value = ': ' .. value else value = '' end
+	if not data.debuginfo[key] then table.insert(data.debuginfo, key) end
 	data.debuginfo[key] = value
 end
 
@@ -851,8 +857,8 @@ local function presentDebugWindow()
 	local gfs = data["global font scale"] or 1
 	imgui.SetWindowFontScale(gfs)
 	
-	for key, value in pairs(data.debuginfo) do
-		imgui.Text(key .. ': ' .. value)
+	for _, k in ipairs(data.debuginfo) do
+		imgui.Text(k .. data.debuginfo[k])
 	end
 	
 	imgui.End()
@@ -883,9 +889,8 @@ local function presentWindowList()
 	for windowName, window in pairs(data.windowList) do
 		imgui.TextColored(1, 1, 1, 1, windowName)
 		imgui.SameLine(200 * gfs)
-		if imgui.Button("Show/Hide##" .. windowName) then window.enabled = not window.enabled end
+		-- if imgui.Button("Show/Hide##" .. windowName) then window.enabled = not window.enabled end
 		imgui.SameLine(280 * gfs)
-		-- if imgui.Button("Options##" .. windowName) then window.openOptions = not window.openOptions end
 		imgui.SameLine(344 * gfs)
 		if imgui.Button("Window Editor##" .. windowName) then
 			window.openEditor = not window.openEditor
@@ -896,24 +901,23 @@ local function presentWindowList()
 			deleteWindow = windowName
 		end
 	end -- for windowName, window in pairs(data.windowList)
-	-- local newTitle, changed
-	-- changed, newTitle = imgui.InputText("##newWindowTitle", "", 30)
-	-- imgui.SameLine()
 	if imgui.Button("Add New Window") then
 		-- local windowListSize = 0
 		-- for _, _ in pairs(data.windowList) do
 			-- windowListSize = windowListSize + 1
 		-- end
-		local offset = newWindowCount * 36
-		newWindowCount = newWindowCount + 1
-		data.windowList["new window " .. (newWindowCount)] =
+		local uniqueid = 0
+		repeat
+			uniqueid = uniqueid + 1
+		until data.windowList['new window ' .. uniqueid] == nil
+		local offset = uniqueid * 36
+		data.windowList["new window " .. uniqueid] =
 			{
 			x=offset,
 			y=offset,
 			w=200,
 			h=200,
 			enabled=true,
-			openOptions=false,
 			openEditor=false,
 			newWidgetType=1,
 			optionchanged=true,
@@ -938,7 +942,7 @@ end
 
 local function presentWindow(windowName)
 --[[
-"window" attributes (*denotes required): list {*title, *id, *x, *y, *w, *h, enabled, openOptions, openEditor, optionchanged, fontScale, textColor, transparent, *options, *displayList}
+"window" attributes (*denotes required): list {*title, *id, *x, *y, *w, *h, enabled, openEditor, optionchanged, fontScale, textColor, transparent, *options, *displayList}
 "options" format: list {noTitleBar, noResize, noMove, noScrollBar, AlwaysAutoResize}
 "displayList": list of display "item"s
 "item" format: list {command, args}
@@ -949,24 +953,22 @@ local function presentWindow(windowName)
 	for _, menu in ipairs(psodata.menuStates) do
 		if psodata.get(menu) and window.hideMenuStates[menu] then return end
 	end
-	updatedebug(windowName .. ' option changed', serialize(window.optionchanged))
+	-- updatedebug(windowName .. ' option changed', serialize(window.optionchanged))
 	if window.optionchanged then
-		imgui.SetNextWindowPos(scalex(window.x, window.w), scaley(window.y, window.h), 'Always')
+		updatedebug('resolution', psodata.screenWidth .. 'x' .. psodata.screenHeight)
+		imgui.SetWindowPos(windowName, scalex(window.x, window.w), scaley(window.y, window.h), 'Always')
 		if not (window.options[5] == 'AlwaysAutoResize') then
-			imgui.SetNextWindowSize(scalex(window.w), scaley(window.h), 'Always')
-			-- updatedebug(windowName .. ' scaled w:', scalex(window.w))
-			-- updatedebug(windowName .. ' scaled h:', scaley(window.h))
-			-- updatedebug(windowName .. ' w:', window.w)
-			-- updatedebug(windowName .. ' h:', window.h)
+			updatedebug('resized ' .. windowName .. ' to ', scalex(window.w) .. 'x' .. scaley(window.h))
+			imgui.SetWindowSize(windowName, scalex(window.w), scaley(window.h), 'Always')
 		end
-		window.optionchanged = false
-	else
-		-- print('option not changed')
+		if psodata.get('totalTime') > 5 then window.optionchanged = false end
 	end
+	
+	imgui.Begin(windowName, true, window.options)
+	
 	local bgcolor = window['background color']
 	if bgcolor then imgui.PushStyleColor("WindowBg", unpack(bgcolor)) end
 	
-	imgui.Begin(windowName, nil, window.options)
 	if data["global font scale"] then
 		imgui.SetWindowFontScale(window.fontScale * data["global font scale"])
 	else
@@ -985,10 +987,10 @@ local function presentWindow(windowName)
 		-- print(item.widgetType)
 		widgets[item.widgetType](window, item.args)
 	end
-		
-	imgui.End()
 	
 	if bgcolor then imgui.PopStyleColor() end
+		
+	imgui.End()
 end -- local function presentWindow(windowName)
 
 local function flagCheckBox(windowName, a)
@@ -1034,9 +1036,17 @@ local function presentWindowEditor(windowName)
 			end -- if verifyNewWindowName(newTitle)
 		end -- if changed
 		
-		for option, type in pairs(posoptions) do
-			if widgetConfig[type](option, window, true, 0, 100, 0.01, '%.2f%%') then window.optionchanged = true end
-		end -- for option, type in pairs(posoptions)
+		widgetConfig.boolean('enabled', window, true)
+		
+		-- for option, type in pairs(posoptions) do
+			-- if widgetConfig[type](option, window, true, 0, 100, 0.01, '%.2f%%') then window.optionchanged = true end
+		-- end -- for option, type in pairs(posoptions)
+		local changed = false
+		changed = widgetConfig.xpos('x', window, true, scalex(window.x, window.w)) or changed
+		changed = widgetConfig.xpos('w', window, true, scalex(window.w)) or changed
+		changed = widgetConfig.ypos('y', window, true, scaley(window.y, window.h)) or changed
+		changed = widgetConfig.ypos('h', window, true, scaley(window.h)) or changed
+		if changed then window.optionchanged = true end
 		
 		widgetConfig.number('fontScale', window, 'required', 1, 12, 0.1, '%.1f')
 		widgetConfig.color('textColor', window, 'required')
@@ -1159,7 +1169,7 @@ local function presentItemEditor(windowName)
 	local gfs = data["global font scale"] or 1
 	imgui.SetWindowFontScale(gfs)
 	
-	widgets.showString(window, {newLine=true,text=item.widgetType})
+	imgui.Text(item.widgetType)
 	--next: display list of command's arguments, names and values
 	--then: make them editable, and validate before modifying window data
 	
@@ -1191,67 +1201,63 @@ local function present()
 end
 
 local function init()
---	local pwd = io.popen([[dir "addons\Custom HUD\core windows" /b]])
+--	local pwd = io.popen([[dir 'addons\Custom HUD\core windows' /b]])
 	-- local testDisplayList = {}
 	-- for dir in pwd:lines() do
-		-- testDisplayList[dir] = {command="showString", args={text=dir}}
-		-- print("thing" .. dir .. " end thing")
+		-- testDisplayList[dir] = {command='showString', args={text=dir}}
+		-- print('thing' .. dir .. ' end thing')
 	-- end
 	-- pwd:close()
 		
 	
 	psodata.init()
-	dfNames["stringFunction"] = buildComboList(psodata.stringFunctions)
-	dfNames["listFunction"] = buildComboList(psodata.listFunctions)
-	dfNames["booleanFunction"] = buildComboList(psodata.booleanFunctions)
-	dfNames["progressFunction"] = buildComboList(psodata.progressFunctions)
-	psodata.setActive("player")
-	psodata.setActive("meseta")
-	psodata.setActive("monsterList")
-	psodata.setActive("xp")
-	psodata.setActive("ata")
-	psodata.setActive("party")
-	psodata.setActive("floorItems")
-	psodata.setActive("inventory")
-	psodata.setActive("bank")
-	psodata.setActive("sessionTime")
+	dfNames['stringFunction'] = buildComboList(psodata.stringFunctions)
+	dfNames['listFunction'] = buildComboList(psodata.listFunctions)
+	dfNames['booleanFunction'] = buildComboList(psodata.booleanFunctions)
+	dfNames['progressFunction'] = buildComboList(psodata.progressFunctions)
+	psodata.setActive('player')
+	psodata.setActive('meseta')
+	psodata.setActive('monsterList')
+	psodata.setActive('xp')
+	psodata.setActive('ata')
+	psodata.setActive('party')
+	psodata.setActive('floorItems')
+	psodata.setActive('inventory')
+	psodata.setActive('bank')
+	psodata.setActive('sessionTime')
 	
 	if not load() then
-		data.windowList["Test Window"] = {x=500, y=300, w=200, h=200, enabled=true, openOptions=false, openEditor=false, newWidgetType=1, optionchanged=true, fontScale=1, textColor={1,1,1,1}, transparent=false, options={"", "", "", "", ""}, displayList={{widgetType="showString", args={text="Kittens!!"}}}}
+		data.windowList['Test Window'] = {x=500, y=300, w=200, h=200, enabled=true, openOptions=false, openEditor=false, newWidgetType=1, optionchanged=true, fontScale=1, textColor={1,1,1,1}, transparent=false, options={'', '', '', '', ''}, displayList={{widgetType='showString', args={text='Kittens!!'}}}}
 
-		data.windowList["French Fries"] = {x=800, y=100, w=200, h=200, enabled=true, openOptions=false, openEditor=false, newWidgetType=1, optionchanged=true, fontScale=1, textColor={1,1,1,1}, transparent=false, options={"", "", "", "", ""}, displayList={{widgetType="showString", args={text="Muffins!!"}},{widgetType="showMemValue", args={sourceFunction="Player HP: Current/Maximum"}}}}
+		data.windowList['French Fries'] = {x=800, y=100, w=200, h=200, enabled=true, openOptions=false, openEditor=false, newWidgetType=1, optionchanged=true, fontScale=1, textColor={1,1,1,1}, transparent=false, options={'', '', '', '', ''}, displayList={{widgetType='showString', args={text='Muffins!!'}},{widgetType='showMemValue', args={sourceFunction='Player HP: Current/Maximum'}}}}
 
-		data["global font scale"] = 1
-		data["show window list"] = true
+		data['global font scale'] = 1
+		data['show window list'] = true
 	end
 	
 	data.debuginfo = {}
 	
-	-- for _, window in pairs(data.windowList) do
-		-- window.thisIsNew = true
+	-- for windowName, window in pairs(data.windowList) do
+		-- print(windowName)
+		-- imgui.SetWindowPos(windowName, scalex(window.x, window.w), scaley(window.y, window.h), 'FirstUseEver')
+		-- imgui.SetWindowSize(windowName, scalex(window.w), scaley(window.h), 'FirstUseEver')
 	-- end
 	
 	local function mainMenuButtonHandler()
-		data["show window list"] = not data["show window list"]
-		print("did the thing")
+		data['show window list'] = not data['show window list']
+		-- print('did the thing')
 	end
 
-	core_mainmenu.add_button("Dynamic HUD", mainMenuButtonHandler)
+	core_mainmenu.add_button('Dynamic HUD', mainMenuButtonHandler)
 	
 	return
-	{
-		name = "Custom HUD",
-		version = "0.2",
-		author = "IzumiDaye",
-		description = "Build your own custom HUD",
+		{
+		name = 'Custom HUD',
+		version = '0.5',
+		author = 'IzumiDaye',
+		description = 'Build your own custom HUD',
 		present = present,
-	}
+		}
 end
 
-return
-{
-	__addon =
-	{
-		init = init
-	}
-}
+return {__addon = {init = init}}

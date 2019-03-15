@@ -5,45 +5,232 @@ Catherine S (IzumiDaye/NeonLuna)
 ]]
 
 local core_mainmenu = require('core_mainmenu')
+local neondebug = require('Custom HUD.neondebug')
 local psodata = require('Custom HUD.psodata')
+local utility = require('Custom HUD.utility')
+neondebug.update('this is a test', 'wow')
 
 local colorLabels = {'r', 'g', 'b', 'a'}
 
 -- local checkMemoryOffset = 0
 
-local data = {}
-local dfNames = {}
-local windowNames
-local windowposinit = false
-
--- data.windowList = {}
--- data.colorPalette = {}
--- data['debuginfo'] = {}
+local data
 -- 'data' will be overwritten in init(), so initializing here doesn't work
 
-local function round(number) return math.floor(number + 0.5) end
+local dfNames = {}
+local windowNames
+local widgets = {}
+local widgetSpecs = {}
+local widgetDefaults = {}
+local widgetNames = {}
+local widgetConfig = {}
+
+local function mapcall(window, item, fielddata)
+	local a = item.args
+	if item.map then
+		for name, value in pairs(item.map) do
+			if type(value) == 'string' then
+				a[name] = fielddata[value]
+			else
+				a[name] = psodata[value[1]][value[2]]()
+			end -- if type(value) == 'string'
+		end -- for name, value in pairs(map)
+	end -- if map
+	widgets[item.widgetType](window, a)
+end
+
+local function editlist(list, fieldsavailable)
+	local dragthisframe = false
+	local cursorpos = 5
+	if not list.buttonedges then list.buttonedges = {8} end
+	if not list.buttoncenters then list.buttoncenters = {} end
+	list.rowtop = imgui.GetCursorPosY() - 48
+	imgui.Dummy(0, 0)
+	imgui.SameLine()
+	for index, item in ipairs(list) do
+		if index > 1 then imgui.SameLine() end
+		local name, tooltip
+		if item.widgetType then
+			if item.widgetType == 'showString' then
+				name = "'" .. item.args['text'] .. "'"
+			elseif item.widgetType == 'showMemValue' then
+				name = psodata.shortname[item.args['sourceFunction']]
+				tooltip = item.args['sourceFunction']
+			elseif item.widgetType == 'progressBar' then
+				name = psodata.shortname[item.args['progressFunction']] .. ' -'
+				tooltip = item.args['progressFunction'] .. ' progress bar'
+			end
+		else
+			name = item[2]
+		end -- if item.widgetType
+		
+		if list.selected == index then
+			imgui.PushStyleColor('Button', .2, .5, 1, 1)
+			imgui.PushStyleColor('ButtonHovered', .3, .7, 1, 1)
+			imgui.PushStyleColor('ButtonActive', .5, .9, 1, 1)
+			if imgui.Button(name .. '##' .. index) then list.selected = nil end
+			imgui.PopStyleColor()
+			imgui.PopStyleColor()
+			imgui.PopStyleColor()
+		else
+			imgui.PushStyleColor('Button', .5, .5, .5, .3)
+			if imgui.Button(name .. '##' .. index) then list.selected = index end
+			imgui.PopStyleColor()
+		end -- if list.selected == index
+		
+		-- if imgui.Selectable(name .. '##' .. index, list.selected == index) then
+			-- if list.selected == index then
+				-- list.selected = nil
+			-- else
+				-- list.selected = index
+			-- end
+		-- end
+		
+		if #list.buttoncenters < #list then
+			local itemwidth, _ = imgui.GetItemRectSize()
+			list.buttoncenters[index] = cursorpos + 8 + itemwidth / 2
+			cursorpos = cursorpos + itemwidth + 8
+			list.buttonedges[index + 1] = cursorpos + 3
+		end
+		
+		if imgui.IsItemActive() then
+			dragthisframe = true
+			list.dragx, list.dragy = imgui.GetMousePos()
+			local winx, winy = imgui.GetWindowPos()
+			list.dragx = list.dragx - winx
+			list.dragy = list.dragy - winy
+			list.dragsource = index
+		end
+		
+		-- if tooltip and imgui.IsItemHovered() then
+		if tooltip and imgui.IsItemHovered() and (not imgui.IsMouseDown(0)) then
+			imgui.SetTooltip(tooltip)
+		end
+	end -- for index, item in ipairs(list)
+	
+	list.rowbottom = imgui.GetCursorPosY() + 48
+	
+	if dragthisframe then
+		if not list.dragactive then -- drag start
+			list.dragstartx, list.dragstarty = list.dragx, list.dragy
+			list.dragactive = true
+		end
+		list.dragdest = 1
+		for index, pos in ipairs(list.buttoncenters) do
+			if list.dragx > pos then
+				list.dragdest = index + 1
+			else
+				break
+			end -- if list.dragx > pos
+		end -- for index, pos in ipairs(list.buttoncenters)
+		if list.dragy < list.rowtop or list.dragy > list.rowbottom or list.dragx < -48 or list.dragx > list.buttonedges[#list.buttonedges] + 48 then
+			list.dragdest = nil
+			print('out of bounds')
+		end
+	else
+		if list.dragactive then -- drag end
+			if list.dragdest then
+				if ((list.dragsource ~= list.dragdest) and (list.dragsource + 1 ~= list.dragdest)) then
+					local newpos
+					if list.dragsource < list.dragdest then
+						table.insert(list, list.dragdest, list[list.dragsource])
+						table.remove(list, list.dragsource)
+						newpos = list.dragdest - 1
+					else
+						table.insert(list, list.dragdest, list[list.dragsource])
+						table.remove(list, list.dragsource + 1)
+						newpos = list.dragdest
+					end
+					
+					if list.selected then
+						if list.dragsource == list.selected then
+							list.selected = newpos
+						elseif list.dragsource < list.selected
+						and list.selected < list.dragdest then
+							list.selected = list.selected - 1
+						elseif list.dragsource > list.selected
+						and list.selected >= list.dragdest then
+							list.selected = list.selected + 1
+						end
+					end
+					
+					list.buttonedges = nil
+					list.buttoncenters = nil
+				end -- if list.dragdest would actually move the button
+			end -- if list.dragdest
+			list.dragactive = nil
+			list.dragdest = nil
+			list.dragsource = nil
+		end -- if list.dragactive
+	end
+	
+	if list.dragdest and math.abs(list.dragx - list.dragstartx) > 12 then
+		imgui.SameLine(list.buttonedges[list.dragdest])
+		imgui.Text('|')
+	end -- if list.dragdest
+	-- for index, offset in ipairs(list.buttonedges) do
+		-- if index > 1 then
+			-- imgui.SameLine(offset)
+		-- end
+		-- imgui.Text('|')
+	-- end
+	-- imgui.NewLine()
+	-- for index, offset in ipairs(list.buttoncenters) do
+		-- imgui.SameLine(offset)
+		-- imgui.Text('|')
+	-- end
+	if list.selected then
+		local item = list[list.selected]
+		for name, specargs in pairs(widgetSpecs[item.widgetType]) do
+			imgui.Spacing()
+			if item.map and item.map[name] then
+				if fieldsavailable then
+					
+				else
+					widgetConfig[item.map[name][1]](name, item.map, specargs[2], true)
+				end
+				imgui.SameLine()
+				if imgui.Button('static value##' .. name) then item.map[name] = nil end
+			else
+				widgetConfig[specargs[1]](name, item.args, specargs[2])
+				if specargs[1] == 'string' or specargs[1] == 'number' or specargs[1] == 'boolean' then
+					imgui.SameLine()
+					if fieldsavailable then
+					
+					else
+						if imgui.Button('dynamic value##' .. name) then
+							if not item.map then item.map = {} end
+							local mapvaluetype = specargs[1] .. 'Function'
+							item.map[name] = {mapvaluetype, dfNames[mapvaluetype][1]}
+						end
+					end -- if fieldsavailable
+				end -- if specargs[1] == 'string' or 'number' or 'boolean'
+			end -- if item.map and item.map[name]
+		end -- for name, specargs in pairs(widgetSpecs[item.widgetType])
+	end -- if list.selected
+end -- local function editlist
+
+local function showlist(window, list, fielddata)
+	for index, item in ipairs(list) do
+		if index > 1 then imgui.SameLine() end
+		if item.widgetType then
+			mapcall(window, item)
+		elseif item[1] == 'field' then
+			imgui.Text(fielddata[item[2]])
+		else
+			-- if not item[2] then print(serialize(item)) end
+			imgui.Text(item[2])
+		end
+	end -- for index, item in ipairs(list)
+end -- local function showlist
+
+local function round(number, places)
+	local mult
+	if places then mult = math.pow(10, places) else mult = 1 end
+	return math.floor(number * mult + 0.5) / mult
+end
 
 -- position and size values are stored as percentages; these functions scale those values based on the current game window size.
--- local function scalex(x, w)
-	-- local result
-	-- if w then
-		-- result = (x / 100) * psodata.screenWidth * (1 - w / 100)
-	-- else
-		-- result = (x / 100) * psodata.screenWidth
-	-- end
-	-- return round(result)
--- end
-
--- local function scaley(y, h)
-	-- local result
-	-- if h then
-		-- result = (y / 100) * psodata.screenHeight * (1 - h / 100)
-	-- else
-		-- result = (y / 100) * psodata.screenHeight
-	-- end
-	-- return round(result)
--- end
-
 local function scalex(value, offset)
 	if offset then
 		offset = 1 - offset / 100
@@ -80,97 +267,15 @@ local function unscaley(value, offset)
 	return value / psodata.screenHeight * 100 / offset
 end
 
-local function compareString(string1, string2)
--- case-agnostic alphabetization
-	return string.lower(string1) < string.lower(string2)
-end
-
-local function buildComboList(itemList)
--- takes a string-indexed table, and returns an alphabetized index array with built-in reverse lookup.
-	
-	local resultList = {}
-	local count = 1
-	local longest = 0
-	-- space needed when list is displayed in a combo box
-	
-	for key, _ in pairs(itemList) do
-		table.insert(resultList, key)
-		-- if string.len(key) > longest then longest = string.len(key) end
-		longest = math.max(longest, string.len(key))
-	end -- for key, _ in pairs(itemList)
-	resultList.longest = longest
-	
-	table.sort(resultList, compareString)
-	for index, name in ipairs(resultList) do
-		resultList[name] = index
-	end
-	
-	return resultList
-end -- local function buildComboList(itemList)
-
-local function serialize(sourceData, currentOffset)
--- convert entire table into a string, so it can be written to a file. recurses for nested tables.
-	
-	currentOffset = currentOffset or 0
-	local indent = string.rep(' ', currentOffset)
-	-- indentation within nested tables
-	
-	local dataType = type(sourceData)
-	local result = ''
-	
-	if dataType == 'number' then
-		result = result .. sourceData
-		
-	elseif dataType == 'string' then
-		result = string.format('\'%s\'', sourceData)
-		
-	elseif dataType == 'boolean' then
-		if sourceData then
-			result = 'true'
-		else
-			result = 'false'
-		end
-		
-	elseif dataType == 'table' then
-		
-		local optionalLineBreak = ''
-		local tableEnding = '}'
-		result = result .. '{'
-		local containsTable = false
-		for _, value in pairs(sourceData) do
-			if type(value) == 'table' then containsTable = true end
-		end -- for _, value in pairs(sourceData)
-		if containsTable then
-			optionalLineBreak = '\n' .. indent
-			tableEnding = '\n' .. indent .. '}'
-		end -- if containsTable
-		-- if sourceData contains any tables, then put each element of sourceData on a separate line, with proper indentation; if sourceData contains no tables, then put all its elements on one line.
-		
-		for key, value in pairs(sourceData) do
-			if type(key) == 'number' then
-				key = ''
-			else -- not a number
-				key = string.format('[%s]=', serialize(key))
-			end -- if type(key) == 'number'
-			result = result .. optionalLineBreak .. key .. serialize(value, currentOffset + 2) .. ','
-			-- recursion is fun! :)
-			
-		end -- for key, value in pairs(sourceData)
-		result = result .. tableEnding
-		
-	end -- dataType switch
-	
-	return result
-end -- local function serialize(sourceData)
-
 local function save()
 -- saves current HUD configuration to disk as a runnable lua script.
-
+	
+	local outputdata = 'return' .. utility.serialize(data)
+	
 	local file = io.open('addons/Custom HUD/profile.lua', 'w')
 	if file then
 		io.output(file)
-		io.write('return')
-		io.write(serialize(data))
+		io.write(outputdata)
 		io.close(file)
 	end
 end
@@ -179,15 +284,14 @@ local function load()
 -- loads saved HUD configuration from disk.
 
 	local dataLoaded, tempData = pcall(require, 'Custom HUD.profile')
-	if dataLoaded then data = tempData end
-	for _, window in pairs(data.windowList) do
-		window.optionchanged = true
-		if not window.editIndex then window.editIndex = -1 end
+	if dataLoaded then
+		data = tempData
+		for _, window in pairs(data.windowList) do
+			window.optionchanged = true
+			if not window.editIndex then window.editIndex = -1 end
+		end
+		windowNames = utility.buildcombolist(data.windowList)
 	end
-	windowNames = buildComboList(data.windowList)
-	-- if not data['selected window'] then data['selected window'] = 0 end
-	data.debuginfo = {}
-	
 	return dataLoaded
 end
 
@@ -197,11 +301,11 @@ local function compileCompositeString(sourceCS)
 	for index, segment in ipairs(sourceCS) do
 		if type(segment) == 'string' then
 			result = result .. segment
-		else
+		else -- we're assuming it's a function then
 			result = result .. '%' .. segment[2] .. 'i'
 			table.insert(functionList, segment[1])
-		end
-	end
+		end -- if type(segment) == 'string'
+	end -- for index, segment in ipairs(sourceCS)
 	sourceCS.formatString = result
 	sourceCS.functionList = functionList
 end
@@ -210,7 +314,6 @@ local function newCompositeString()
 	return {formatString = '', functionList = {}}
 end
 
-local widgetConfig = {}
 do --define widgetConfig functions
 
 	widgetConfig.string = function(argName, data, req)
@@ -225,7 +328,6 @@ do --define widgetConfig functions
 		if changed then data[argName]=newValue end
 	end
 
-	--number == integer unless it turns out I need floats too
 	widgetConfig.number = function(argName, data, req, minValue, maxValue, step, format, displayValue)
 		minValue = minValue or 0
 		maxValue = maxValue or 1
@@ -277,6 +379,14 @@ do --define widgetConfig functions
 		end
 	end
 
+	widgetConfig.xpos = function(argName, data, req, displayvalue)
+		return widgetConfig.number(argName, data, req, 0, 100, 0.01, '%u', displayvalue)
+	end
+	
+	widgetConfig.ypos = function(argName, data, req, displayvalue)
+		return widgetConfig.number(argName, data, req, 0, 100, 0.01, '%u', displayvalue)
+	end
+	
 	widgetConfig.boolean = function(argName, data, req)
 		if req == 'optional' then
 			if imgui.Button('clear##' .. argName) then data[argName]=nil end
@@ -288,43 +398,51 @@ do --define widgetConfig functions
 		-- return changed
 	end
 
-	local dataFunction = function(argName, data, req, fType)
+	local dataFunction = function(argName, data, req, fType, mapformat)
 		imgui.Text(argName)
 		imgui.SameLine()
-		if req == 'optional' then
-			if imgui.Button('clear##' .. argName) then data[argName]=nil end
-			imgui.SameLine()
-		end
+		-- if req == 'optional' then
+			-- if imgui.Button('clear##' .. argName) then data[argName]=nil end
+			-- imgui.SameLine()
+		-- end
 		imgui.PushItemWidth(8 + (8 * dfNames[fType].longest))
-		local changed, newValue = imgui.Combo('##' .. argName, dfNames[fType][data[argName]] or 1, dfNames[fType], #dfNames[fType])
+		local displayvalue
+		if mapformat then
+			displayvalue = dfNames[fType][data[argName][2]]
+		else
+			displayvalue = dfNames[fType][data[argName]] or 1
+		end
+		local changed, newValue = imgui.Combo('##' .. argName, displayvalue, dfNames[fType], #dfNames[fType])
 		imgui.PopItemWidth()
-		if changed then data[argName] = dfNames[fType][newValue] end
-	end
+		if changed then
+			if mapformat then
+				data[argName] = {fType, dfNames[fType][newValue]}
+			else
+				data[argName] = dfNames[fType][newValue]
+			end
+		end
+	end -- local dataFunction = function
 	
-	widgetConfig.stringFunction = function(argName, data, req)
-		dataFunction(argName, data, req, 'stringFunction')
+	widgetConfig.stringFunction = function(argName, data, req, mapformat)
+		dataFunction(argName, data, req, 'stringFunction', mapformat)
+	end
+
+	widgetConfig.numberFunction = function(argName, data, req, mapformat)
+		dataFunction(argName, data, req, 'numberFunction', mapformat)
 	end
 
 	widgetConfig.listFunction = function(argName, data, req)
 		dataFunction(argName, data, req, 'listFunction')
 	end
 
-	widgetConfig.booleanFunction = function(argName, data, req)
-		dataFunction(argName, data, req, 'booleanFunction')
+	widgetConfig.booleanFunction = function(argName, data, req, mapformat)
+		dataFunction(argName, data, req, 'booleanFunction', mapformat)
 	end
 
 	widgetConfig.progressFunction = function(argName, data, req)
 		dataFunction(argName, data, req, 'progressFunction')
 	end
 
-	widgetConfig.xpos = function(argName, data, req, displayvalue)
-		return widgetConfig.number(argName, data, req, 0, 100, 0.01, '%u', displayvalue)
-	end
-	
-	widgetConfig.ypos = function(argName, data, req, displayvalue)
-		return widgetConfig.number(argName, data, req, 0, 100, 0.01, '%u', displayvalue)
-	end
-	
 	widgetConfig.color = function(argName, data, req)
 		imgui.Text(argName)
 		imgui.SameLine()
@@ -440,7 +558,14 @@ do --define widgetConfig functions
 		end -- if not gradientList
 	end -- widgetConfig.colorGradient = function
 
-	widgetConfig.compositeString = function(argName, data, req)
+	widgetConfig.composite = function(argname, data)
+		-- imgui.BeginChild(argname .. 'editor', -1, 0, true)
+		imgui.Text(argname)
+		editlist(data[argname])
+		-- imgui.EndChild()
+	end
+
+	widgetConfig.compositeString0 = function(argName, data, req)
 		local segmentList = data[argName]
 		local anyChange = false
 		imgui.Text(argName)
@@ -526,7 +651,7 @@ do --define widgetConfig functions
 		if anyChange then
 			compileCompositeString(segmentList)
 		end
-	end -- widgetConfig.compositeString = function
+	end -- widgetConfig.composite = function
 
 	local function newFormatList(sourceFunction)
 		print(sourceFunction)
@@ -537,13 +662,13 @@ do --define widgetConfig functions
 			formatTable['sub format table'] = nil
 			formatTable['sub field table'] = nil
 			formatTable['subtype edit index'] = nil
-			-- formatTable['field combo list'] = buildComboList(psodata.listFields[sourceFunction])
+			-- formatTable['field combo list'] = utility.buildcombolist(psodata.listFields[sourceFunction])
 			formatTable['field combo list'] = psodata.listFields[sourceFunction]
 		else -- assume this sourceFunction has subtypes
 			formatTable['sub format table'] = {}
 			formatTable['sub field table'] = {}
 			local subFields = psodata.listSubFields[sourceFunction]
-			formatTable['subtype combo list'] = buildComboList(subFields)
+			formatTable['subtype combo list'] = utility.buildcombolist(subFields)
 			formatTable['subtype edit index'] = formatTable['subtype combo list'][1]
 			for key, _ in pairs(subFields) do
 				formatTable['sub format table'][key] = {['format string'] = ''}
@@ -551,11 +676,16 @@ do --define widgetConfig functions
 			end -- for key, _ in pairs(subFields)
 			-- formatTable['format data'] = ''
 			-- formatTable['field list'] = {}
-			-- formatTable['field combo list'] = buildComboList(psodata.listSubFields[sourceFunction][formatTable['subtype edit index']])
+			-- formatTable['field combo list'] = utility.buildcombolist(psodata.listSubFields[sourceFunction][formatTable['subtype edit index']])
 			formatTable['field combo list'] = psodata.listSubFields[sourceFunction][formatTable['subtype edit index']]
 		end -- if psodata.listFields[sourceFunction]
 		return formatTable
 	end -- local function newFormatList
+
+	widgetConfig['format list 2'] = function(argname, data)
+		local formatlist = data[argname]
+		local sourcefunction = formatlist['list source function']
+	end -- widgetConfig['format list 2'] = function
 
 	widgetConfig['format list'] = function(argName, data, req)
 		--[[
@@ -582,7 +712,7 @@ do --define widgetConfig functions
 				-- formatTable['sub field list'][subEditIndex] = formatTable['field list']
 				subEditIndex = formatTable['subtype combo list'][newValue]
 				formatTable['subtype edit index'] = subEditIndex
-				-- formatTable['field combo list'] = buildComboList(psodata.listSubFields[sourceFunction][subEditIndex])
+				-- formatTable['field combo list'] = utility.buildcombolist(psodata.listSubFields[sourceFunction][subEditIndex])
 				formatTable['field combo list'] = psodata.listSubFields[sourceFunction][subEditIndex]
 				formatTable['field list'] = formatTable['sub field table'][subEditIndex]
 				formatTable['format data'] = formatTable['sub format table'][subEditIndex]
@@ -695,11 +825,6 @@ do --define widgetConfig functions
 
 end -- do -- define widgetConfig functions
 
-local widgets = {}
-local widgetSpecs = {}
-local widgetDefaults = {}
-local widgetNames = {}
-
 local function showText(color, text)
 	imgui.TextColored(color[1], color[2], color[3], color[4], text)
 end
@@ -735,13 +860,13 @@ do --define widgets and widgetSpecs
 	local lf = 'listFunction'
 	local bf = 'booleanFunction'
 	local pf = 'progressFunction'
+	local cs = 'composite'
+	local fl = 'format list'
+	
 	local o = 'optional'
 	local r = 'required'
-	local cs = 'compositeString'
-	local fl = 'format list'
-	-- local sfl = 'stringFunctionList'
 	
-	widgetSpecs.showString = {color={c,o}, sameLine={b,o}, text={s,r}}
+	widgetSpecs.showString = {color={c,o}, sameLine={b,o,false}, text={s,r,false}}
 	widgetDefaults.showString = {text=''}
 	widgets.showString = function(window, a)
 		local color = a.color or window.textColor
@@ -750,21 +875,13 @@ do --define widgets and widgetSpecs
 		showText(color, text)
 	end
 	
-	widgetSpecs.showList = {sourceFunction={lf,r}}
-	widgetDefaults.showList = {sourceFunction='Inventory Items'}
-	widgets.showList = function(window, a)
-		local color = window.textColor
-		local functionReference = psodata.listFunctions[a.sourceFunction]
-		recursiveShowList(functionReference(), window.textColor, 0, 2)
-	end -- widgets.showAllData = function
-	
 	widgetSpecs['show formatted list'] = {['format table']={fl,o}, ['text color']={c,o}}
 	widgetDefaults['show formatted list'] = {}
 	widgets['show formatted list'] = function(window, a)
 		local formatTable = a['format table']
 		if not formatTable then return end
 		local sourceFunction = formatTable['list source function']
-		local sourceList = psodata.listFunctions[sourceFunction]()
+		local sourceList = psodata.listFunction[sourceFunction]()
 		local color = a['text color'] or window['textColor']
 		local fieldList = formatTable['field list']
 		local formatString = formatTable['format data']['format string']
@@ -790,58 +907,68 @@ do --define widgets and widgetSpecs
 					table.insert(itemData, item[field])
 				else
 					table.insert(itemData, 0)
-				end -- ir item[field]
+				end -- if item[field]
 				notEmpty = true
 			end -- for_, field in ipairs(fieldList)
 			if notEmpty then
-				local debugString = ''
-				-- for attribute, value in pairs(item) do
-					-- if type(value) == 'string' or type(value) == 'number' then
-						-- debugString = debugString .. attribute .. ': ' .. value .. ' |'
-					-- end
-				-- end
-				-- print(debugString)
 				showText(color, string.format(formatString, unpack(itemData)))
-			else
-				-- print('emptiness!!!')
 			end
 		end -- for _, item in ipairs(sourceList)
 	end -- widgets['show formatted list'] = function
 	
-	widgetSpecs.showMemValue = {sourceFunction={sf,r}, sameLine={b,o}}
+	widgetSpecs.showMemValue = {sourceFunction={sf,r}, sameLine={b,o,false}}
 	widgetDefaults.showMemValue = {sourceFunction='Player HP: Current/Maximum'}
 	widgets.showMemValue = function(window, a)
-		a.text = psodata.stringFunctions[a.sourceFunction]()
+		a.text = psodata.stringFunction[a.sourceFunction]()
 		widgets.showString(window, a)
 	end
 	
-	-- local function renderCompositeString(sourceCS)
+	-- widgetSpecs['Show Composite String'] = {sourceCS={cs,o}, color={c,o}, sameLine={b,o}}
+	-- widgetDefaults['Show Composite String'] = {}
+	-- widgets['Show Composite String'] = function(window, a)
+		-- if a.sourceCS then
+			-- local functionResults = {}
+			-- for index, name in ipairs(a.sourceCS.functionList) do
+				-- functionResults[index] = psodata.stringFunction[name]()
+			-- end
+			-- local color = a.color or window.textColor
+			-- showText(color, string.format(a.sourceCS.formatString, unpack(functionResults)))
+		-- end
 	-- end
-
-	widgetSpecs['Show Composite String'] = {sourceCS={cs,o}, color={c,o}, sameLine={b,o}}
+	
+	widgetSpecs['Show Composite String'] = {sourceCS={cs,o}, color={c,o}, sameLine={b,o,false}}
 	widgetDefaults['Show Composite String'] = {}
 	widgets['Show Composite String'] = function(window, a)
-		if a.sourceCS then
-			local functionResults = {}
-			for index, name in ipairs(a.sourceCS.functionList) do
-				-- print(name)
-				functionResults[index] = psodata.stringFunctions[name]()
-			end
-			-- sourceCS.displayString = 
-			-- renderCompositeString(a.sourceCS)
-			local color = a.color or window.textColor
-			showText(color, string.format(a.sourceCS.formatString, unpack(functionResults)))
-		end
+		showlist(window, a.sourceCS)
 	end
 	
-	widgetSpecs.progressBar = {progressFunction={pf,r}, barGradient={cg,o}, barColor={c,o}, showFullBar={b,o}, overlayFunction={sf,o}, overlay={s,o}, textColor={c,o}, width={x,o}, height={y,o}}
+	widgetSpecs['Show Composite String 0'] = {sourceCS={cs,o}, color={c,o}, sameLine={b,o,false}}
+	widgetDefaults['Show Composite String 0'] = {}
+	widgets['Show Composite String 0'] = function(window, a)
+		if a.sourceCS then
+			-- local indent = 0
+			for index = 1, #a.sourceCS do
+				local segment = a.sourceCS[index]
+				if index > 1 then
+					imgui.SameLine(0, 0)
+				end
+				if type(segment) == 'string' then
+					imgui.Text(segment)
+				else
+					imgui.Text(string.format('%' .. segment[2] .. 's', psodata.stringFunction[segment[1]]()))
+				end -- if type(segment) == 'string'
+			end -- for _, segment in ipairs (composite)
+		end -- if a.sourceCS
+	end -- widgets['Show Composite String'] = function(window, a)
+	
+	widgetSpecs.progressBar = {progressFunction={pf,r,true}, barGradient={cg,o}, barColor={c,o}, showFullBar={b,o,false}, overlayFunction={sf,o}, overlay={s,o,true}, textColor={c,o}, width={x,o}, height={y,o}}
 	widgetDefaults.progressBar = {progressFunction='Player HP'}
 	widgets.progressBar = function(window, a)
 		local width, height = -1, -1
 		if a.width then width = scalex(a.width) end
 		if a.height then height = scaley(a.height) end
 			
-		local progress = psodata.progressFunctions[a.progressFunction]()
+		local progress = psodata.progressFunction[a.progressFunction]()
 		if progress ~= progress then progress = 0 end
 		local gfs = data['global font scale'] or 1
 		local barColor = {0.5, 0.5, 0.5, 1}
@@ -864,7 +991,7 @@ do --define widgets and widgetSpecs
 		
 		local overlay = ''
 		if a.overlayFunction then
-			overlay = psodata.stringFunctions[a.overlayFunction]()
+			overlay = psodata.stringFunction[a.overlayFunction]()
 		elseif a.overlay then
 			overlay = a.overlay
 		end
@@ -883,29 +1010,9 @@ do --define widgets and widgetSpecs
 		widgetNames[count] = name
 		count = count + 1
 	end
-	widgetNames = buildComboList(widgets)
+	widgetNames = utility.buildcombolist(widgets)
 
 end -- do --define widgets and widgetSpecs
-
-local function updatedebug(key, value)
-	if value then value = ': ' .. value else value = '' end
-	if not data.debuginfo[key] then table.insert(data.debuginfo, key) end
-	data.debuginfo[key] = value
-end
-
-local function presentDebugWindow()
-	imgui.SetNextWindowSize(600, 300, 'FirstUseEver')
-	local success
-	success, data['show debug window'] = imgui.Begin('Custom HUD Debug Window', true, 'AlwaysAutoResize')
-	local gfs = data['global font scale'] or 1
-	imgui.SetWindowFontScale(gfs)
-	
-	for _, k in ipairs(data.debuginfo) do
-		imgui.Text(k .. data.debuginfo[k])
-	end
-	
-	imgui.End()
-end
 
 local function verifyNewWindowName(newName)
 	return newName and (not data.windowList[newName])
@@ -924,17 +1031,11 @@ local function presentWindow(windowName)
 	for _, menu in ipairs(psodata.menuStates) do
 		if psodata.get(menu) and window.hideMenuStates[menu] then return end
 	end
-	-- updatedebug(windowName .. ' option changed', serialize(window.optionchanged))
-	-- if window.optionchanged then
-		-- updatedebug('resolution', psodata.screenWidth .. 'x' .. psodata.screenHeight)
-		-- updatedebug('moved ' .. windowName .. ' to ', scalex(window.x, window.w) .. ', ' .. scaley(window.y, window.h))
-	-- end
-	if --[[not windowposinit and]] window.optionchanged and psodata.screenWidth > 0 then
+	if window.optionchanged and psodata.screenWidth > 0 then
 		imgui.SetNextWindowPos(scalex(window.x, window.w), scaley(window.y, window.h), 'Always')
 		if window.options[5] ~= 'AlwaysAutoResize' then
 			imgui.SetNextWindowSize(scalex(window.w), scaley(window.h), 'Always')
 		end
-		-- windowposinit = true
 	end
 	
 	imgui.Begin(windowName, true, window.options)
@@ -946,16 +1047,12 @@ local function presentWindow(windowName)
 		elseif newx + scalex(window.w) > psodata.screenWidth then
 			newx = psodata.screenWidth - scalex(window.w)
 		end
-		-- updatedebug(newx .. ', ' .. newy, windowName .. ' new pos')
-		-- updatedebug(window.x .. ', ' .. window.y, windowName .. ' old pos')
-		-- updatedebug(unscalex(newx, window.w) .. ', ' .. unscaley(newy, window.y), windowName .. ' unscaled new pos')
 		window.x = unscalex(newx, window.w)
 		window.y = unscaley(newy, window.h)
 	end
 	if window.options[2] ~= 'NoResize' then
 		window.w = unscalex(imgui.GetWindowWidth())
 		window.h = unscaley(imgui.GetWindowHeight())
-		-- imgui.SetNextWindowSize(scalex(window.w), scaley(window.h), 'Always')
 	end
 	
 	local bgcolor = window['background color']
@@ -977,7 +1074,8 @@ local function presentWindow(windowName)
 			fontScaleChanged = false
 		end
 		-- print(item.widgetType)
-		widgets[item.widgetType](window, item.args)
+		mapcall(window, item)
+		-- widgets[item.widgetType](window, item.args)
 	end
 	
 	if bgcolor then imgui.PopStyleColor() end
@@ -998,13 +1096,6 @@ local function flagCheckBox(windowName, a)
 		window.optionchanged = true
 	end
 end
-
-local posoptions = {x='xpos', y='ypos', w='xpos', h='ypos'}
--- local windowflags = {'NoTitleBar', 'NoResize', 'NoMove', 'NoScrollBar', 'AlwaysAutoResize'}
--- local flaglabels = {'no title bar', 'no resize', 'no move', 'no scroll bar', 'auto resize'}
-local horizontalPositions = {'left', 'center', 'right'}
-local verticalPositions = {'top', 'center', 'bottom'}
--- {'main menu', 'team chat', 'quick menu', 'ship service menu', 'any menu'}
 
 local function presentWindowEditor(windowName)
 	local window = data.windowList[windowName]
@@ -1099,10 +1190,24 @@ local function presentWindowEditor(windowName)
 		local item = window.displayList[window.editIndex]
 		imgui.Text(item.widgetType)
 		
-		for name, args in pairs(widgetSpecs[item.widgetType]) do
+		for name, specargs in pairs(widgetSpecs[item.widgetType]) do
 			imgui.Separator()
-			widgetConfig[args[1]](name,item.args,args[2])
-		end
+			if item.map and item.map[name] then
+				widgetConfig[item.map[name][1]](name, item.map, specargs[2], true)
+				imgui.SameLine()
+				if imgui.Button('static value##' .. windowName .. name) then item.map[name] = nil end
+			else
+				widgetConfig[specargs[1]](name, item.args, specargs[2])
+				if specargs[1] == 'string' or specargs[1] == 'number' or specargs[1] == 'boolean' then
+					imgui.SameLine()
+					if imgui.Button('dynamic value##' .. windowName .. name) then
+						if not item.map then item.map = {} end
+						local mapvaluetype = specargs[1] .. 'Function'
+						item.map[name] = {mapvaluetype, dfNames[mapvaluetype][1]}
+					end
+				end -- if specargs[1] == 'string' or 'number' or 'boolean'
+			end -- if item.map and item.map[name]
+		end -- for name, specargs in pairs(widgetSpecs[item.widgetType])
 	elseif window.editIndex == 0 then
 		imgui.NewLine()
 		imgui.Text('Title:')
@@ -1220,7 +1325,7 @@ local function presentWindowList()
 	if imgui.Button('delete window') then
 		data.windowList[data['selected window']] = nil
 		data['selected window'] = nil
-		windowNames = buildComboList(data.windowList)
+		windowNames = utility.buildcombolist(data.windowList)
 	end
 	
 	if imgui.Button('save') then save() end
@@ -1239,7 +1344,9 @@ end -- local function presentWindowList()
 local function present()
 	psodata.retrievePsoData()
 	if data['show window list'] then presentWindowList() end
-	if data['show debug window'] then presentDebugWindow() end
+	if data['show debug window'] then
+		data['show debug window'] = neondebug.present()
+	end
 	-- if data['selected window'] then
 		-- presentWindowEditor(data['selected window']) end
 	for windowName, window in pairs(data.windowList) do
@@ -1260,10 +1367,11 @@ local function init()
 		
 	
 	psodata.init()
-	dfNames['stringFunction'] = buildComboList(psodata.stringFunctions)
-	dfNames['listFunction'] = buildComboList(psodata.listFunctions)
-	dfNames['booleanFunction'] = buildComboList(psodata.booleanFunctions)
-	dfNames['progressFunction'] = buildComboList(psodata.progressFunctions)
+	dfNames['stringFunction'] = utility.buildcombolist(psodata.stringFunction)
+	dfNames['numberFunction'] = utility.buildcombolist(psodata.numberFunction)
+	dfNames['listFunction'] = utility.buildcombolist(psodata.listFunction)
+	dfNames['booleanFunction'] = utility.buildcombolist(psodata.booleanFunction)
+	dfNames['progressFunction'] = utility.buildcombolist(psodata.progressFunction)
 	psodata.setActive('player')
 	psodata.setActive('meseta')
 	psodata.setActive('monsterList')

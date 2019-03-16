@@ -1,81 +1,80 @@
 local utility = {}
 
-utility.serialize = function(sourceData, currentOffset)
+utility.serialize = function(sourcedata, currentoffset)
 -- convert entire table into a string, so it can be written to a file. recurses for nested tables.
 	
-	currentOffset = currentOffset or 0
-	local indent = string.rep(' ', currentOffset)
+	currentoffset = currentoffset or 0
+	local indent = string.rep(' ', currentoffset)
 	-- indentation within nested tables
 	
-	local dataType = type(sourceData)
+	local datatype = type(sourcedata)
 	local result = ''
 	
-	if dataType == 'number' then
-		result = result .. sourceData
+	if datatype == 'number' then
+		result = result .. sourcedata
 		
-	elseif dataType == 'string' then
-		result = string.format('\'%s\'', sourceData)
+	elseif datatype == 'string' then
+		result = string.format('\'%s\'', sourcedata)
 		
-	elseif dataType == 'boolean' then
-		if sourceData then
+	elseif datatype == 'boolean' then
+		if sourcedata then
 			result = 'true'
 		else
 			result = 'false'
 		end
 		
-	elseif dataType == 'table' then
+	elseif datatype == 'table' then
 		
-		local optionalLineBreak = ''
-		local tableEnding = '}'
+		local optionallinebreak = ''
+		local tableending = '}'
 		result = result .. '{'
-		local containsTable = false
-		for _, value in pairs(sourceData) do
-			if type(value) == 'table' then containsTable = true end
-		end -- for _, value in pairs(sourceData)
-		if containsTable then
-			optionalLineBreak = '\n' .. indent
-			tableEnding = '\n' .. indent .. '}'
-		end -- if containsTable
-		-- if sourceData contains any tables, then put each element of sourceData on a separate line, with proper indentation; if sourceData contains no tables, then put all its elements on one line.
+		local containstable = false
+		for _, value in pairs(sourcedata) do
+			if type(value) == 'table' then containstable = true end
+		end -- for _, value in pairs(sourcedata)
+		if containstable then
+			optionallinebreak = '\n' .. indent
+			tableending = '\n' .. indent .. '}'
+		end -- if containstable
+		-- if sourcedata contains any tables, then put each element of sourcedata on a separate line, with proper indentation; if sourcedata contains no tables, then put all its elements on one line.
 		
-		for key, value in pairs(sourceData) do
+		for key, value in pairs(sourcedata) do
 			if type(key) == 'number' then
 				key = ''
 			else -- not a number
 				key = string.format('[%s]=', utility.serialize(key))
 			end -- if type(key) == 'number'
-			result = result .. optionalLineBreak .. key .. utility.serialize(value, currentOffset + 2) .. ','
+			result = result .. optionallinebreak .. key .. utility.serialize(value, currentoffset + 2) .. ','
 			-- recursion is fun! :)
 			
-		end -- for key, value in pairs(sourceData)
-		result = result .. tableEnding
+		end -- for key, value in pairs(sourcedata)
+		result = result .. tableending
 		
-	end -- dataType switch
+	end -- datatype switch
 	
 	return result
-end -- local function serialize(sourceData)
+end -- local function serialize(sourcedata)
 
-utility.buildcombolist = function(itemList)
+utility.buildcombolist = function(itemlist)
 -- takes a string-indexed table, and returns an alphabetized index array with built-in reverse lookup.
 	
-	local resultList = {}
-	local count = 1
-	local longest = 0
+	local resultlist = {}
+	
+	local longest = 12
 	-- space needed when list is displayed in a combo box
 	
-	for key, _ in pairs(itemList) do
-		table.insert(resultList, key)
-		-- if string.len(key) > longest then longest = string.len(key) end
+	for key, _ in pairs(itemlist) do
+		table.insert(resultlist, key)
 		longest = math.max(longest, string.len(key))
-	end -- for key, _ in pairs(itemList)
-	resultList.longest = longest
+	end -- for key, _ in pairs(itemlist)
+	resultlist.longest = longest
 	
-	table.sort(resultList, function(string1, string2) return string.lower(string1) < string.lower(string2) end)
-	for index, name in ipairs(resultList) do
-		resultList[name] = index
+	table.sort(resultlist, function(string1, string2) return string.lower(string1) < string.lower(string2) end)
+	for index, name in ipairs(resultlist) do
+		resultlist[name] = index
 	end
 	
-	return resultList
-end -- local function buildComboList(itemList)
+	return resultlist
+end -- local function buildcombolist(itemlist)
 
 return utility

@@ -1,5 +1,48 @@
 local neondebug = {}
 local debuglist = {}
+local loggingenabled = false
+local timeout = {}
+
+local function writetolog(text)
+	local file = io.open('addons/Custom HUD/log' .. os.date('%F') .. '.txt', 'a')
+	if file then
+		io.output(file)
+		io.write(text)
+		io.close(file)
+	end
+end
+
+neondebug.enablelogging = function()
+	loggingenabled = true
+	writetolog('\n\nsession log start\n')
+end
+
+neondebug.log = function(message, timeoutlength)
+	-- if timeoutlength then
+		-- if timeout[message] then
+			-- if os.time() >= timeout[message] then -- timeout expired
+				-- timeout[message] = os.time() + timeoutlength
+			-- else
+				-- return
+			-- end
+		-- else
+			-- timeout[message] = os.time() + timeoutlength
+		-- end
+	-- end
+	
+	if timeoutlength then
+		if timeout[message] and os.time() < timeout[message] then
+			-- too soon to log another message
+			return
+		else -- timeout expired; restart timeout
+			timeout[message] = os.time() + timeoutlength
+		end
+	end
+	
+	if loggingenabled then
+		writetolog(os.date('%T> ') .. message .. '\n')
+	end
+end
 
 neondebug.update = function(key, value)
 -- don't use integer keys! those are reserved for ordering the list.

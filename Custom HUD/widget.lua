@@ -1,20 +1,28 @@
+local utility = require('Custom HUD.utility')
 
--- local defaulttextcolor = {.8, .8, .8, 1},
+local datasource
 local widget = {}
--- local prototype = {}
+------------------------------------------------------------------------
 local paramtype =
 	{
 --[[
-what makes up an argtype?
+what makes up a parameter type?
 
 * data type
 * optional or not
 * source of data: static, function, or table field
-* category: data, style, or layout
+* category: data, style, layout, or miscellaneous
 * default value
 ]]
 	
-	['widget name']
+	['widget name'] =
+		{
+		datatype = 'string',
+		optional = true,
+		staticsource = true,
+		category = 'miscellaneous',
+		default = function() return '' end,
+		}
 	
 	['format table'] =
 		{
@@ -176,7 +184,7 @@ what makes up an argtype?
 		},
 	
 	}
-
+------------------------------------------------------------------------
 local function validateparameters(self)
 	for _, parameter in ipairs(self.parameters) do
 		if (not paramtype[parameter].optional) and (not self[parameter]) then
@@ -186,7 +194,7 @@ local function validateparameters(self)
 	end
 	self.ready = true
 end -- local function validateparameters(self)
-
+------------------------------------------------------------------------
 local function evaluategradient(self, colorparam, gradientparam, indexparam, rangeparam,)
 	
 	if self[gradientparam] then
@@ -201,7 +209,7 @@ local function evaluategradient(self, colorparam, gradientparam, indexparam, ran
 	end -- if self['color gradient']
 	
 end -- local function evaluategradient(self)
-
+------------------------------------------------------------------------
 local function display(self)
 	if self['ready'] then
 		if self['same line'] then imgui.SameLine() end
@@ -211,12 +219,94 @@ local function display(self)
 		return false
 	end
 end -- local function display(self)
+------------------------------------------------------------------------
+local function combobox(data, key, combolist)
+	imgui.PushItemWidth(8 + (8 * combolist.longest))
+		local changed, newvalue = imgui.Combo
+			('##' .. key, combolist[data[key]], combolist, #combolist)
+	imgui.PopItemWidth()
+	if changed then data[key] = combolist[newvalue] end
+end
+------------------------------------------------------------------------
+local function paramsourceeditor(widget, paramname)
+	
+	local typedef = paramtype[paramname]
+	
+	if typedef.optional then
+		if imgui.Button('clear##' .. paramname) then
+			widget[paramname] = nil
+			widget.map[paramname] = nil
+		end
+		imgui.SameLine()
+	end
+	
+	if widget.fieldcombolist then
+		if typedef.fieldsource then
+			imgui.Text('source:')
+			imgui.SameLine()
+			if widget.map[paramname] then
+				combobox(widget.map, paramname, widget.fieldcombolist)
+			else
+				if imgui.Button('use list field##' .. paramname) then
+					widget.map[paramname] = widget.fieldcombolist[1]
+				end
+			end -- if widget.map[paramname]
+			imgui.SameLine()
+		end -- if typedef.fieldsource
+		
+	elseif typedef.functionsource then
+		if widget.map[paramname] then
+			combobox(widget.map, paramname, datasource[typedef.datatype].combolist)
+		else
+			if imgui.Button('use game data##' .. paramname) then
+				widget.map[paramname] = datasource[typedef.datatype].combolist[1]
+			end
+		end -- if widget.map[paramname]
+		imgui.SameLine()
+	end -- if widget.fieldcombolist
+	
+	if typedef.staticsource and widget.map[paramname] then
+		if imgui.Button('use static value##' .. paramname) then
+			widget.map[paramname] = nil
+			widget[paramname] = typedef.default()
+		end
+	end
+	
+end -- local function paramsourceeditor
+------------------------------------------------------------------------
+local paramedit = {}
+------------------------------------------------------------------------
+paramedit['string'] = function(widget, paramname)
+	imgui.Text(paramname)
+	imgui.SameLine()
+	local changed, newvalue = imgui.InputText
+end
+------------------------------------------------------------------------
+paramedit['boolean'] = function(widget, paramname)
 
+end
+------------------------------------------------------------------------
+paramedit['number'] = function(widget, paramname)
+
+end
+------------------------------------------------------------------------
+paramedit['color'] = function(widget, paramname)
+
+end
+------------------------------------------------------------------------
+paramedit['color gradient'] = function(widget, paramname)
+
+end
+------------------------------------------------------------------------
+paramedit['format table'] = function(widget, paramname)
+
+end
+------------------------------------------------------------------------
 local widgets =
 	{
 	['text'] =
 		{
-		parameters = {'display text', 'text color', 'same line', 'text color gradient', 'text gradient index', 'text gradient range', --[['font scale',]]},
+		parameters = {'widget name', 'display text', 'text color', 'same line', 'text color gradient', 'text gradient index', 'text gradient range', --[['font scale',]]},
 		display = function(self)
 			if not display(self) then return end
 			-- evaluategradient(self, 'text color', 'text color gradient', 'text gradient index', 'text gradient range',)
@@ -230,7 +320,7 @@ local widgets =
 	
 	['labeled value'] =
 		{
-		parameters = {'text color', 'same line', 'display text', 'label text', 'text color gradient', 'text gradient index', 'text gradient range',},
+		parameters = {'widget name', 'text color', 'same line', 'display text', 'label text', 'text color gradient', 'text gradient index', 'text gradient range',},
 		display = function(self)
 			if not display(self) then return end
 			
@@ -265,6 +355,7 @@ local widgets =
 		
 		parameters =
 			{
+			'widget name',
 			'overlay text',
 			'text color',
 			'text color gradient',
@@ -324,14 +415,14 @@ local widgets =
 		end, -- display = function(self)
 		}, -- ['progress bar'] = {
 	
-	['formatted table'] =
-		{
+	-- ['formatted table'] =
+		-- {
 		
-		},
+		-- },
 	
 	} -- local widgets = {
-
-widget.new = function(typename)
+------------------------------------------------------------------------
+widget.new = function(typename, fieldlist)
 	
 	local newwidget = {}
 	setmetatable(newwidget, {__index = widgets[typename]})
@@ -342,12 +433,25 @@ widget.new = function(typename)
 		end
 	end
 	
+	-- if fieldlist then
+		-- newwidget.fieldcombolist = utility.buildcombobox(fieldlist)
+	-- end
+	newwidget.fieldcombolist = fieldlist
+	newwidget.map = {}
+	
 	return newwidget
 	
 end -- widget.new = function(typename)
-
+------------------------------------------------------------------------
+widget.combolist = utility.buildcombolist(widgets)
+------------------------------------------------------------------------
 local addwidgettype = function(newwidgetname, newwidgetdef)
 	widgets[newwidgetname] = newwidgetdef
+	widget.combolist = utility.buildcombolist(widgets)
 end
-
+------------------------------------------------------------------------
+local function setdatasource(newdatasource)
+	datasource = newdatasource
+end
+------------------------------------------------------------------------
 return widget

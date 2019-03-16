@@ -716,34 +716,38 @@ do -- define psodata getter functions
 	lf['Party Members'] = function() return GameData.party end
 	lf['Monsters in Current Room'] = function() return GameData.monsterList end
 
-	bf['Player Status: Frozen'] = function() return GameData.playerFrozen end
-	bf['Player Status: Confused'] = function() return GameData.playerConfused end
-	bf['Player Status: Paralyzed'] = function() return GameData.playerParalyzed end
+	-- bf['Player Status: Frozen'] = function() return GameData.playerFrozen end
+	-- bf['Player Status: Confused'] = function() return GameData.playerConfused end
+	-- bf['Player Status: Paralyzed'] = function() return GameData.playerParalyzed end
 
-	pf['Player HP'] = function() return GameData.playerHP / GameData.playerHPmax end
-	pf['Player TP'] = function() return GameData.playerTP / GameData.playerTPmax end
-	pf['Player Deband/Zalure Timer'] = function()
-		local result = 0
-		result = GameData.playerDefTech.timeLeft / GameData.playerDefTech.totalTime
-	end
-	pf['Player Shifta/Jellen Timer'] = function() return GameData.playerAtkTech.timeLeft / GameData.playerAtkTech.totalTime end
-	pf['XP Progress'] = function() return GameData.levelProgress / GameData.thisLevelXp end
+	-- pf['Player HP'] = function() return GameData.playerHP / GameData.playerHPmax end
+	-- pf['Player TP'] = function() return GameData.playerTP / GameData.playerTPmax end
+	-- pf['Player Deband/Zalure Timer'] = function()
+		-- local result = 0
+		-- result = GameData.playerDefTech.timeLeft / GameData.playerDefTech.totalTime
+	-- end
+	-- pf['Player Shifta/Jellen Timer'] = function() return GameData.playerAtkTech.timeLeft / GameData.playerAtkTech.totalTime end
+	-- pf['XP Progress'] = function() return GameData.levelProgress / GameData.thisLevelXp end
 
-	pf['Player S/D/J/Z Timer'] = function()
-		defFloat = GameData.playerDefTech.timeLeft / GameData.playerDefTech.totalTime
-		atkFloat = GameData.playerAtkTech.timeLeft / GameData.playerAtkTech.totalTime
-		if (defFloat == 0) or (defFloat > atkFloat) then
-			return atkFloat
-		else
-			return defFloat
-		end
-	end
-
-	psodata.stringFunction = sf
-	psodata.numberFunction = nf
-	psodata.listFunction = lf
-	psodata.booleanFunction = bf
-	psodata.progressFunction = pf
+	-- pf['Player S/D/J/Z Timer'] = function()
+		-- defFloat = GameData.playerDefTech.timeLeft / GameData.playerDefTech.totalTime
+		-- atkFloat = GameData.playerAtkTech.timeLeft / GameData.playerAtkTech.totalTime
+		-- if (defFloat == 0) or (defFloat > atkFloat) then
+			-- return atkFloat
+		-- else
+			-- return defFloat
+		-- end
+	-- end
+	
+	sf.combolist = buildcombolist(sf)
+	nf.combolist = buildcombolist(nf)
+	lf.combolist = buildcombolist(lf)
+	
+	psodata['string'] = sf
+	psodata['number'] = nf
+	psodata['list'] = lf
+	-- psodata['boolean from pso data'] = bf
+	-- psodata.progressFunction = pf
 
 	psodata.listFields = {}
 	psodata.listSubFields = {}

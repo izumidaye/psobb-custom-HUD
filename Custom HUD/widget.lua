@@ -1,4 +1,4 @@
-local utility = require('Custom HUD.utility')
+local utility = require('custom hud.utility')
 
 local datasource
 local widget = {}
@@ -21,33 +21,7 @@ what makes up a parameter type?
 		optional = true,
 		staticsource = true,
 		category = 'miscellaneous',
-		default = function() return '' end,
-		}
-	
-	['format table'] =
-		{
-		datatype = 'format table',
-		staticsource = true,
---		main = true,
-		category = 'data',
-		},
-	
-	['text color'] =
-		{
-		datatype = 'color',
-		optional = true,
-		staticsource = true,
-		category = 'style',
-		default = function() return {.8, .8, .8, 1} end,
-		},
-	
-	['same line'] =
-		{
-		datatype = 'boolean',
-		-- optional = true,
-		staticsource = true,
-		category = 'layout',
-		default = function() return true end,
+		default = '',
 		},
 	
 	['display text'] =
@@ -56,9 +30,8 @@ what makes up a parameter type?
 		staticsource = true,
 		functionsource = true,
 		fieldsource = true,
---		main = true,
 		category = 'data',
-		default = function() return 'taco cat backwards is taco cat' end,
+		default = 'taco cat backwards is taco cat',
 		},
 	
 	['overlay text'] =
@@ -69,7 +42,7 @@ what makes up a parameter type?
 		functionsource = true,
 		fieldsource = true,
 		category = 'data',
-		default = function() return 'taco cat backwards is taco cat' end,
+		default = 'taco cat backwards is taco cat',
 		},
 	
 	['label text'] =
@@ -77,18 +50,8 @@ what makes up a parameter type?
 		datatype = 'string',
 		optional = true,
 		staticsource = true,
-		-- main = true,
 		category = 'data',
-		default = function() return 'taco cat backwards is taco cat' end,
-		},
-	
-	['text color gradient'] =
-		{
-		datatype = 'color gradient',
-		optional = true,
-		staticsource = true,
-		category = 'style',
-		default = function() return {} end,
+		default = 'taco cat backwards is taco cat',
 		},
 	
 	['text gradient index'] =
@@ -98,7 +61,7 @@ what makes up a parameter type?
 		functionsource = true,
 		fieldsource = true,
 		category = 'data',
-		default = function() return 1 end,
+		default = 1,
 		},
 	
 	['text gradient range'] =
@@ -108,36 +71,95 @@ what makes up a parameter type?
 		functionsource = true,
 		fieldsource = true,
 		category = 'data',
-		default = function() return 2 end,
-		},
-	
-	['progress color gradient'] =
-		{
-		datatype = 'color gradient',
-		optional = true,
-		staticsource = true,
-		category = 'style',
-		default = function() return {} end,
+		default = 1,
 		},
 	
 	['progress index'] =
 		{
 		datatype = 'number',
---		main = true,
 		functionsource = true,
 		fieldsource = true,
 		category = 'data',
-		default = function() return {} end,
+		default = 1,
 		},
 	
 	['progress range'] =
 		{
 		datatype = 'number',
---		main = true,
 		functionsource = true,
 		fieldsource = true,
 		category = 'data',
-		default = function() return {} end,
+		default = 1,
+		},
+	
+	-- ['font scale'] =
+		-- {
+		-- datatype = 'number',
+		-- optional = true,
+		-- staticsource = true,
+		-- category = 'style',
+		-- default = 1,
+		-- largestep = 0.1,
+		-- smallstep = 0.01,
+		-- minimum = 0.5,
+		-- maximum = 5,
+		-- displayformat = '%.2f',
+		-- },
+	
+	['widget width'] =
+		{
+		datatype = 'number',
+		optional = true,
+		staticsource = true,
+		category = 'layout',
+		default = 10,
+		largestep = .01,
+		smallstep = .0001
+		minimum = 0,
+		maximum = 1,
+		scale = 640,
+		},
+	
+	['widget height'] =
+		{
+		datatype = 'number',
+		optional = true,
+		staticsource = true,
+		category = 'layout',
+		default = 2,
+		largestep = .01,
+		smallstep = .0001
+		minimum = 0,
+		maximum = 1,
+		scale = 480,
+		},
+	
+	['text padding'] =
+		{
+		datatype = 'slow number',
+		optional = true,
+		staticsource = true,
+		category = 'layout',
+		default = 0,
+		step = 1,
+		minimum = 0,
+		maximum = 48,
+		},
+	
+	['same line'] =
+		{
+		datatype = 'boolean',
+		staticsource = true,
+		category = 'layout',
+		default = function() return true end,
+		},
+	
+	['scale progress bar'] =
+		{
+		datatype = 'boolean',
+		staticsource = true,
+		category = 'style',
+		default = function() return true end,
 		},
 	
 	['widget color'] =
@@ -149,38 +171,38 @@ what makes up a parameter type?
 		default = function() return {.9, .2, .2, 1} end,
 		},
 	
-	-- ['font scale'] =
-		-- {
-		-- datatype = 'number',
-		-- optional = true,
-		-- staticsource = true,
-		-- },
-	
-	['scale progress bar'] =
+	['text color'] =
 		{
-		datatype = 'boolean',
-		-- optional = true,
+		datatype = 'color',
+		optional = true,
 		staticsource = true,
 		category = 'style',
-		default = function() return true end,
+		default = function() return {.8, .8, .8, 1} end,
 		},
 	
-	['widget width'] =
+	['text color gradient'] =
 		{
-		datatype = 'number',
+		datatype = 'color gradient',
 		optional = true,
 		staticsource = true,
-		category = 'layout',
-		default = function() return 48 end,
+		category = 'style',
+		default = function() return {} end,
 		},
 	
-	['widget height'] =
+	['progress color gradient'] =
 		{
-		datatype = 'number',
+		datatype = 'color gradient',
 		optional = true,
 		staticsource = true,
-		category = 'layout',
-		default = function() return 24 end,
+		category = 'style',
+		default = function() return {} end,
+		},
+	
+	['format table'] =
+		{
+		datatype = 'format table',
+		staticsource = true,
+		category = 'data',
 		},
 	
 	}
@@ -195,7 +217,7 @@ local function validateparameters(self)
 	self.ready = true
 end -- local function validateparameters(self)
 ------------------------------------------------------------------------
-local function evaluategradient(self, colorparam, gradientparam, indexparam, rangeparam,)
+local function evaluategradient(self, colorparam, gradientparam, indexparam, rangeparam)
 	
 	if self[gradientparam] then
 		local index = self[indexparam] / self[rangeparam]
@@ -213,7 +235,7 @@ end -- local function evaluategradient(self)
 local function display(self)
 	if self['ready'] then
 		if self['same line'] then imgui.SameLine() end
-		evaluategradient(self, 'text color', 'text color gradient', 'text gradient index', 'text gradient range',)
+		evaluategradient(self, 'text color', 'text color gradient', 'text gradient index', 'text gradient range')
 		return true
 	else
 		return false
@@ -222,8 +244,7 @@ end -- local function display(self)
 ------------------------------------------------------------------------
 local function combobox(data, key, combolist)
 	imgui.PushItemWidth(8 + (8 * combolist.longest))
-		local changed, newvalue = imgui.Combo
-			('##' .. key, combolist[data[key]], combolist, #combolist)
+		local changed, newvalue = imgui.Combo('##' .. key, combolist[data[key]], combolist, #combolist)
 	imgui.PopItemWidth()
 	if changed then data[key] = combolist[newvalue] end
 end
@@ -279,19 +300,94 @@ local paramedit = {}
 paramedit['string'] = function(widget, paramname)
 	imgui.Text(paramname)
 	imgui.SameLine()
-	local changed, newvalue = imgui.InputText
-end
+	local changed, newvalue = imgui.InputText('##' .. paramname, widget[paramname], 72)
+	if changed then widget[paramname] = newvalue end
+	
+	paramsourceeditor(widget, paramname)
+end -- paramedit['string'] = function
 ------------------------------------------------------------------------
 paramedit['boolean'] = function(widget, paramname)
-
-end
+	local changed, newvalue = imgui.Checkbox(paramname, widget[paramname])
+	if changed then widget[paramname] = newvalue end
+	
+	-- paramsourceeditor(widget, paramname)
+	-- so far, there's no reason to use game data for a boolean parameter
+end -- paramedit['boolean'] = function
 ------------------------------------------------------------------------
 paramedit['number'] = function(widget, paramname)
-
-end
+	local typedef = paramtype[paramname]
+	local displayvalue
+	if typedef.scale then
+		displayvalue = utility.round(widget[paramname] * typedef.scale)
+		-- displayvalue = string.format
+			-- {'%s', utility.round(widget[paramname] * typedef.scale)}
+			-- not sure if i need to convert to string
+	else
+		displayvalue = widget[paramname]
+	end -- if typedef.scale
+	
+	imgui.Text(paramname .. ':')
+	imgui.SameLine()
+	imgui.PushItemWidth(72)
+		
+		local changed, newvalue = imgui.DragFloat
+			{
+			'##' .. paramname,
+			widget[paramname],
+			typedef.largestep,
+			typedef.minimum,
+			typedef.maximum,
+			displayvalue
+			}
+		if changed then widget[paramname] = newvalue end
+		imgui.SameLine()
+		
+		changed, newvalue = imgui.DragFloat
+			{
+			'##finetune' .. paramname,
+			widget[paramname],
+			typedef.smallstep,
+			typedef.minimum,
+			typedef.maximum,
+			'fine tune'
+			}
+		if changed then widget[paramname] = newvalue end
+		
+	imgui.PopItemWidth()
+	
+	paramsourceeditor(widget, paramname)
+end -- paramedit['number'] = function
+------------------------------------------------------------------------
+paramedit['slow number'] = function(widget, paramname)
+	local typedef = paramtype[paramname]
+	
+	imgui.Text(paramname)
+	imgui.SameLine()
+	
+	imgui.PushItemWidth(96)
+		local changed, newvalue = imgui.InputFloat
+			{
+			'##' .. paramname,
+			data[paramname],
+			typedef.step,
+			1,
+			1,
+			data[paramname]
+			}
+	imgui.PopItemWidth()
+	if changed then
+		if newvalue < typedef.minimum then
+			newvalue = typedef.minimum
+		elseif newvalue > typedef.maximum then
+			newvalue = typedef.maximum
+		end
+		widget[paramname] = newvalue
+	end
+	
+end -- paramedit['slow number'] = function
 ------------------------------------------------------------------------
 paramedit['color'] = function(widget, paramname)
-
+	
 end
 ------------------------------------------------------------------------
 paramedit['color gradient'] = function(widget, paramname)
@@ -334,7 +430,8 @@ local widgets =
 			end
 			
 			if self['text color'] then
-				imgui.TextColored(unpack(self['text color']), self['display text'])
+				imgui.TextColored
+					{unpack(self['text color']), self['display text']}
 			else
 				imgui.Text(self['display text'])
 			end -- if self['text color']
@@ -367,29 +464,29 @@ local widgets =
 			'widget width',
 			'widget height',
 			'scale progress bar',
-			}
+			},
 		
 		display = function(self)
 			
 			if not display(self) then return end
 			evaluategradient
-				(
+				{
 				self,
 				'widget color',
 				'progress color gradient',
 				'progress index',
 				'progress range',
-				)
+				}
 			
 			imgui.PushStyleColor
-				(
+				{
 				'PlotHistogram',
 				unpack
 					(
 					self['widget color'] or
 					paramtype['widget color'].default()
 					)
-				)
+				}
 			if self['text color'] then
 				imgui.PushStyleColor('Text', unpack(self['text color']))
 			end
@@ -402,12 +499,12 @@ local widgets =
 			end
 			
 			imgui.ProgressBar
-				(
+				{
 				progress,
 				self['widget width'] or -1,
 				self['widget height'] or -1,
 				self['overlay text'] or '',
-				)
+				}
 			
 			if self['text color'] then imgui.PopStyleColor() end
 			imgui.PopStyleColor()
@@ -422,16 +519,12 @@ local widgets =
 	
 	} -- local widgets = {
 ------------------------------------------------------------------------
+widget.combolist = utility.buildcombolist(widgets)
+------------------------------------------------------------------------
 widget.new = function(typename, fieldlist)
 	
 	local newwidget = {}
 	setmetatable(newwidget, {__index = widgets[typename]})
-	
-	for _, param in ipairs(newwidget.parameters) do
-		if not paramtype[param].optional then
-			newwidget[param] = paramtype[param].default()
-		end
-	end
 	
 	-- if fieldlist then
 		-- newwidget.fieldcombolist = utility.buildcombobox(fieldlist)
@@ -439,19 +532,42 @@ widget.new = function(typename, fieldlist)
 	newwidget.fieldcombolist = fieldlist
 	newwidget.map = {}
 	
+	for _, param in ipairs(newwidget.parameters) do
+		local typedef = paramtype[param]
+		if not typedef.optional then
+			if type(typedef.default) == 'function' then
+				newwidget[param] = typedef.default()
+			else
+				newwidget[param] = typedef.default
+			end -- if type(typedef.default) == 'function'
+			
+			if not typedef.staticsource then
+				if fieldlist then
+					newwidget.map[param] = fieldlist[1]
+				else
+					newwidget.map[param] = datasource[typedef.datatype].combolist[1]
+				end
+			end
+		end -- if not typedef.optional
+	end -- for _, param in ipairs(newwidget.parameters)
+	
 	return newwidget
 	
 end -- widget.new = function(typename)
-------------------------------------------------------------------------
-widget.combolist = utility.buildcombolist(widgets)
 ------------------------------------------------------------------------
 local addwidgettype = function(newwidgetname, newwidgetdef)
 	widgets[newwidgetname] = newwidgetdef
 	widget.combolist = utility.buildcombolist(widgets)
 end
 ------------------------------------------------------------------------
-local function setdatasource(newdatasource)
+widget.setdatasource = function(newdatasource)
 	datasource = newdatasource
+end
+------------------------------------------------------------------------
+widget.setscreenresolution(width, height)
+	for _, typedef in pairs(paramtype) do
+		-- if 
+	end
 end
 ------------------------------------------------------------------------
 return widget

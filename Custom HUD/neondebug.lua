@@ -12,24 +12,14 @@ local function writetolog(text)
 	end
 end
 
+local function timestamp() return os.date('%T> ') end
+
 neondebug.enablelogging = function()
 	loggingenabled = true
-	writetolog('\n\nsession log start\n')
+	writetolog('\n\n'.. timestamp() .. 'session log start\n')
 end
 
 neondebug.log = function(message, timeoutlength)
-	-- if timeoutlength then
-		-- if timeout[message] then
-			-- if os.time() >= timeout[message] then -- timeout expired
-				-- timeout[message] = os.time() + timeoutlength
-			-- else
-				-- return
-			-- end
-		-- else
-			-- timeout[message] = os.time() + timeoutlength
-		-- end
-	-- end
-	
 	if timeoutlength then
 		if timeout[message] and os.time() < timeout[message] then
 			-- too soon to log another message
@@ -39,9 +29,7 @@ neondebug.log = function(message, timeoutlength)
 		end
 	end
 	
-	if loggingenabled then
-		writetolog(os.date('%T> ') .. message .. '\n')
-	end
+	if loggingenabled then writetolog(timestamp() .. message .. '\n') end
 end
 
 neondebug.update = function(key, value)

@@ -5,11 +5,11 @@ Catherine S (IzumiDaye/NeonLuna)
 ]]
 
 local core_mainmenu = require('core_mainmenu')
-local neondebug = require('Custom HUD.neondebug')
-local psodata = require('Custom HUD.psodata')
-local utility = require('Custom HUD.utility')
-local widget = require('Custom HUD.widget')
-neondebug.update('this is a test', 'wow')
+local neondebug = require('custom hud.neondebug')
+local psodata = require('custom hud.psodata')
+local utility = require('custom hud.utility')
+local widget = require('custom hud.widget')
+-- neondebug.update('this is a test', 'wow')
 neondebug.enablelogging()
 
 local replacements =
@@ -237,12 +237,6 @@ local function showlist(window, list, fielddata)
 	end -- for index, item in ipairs(list)
 	
 end -- local function showlist
-
-local function round(number, places)
-	local mult
-	if places then mult = math.pow(10, places) else mult = 1 end
-	return math.floor(number * mult + 0.5) / mult
-end
 
 -- position and size values are stored as percentages; these functions scale those values based on the current game window size.
 local function scalex(value, offset)

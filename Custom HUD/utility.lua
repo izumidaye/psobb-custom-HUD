@@ -1,5 +1,11 @@
 local utility = {}
 
+utility.round = function(number, places)
+	local mult
+	if places then mult = math.pow(10, places) else mult = 1 end
+	return math.floor(number * mult + 0.5) / mult
+end
+
 utility.serialize = function(sourcedata, currentoffset)
 -- convert entire table into a string, so it can be written to a file. recurses for nested tables.
 	

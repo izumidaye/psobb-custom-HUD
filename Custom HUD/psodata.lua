@@ -5,6 +5,8 @@ Kill Counter code copyright Stephen C. Wills (Staphen)
 Modifications copyright Catherine Sciuridae (NeonLuna)
 ]]
 
+local utility = require('custom hud.utility')
+
 local _bankPointer = 0x00A95DE0 + 0x18
 
 local itemOffset={weapon=0x00,armor=0x04,mag=0x10,tool=0x0C,unit=0x08}
@@ -739,13 +741,14 @@ do -- define psodata getter functions
 		-- end
 	-- end
 	
-	sf.combolist = buildcombolist(sf)
-	nf.combolist = buildcombolist(nf)
-	lf.combolist = buildcombolist(lf)
+	sf.combolist = utility.buildcombolist(sf)
+	nf.combolist = utility.buildcombolist(nf)
+	lf.combolist = utility.buildcombolist(lf)
 	
-	psodata['string'] = sf
-	psodata['number'] = nf
-	psodata['list'] = lf
+	psodata.retrieve = {}
+	psodata.retrieve['string'] = sf
+	psodata.retrieve['number'] = nf
+	psodata.retrieve['list'] = lf
 	-- psodata['boolean from pso data'] = bf
 	-- psodata.progressFunction = pf
 

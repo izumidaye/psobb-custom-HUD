@@ -22,34 +22,12 @@ local requireddefaults =
 	['editIndex'] = -1,
 	}
 
-local colorLabels = {'r', 'g', 'b', 'a'}
-
 -- local checkMemoryOffset = 0
 
 local data
 -- 'data' will be overwritten in init(), so initializing here doesn't work
 
-local dfNames = {}
 local windownames
-local widgets = {}
-local widgetSpecs = {}
-local widgetDefaults = {}
-local widgetNames = {}
-local widgetConfig = {}
-
-local function mapcall(window, item, fielddata)
-	local a = item.args
-	if item.map then
-		for name, value in pairs(item.map) do
-			if type(value) == 'string' then
-				a[name] = fielddata[value]
-			else
-				a[name] = psodata[value[1]][value[2]]()
-			end -- if type(value) == 'string'
-		end -- for name, value in pairs(map)
-	end -- if map
-	widgets[item.widgetType](window, a)
-end
 
 local function editlist(list, fieldsavailable)
 	local dragthisframe = false
@@ -324,18 +302,6 @@ local function newCompositeString()
 end
 
 do --define widgetConfig functions
-
-	widgetConfig.string = function(argName, data, req)
-		imgui.Text(argName)
-		imgui.SameLine()
-		if req == 'optional' then
-			if imgui.Button('clear##' .. argName) then data[argName]=nil end
-			imgui.SameLine()
-		end
-		local displayValue = data[argName] or ''
-		local changed, newValue = imgui.InputText('##' .. argName, displayValue, 100)
-		if changed then data[argName]=newValue end
-	end
 
 	widgetConfig.number = function(argName, data, req, minValue, maxValue, step, format, displayValue)
 		minValue = minValue or 0

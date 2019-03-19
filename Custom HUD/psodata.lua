@@ -604,7 +604,7 @@ psodata.retrievePsoData = function()
 	lastTime = os.time()
 end -- local function retrievePsoData
 
-psodata.get = function(key) return GameData[key] end
+-- psodata.get = function(key) return GameData[key] end
 
 psodata.currentLocation = function() return GameData.currentLocation end
 
@@ -659,98 +659,173 @@ do -- define psodata getter functions
 	local bf = {} -- boolean functions
 	local pf = {} -- progress functions
 
-	sf['Player Current HP'] = function() return GameData.playerHP end
-	sf['Player Maximum HP'] = function() return GameData.playerHPmax end
-	sf['Player Current TP'] = function() return GameData.playerTP end
-	sf['Player Maximum TP'] = function() return GameData.playerTPmax end
-	sf['Invulnerability Time'] = function() return GameData.playerInvulnerabilityTime end
-	sf['Player Level'] = function() return GameData.level end
-	sf['Level Base XP'] = function() return GameData.thisLevelXp end
-	sf['XP Progress'] = function() return GameData.levelProgress end
-	sf['Player ATA'] = function() return GameData.ata end
-	sf['Pack Meseta'] = function() return GameData.meseta end
-	sf['Session Time Elapsed'] = function() return GameData.elapsedTime end
-	sf['Session XP Accumulated'] = function() return GameData.sessionXp end
-	sf['Session Time in Dungeon'] = function() return GameData.dungeonTime end
-	sf['Pack Slots Used'] = function() return GameData.inventorySpaceUsed end
-	sf['Pack Slots Free'] = function() return 30 - GameData.inventorySpaceUsed end
-	sf['Bank Slots Used'] = function() return GameData.bankSpaceUsed end
-	sf['Bank Slots Free'] = function() return 200 - GameData.bankSpaceUsed end
-	sf['Bank Meseta'] = function() return GameData.bankMeseta end
-	sf['HP: Current/Maximum'] = function() return GameData.playerHP .. '/' .. GameData.playerHPmax end
-	sf['TP: Current/Maximum'] = function() return GameData.playerTP .. '/' .. GameData.playerTPmax end
-	sf['XP Progress/Needed'] = function() return GameData.levelProgress .. '/' .. GameData.thisLevelXp end
-	sf['XP to Next Level'] = function() return GameData.thisLevelXp - GameData.levelProgress end
-	sf['XP/Second This Session'] = function() return GameData.sessionXp / GameData.elapsedTime end
-	sf['kXP/Hour This Session'] = function() return GameData.sessionXp / GameData.elapsedTime * 3.6 end
-	sf['XP/Second in Dungeon'] = function() return GameData.sessionXp / GameData.dungeonTime end
-	sf['kXP/Hour in Dungeon'] = function() return GameData.sessionXp / GameData.dungeonTime * 3.6 end
-	sf['Pack Space: Used/Total'] = function() return GameData.inventorySpaceUsed .. '/30' end
-	sf['Bank Space: Used/Total'] = function() return GameData.bankSpaceUsed .. '/200' end
+	sf['player current hp'] = function() return GameData.playerHP end
+	sf['player maximum hp'] = function() return GameData.playerHPmax end
+	sf['player current tp'] = function() return GameData.playerTP end
+	sf['player maximum tp'] = function() return GameData.playerTPmax end
+	sf['invulnerability time'] = function() return GameData.playerInvulnerabilityTime end
+	sf['player level'] = function() return GameData.level end
+	sf['level base xp'] = function() return GameData.thisLevelXp end
+	sf['xp progress'] = function() return GameData.levelProgress end
+	sf['player ata'] = function() return GameData.ata end
+	sf['pack meseta'] = function() return GameData.meseta end
+	sf['session time elapsed'] = function() return GameData.elapsedTime end
+	sf['session xp accumulated'] = function() return GameData.sessionXp end
+	sf['session time in dungeon'] = function() return GameData.dungeonTime end
+	sf['pack slots used'] = function() return GameData.inventorySpaceUsed end
+	sf['pack slots free'] = function() return 30 - GameData.inventorySpaceUsed end
+	sf['bank slots used'] = function() return GameData.bankSpaceUsed end
+	sf['bank slots free'] = function() return 200 - GameData.bankSpaceUsed end
+	sf['bank meseta'] = function() return GameData.bankMeseta end
+	sf['hp: current/maximum'] = function() return GameData.playerHP .. '/' .. GameData.playerHPmax end
+	sf['tp: current/maximum'] = function() return GameData.playerTP .. '/' .. GameData.playerTPmax end
+	sf['xp progress/needed'] = function() return GameData.levelProgress .. '/' .. GameData.thisLevelXp end
+	sf['xp to next level'] = function() return GameData.thisLevelXp - GameData.levelProgress end
+	sf['xp/second this session'] = function() return GameData.sessionXp / GameData.elapsedTime end
+	sf['kxp/hour this session'] = function() return GameData.sessionXp / GameData.elapsedTime * 3.6 end
+	sf['xp/second in dungeon'] = function() return GameData.sessionXp / GameData.dungeonTime end
+	sf['kxp/hour in dungeon'] = function() return GameData.sessionXp / GameData.dungeonTime * 3.6 end
+	sf['pack space: used/total'] = function() return GameData.inventorySpaceUsed .. '/30' end
+	sf['bank space: used/total'] = function() return GameData.bankSpaceUsed .. '/200' end
 
-	nf['player current hp'] = sf['Player Current HP']
-	nf['player maximum hp'] = sf['Player Maximum HP']
-	nf['player current tp'] = sf['Player Current TP']
-	nf['player maximum tp'] = sf['Player Maximum TP']
-	nf['invulnerability time'] = sf['Invulnerability Time']
-	nf['player level'] = sf['Player Level']
-	nf['current level base xp'] = sf['Current Level Base XP']
-	nf['current level xp progress'] = sf['Current Level XP Progress']
-	nf['player ata'] = sf['Player ATA']
-	nf['pack meseta'] = sf['Pack Meseta']
-	nf['session time elapsed'] = sf['Session Time Elapsed']
-	nf['session xp accumulated'] = sf['Session XP Accumulated']
-	nf['session time in dungeon'] = sf['Session Time in Dungeon']
-	nf['pack slots used'] = sf['Pack Slots Used']
-	nf['pack slots free'] = sf['Pack Slots Free']
-	nf['bank slots used'] = sf['Bank Slots Used']
-	nf['bank slots free'] = sf['Bank Slots Free']
-	nf['bank meseta'] = sf['Bank Meseta']
-	nf['player xp: to next level'] = sf['Player XP: to Next Level']
-	nf['xp/second this session'] = sf['XP/Second This Session']
-	-- sf['kXP/Hour This Session']
-	nf['xp/second in dungeon'] = sf['XP/Second in Dungeon']
-	-- sf['kXP/Hour in Dungeon']
-
-	lf['Inventory Items'] = function() return GameData.inventory end
-	lf['Floor Items'] = function() return GameData.floorItems end
-	lf['Bank Items'] = function() return GameData.bank end
-	lf['Party Members'] = function() return GameData.party end
-	lf['Monsters in Current Room'] = function() return GameData.monsterList end
+	sf['inventory items'] = function() return GameData.inventory end
+	sf['floor items'] = function() return GameData.floorItems end
+	sf['bank items'] = function() return GameData.bank end
+	sf['party members'] = function() return GameData.party end
+	sf['monsters in current room'] = function() return GameData.monsterList end
 
 	-- bf['Player Status: Frozen'] = function() return GameData.playerFrozen end
 	-- bf['Player Status: Confused'] = function() return GameData.playerConfused end
 	-- bf['Player Status: Paralyzed'] = function() return GameData.playerParalyzed end
 
-	-- pf['Player HP'] = function() return GameData.playerHP / GameData.playerHPmax end
-	-- pf['Player TP'] = function() return GameData.playerTP / GameData.playerTPmax end
-	-- pf['Player Deband/Zalure Timer'] = function()
-		-- local result = 0
-		-- result = GameData.playerDefTech.timeLeft / GameData.playerDefTech.totalTime
-	-- end
-	-- pf['Player Shifta/Jellen Timer'] = function() return GameData.playerAtkTech.timeLeft / GameData.playerAtkTech.totalTime end
-	-- pf['XP Progress'] = function() return GameData.levelProgress / GameData.thisLevelXp end
+	sf['player hp'] = function() return GameData.playerHP / GameData.playerHPmax end
+	sf['player tp'] = function() return GameData.playerTP / GameData.playerTPmax end
+	sf['player deband/zalure timer'] = function()
+		local result = 0
+		result = GameData.playerDefTech.timeLeft / GameData.playerDefTech.totalTime
+	end
+	sf['player shifta/jellen timer'] = function() return GameData.playerAtkTech.timeLeft / GameData.playerAtkTech.totalTime end
+	sf['xp progress'] = function() return GameData.levelProgress / GameData.thisLevelXp end
 
-	-- pf['Player S/D/J/Z Timer'] = function()
-		-- defFloat = GameData.playerDefTech.timeLeft / GameData.playerDefTech.totalTime
-		-- atkFloat = GameData.playerAtkTech.timeLeft / GameData.playerAtkTech.totalTime
-		-- if (defFloat == 0) or (defFloat > atkFloat) then
-			-- return atkFloat
+	sf['player s/d/j/z timer'] = function()
+		defFloat = GameData.playerDefTech.timeLeft / GameData.playerDefTech.totalTime
+		atkFloat = GameData.playerAtkTech.timeLeft / GameData.playerAtkTech.totalTime
+		if (defFloat == 0) or (defFloat > atkFloat) then
+			return atkFloat
+		else
+			return defFloat
+		end
+	end
+	
+	-- local function timeuntilchange(time1, time2)
+		-- if (time1 == 0) or ((time2 < time1) and (time2 ~= 0)) then
+			-- return time2
 		-- else
-			-- return defFloat
+			-- return time1
 		-- end
 	-- end
 	
-	sf.combolist = utility.buildcombolist(sf)
-	nf.combolist = utility.buildcombolist(nf)
-	lf.combolist = utility.buildcombolist(lf)
+	-- sf['s/d/j/z time left'] = function()
+		-- return timeuntilchange
+			-- { GameData.playerDefTech.timeLeft,
+			-- GameData.playerAtkTech.timeLeft }
+	-- end
 	
-	psodata.retrieve = {}
-	psodata.retrieve['string'] = sf
-	psodata.retrieve['number'] = nf
-	psodata.retrieve['list'] = lf
+	-- sf['s/d/j/z starting time'] = function()
+		-- return timeuntilchange
+			-- { GameData.playerDefTech.totalTime,
+			-- GameData.playerAtkTech.totalTime }
+	-- end
+	
+	psodata.combolist =
+		{
+		['string'] =
+			{
+			'player current hp',
+			'player maximum hp',
+			'player current tp',
+			'player maximum tp',
+			'invulnerability time',
+			'player level',
+			'level base xp',
+			'xp progress',
+			'player ata',
+			'pack meseta',
+			'session time elapsed',
+			'session xp accumulated',
+			'session time in dungeon',
+			'pack slots used',
+			'pack slots free',
+			'bank slots used',
+			'bank slots free',
+			'bank meseta',
+			'hp: current/maximum',
+			'tp: current/maximum',
+			'xp: progress/needed',
+			'xp to next level',
+			'xp/second this session',
+			'xp/second in dungeon',
+			'pack space: used/total',
+			'bank space: used/total',
+			},
+		['number'] =
+			{
+			'player current hp',
+			'player maximum hp',
+			'player current tp',
+			'player maximum tp',
+			'invulnerability time',
+			'player level',
+			'level base xp',
+			'xp progress',
+			'player ata',
+			'pack meseta',
+			'session time elapsed',
+			'session xp accumulated',
+			'session time in dungeon',
+			'pack slots used',
+			'pack slots free',
+			'bank slots used',
+			'bank slots free',
+			'bank meseta',
+			'xp to next level',
+			'xp/second this session',
+			'xp/second in dungeon',
+			},
+		['list'] =
+			{
+			'inventory items',
+			'floor items',
+			'bank items',
+			'party members',
+			'monsters in current room',
+			},
+		['progress'] =
+			{
+			'player hp',
+			'player tp',
+			'player deband/zalure timer',
+			'player shifta/jellen timer',
+			'player s/d/j/z timer',
+			'xp progress',
+			},
+		}
+	
+	for _, list in pairs(psodata.combolist) do
+		utility.addcombolist(list)
+	end
+	
+	-- sf.combolist = utility.buildcombolist(sf)
+	-- nf.combolist = utility.buildcombolist(nf)
+	-- lf.combolist = utility.buildcombolist(lf)
+	
+	psodata.get = sf
+	-- psodata.retrieve['string'] = sf
+	-- psodata.retrieve['number'] = nf
+	-- psodata.retrieve['list'] = lf
 	-- psodata['boolean from pso data'] = bf
 	-- psodata.progressFunction = pf
+	
 
 	psodata.listFields = {}
 	psodata.listSubFields = {}
@@ -796,39 +871,39 @@ do -- define psodata getter functions
 	
 	psodata.shortname =
 		{
-		['Player Current HP'] = 'HP',
-		['Player Maximum HP'] = 'maxHP',
-		['Player Current TP'] = 'TP',
-		['Player Maximum TP'] = 'maxTP',
-		['Invulnerability Time'] = 'invuln',
-		['Player Level'] = 'lv',
-		['Level Base XP'] = 'baseXP',
-		['XP progress'] = 'XP',
-		['Player ATA'] = 'ATA',
-		['Pack Meseta'] = 'meseta',
-		['Session Time Elapsed'] = 'stime',
-		['Session XP Accumulated'] = 'sXP',
-		['Session Time in Dungeon'] = 'dtime',
-		['Pack Slots Used'] = 'pitems',
-		['Pack Slots Free'] = 'pspace',
-		['Bank Slots Used'] = 'bitems',
-		['Bank Slots Free'] = 'bspace',
-		['Bank Meseta'] = 'bmoney',
-		['HP: Current/Maximum'] = 'HP/max',
-		['TP: Current/Maximum'] = 'TP/max',
-		['XP Progress/Needed'] = 'XP/nxt',
-		['XP to Next Level'] = 'XP TNL',
-		['XP/Second This Session'] = 'XP/st',
-		['kXP/Hour This Session'] = 'kXP/ht',
-		['XP/Second in Dungeon'] = 'XP/sd',
-		['kXP/Hour in Dungeon'] = 'kXP/hd',
-		['Pack Space: Used/Total'] = 'pack/m',
-		['Bank Space: Used/Total'] = 'bank/m',
-		['Player HP'] = 'HP',
-		['Player TP'] = 'TP',
-		['Player Deband/Zalure Timer'] = 'D/Z',
-		['Player Shifta/Jellen Timer'] = 'S/J',
-		['Player S/D/J/Z Timer'] = 'SDJZ'
+		['player current hp'] = 'hp',
+		['player maximum hp'] = 'maxhp',
+		['player current tp'] = 'tp',
+		['player maximum tp'] = 'maxtp',
+		['invulnerability time'] = 'invuln',
+		['player level'] = 'lv',
+		['level base xp'] = 'basexp',
+		['xp progress'] = 'xp',
+		['player ata'] = 'ata',
+		['pack meseta'] = 'meseta',
+		['session time elapsed'] = 'stime',
+		['session xp accumulated'] = 'sxp',
+		['session time in dungeon'] = 'dtime',
+		['pack slots used'] = 'pitems',
+		['pack slots free'] = 'pspace',
+		['bank slots used'] = 'bitems',
+		['bank slots free'] = 'bspace',
+		['bank meseta'] = 'bmoney',
+		['hp: current/maximum'] = 'hp/max',
+		['tp: current/maximum'] = 'tp/max',
+		['xp progress/needed'] = 'xp/nxt',
+		['xp to next level'] = 'xp tnl',
+		['xp/second this session'] = 'xp/st',
+		['kxp/hour this session'] = 'kxp/ht',
+		['xp/second in dungeon'] = 'xp/sd',
+		['kxp/hour in dungeon'] = 'kxp/hd',
+		['pack space: used/total'] = 'pack/m',
+		['bank space: used/total'] = 'bank/m',
+		['player hp'] = 'hp',
+		['player tp'] = 'tp',
+		['player deband/zalure timer'] = 'd/z',
+		['player shifta/jellen timer'] = 's/j',
+		['player s/d/j/z timer'] = 'sdjz'
 		}
 
 end

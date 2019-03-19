@@ -61,7 +61,7 @@ utility.serialize = function(sourcedata, currentoffset)
 	return result
 end -- local function serialize(sourcedata)
 
-utility.buildcombolist = function(itemlist)
+utility.tablecombolist = function(sourcetable)
 -- takes a string-indexed table, and returns an alphabetized index array with built-in reverse lookup.
 	
 	local resultlist = {}
@@ -69,10 +69,12 @@ utility.buildcombolist = function(itemlist)
 	local longest = 12
 	-- space needed when list is displayed in a combo box
 	
-	for key, _ in pairs(itemlist) do
-		table.insert(resultlist, key)
-		longest = math.max(longest, string.len(key))
-	end -- for key, _ in pairs(itemlist)
+	for key, item in pairs(sourcetable) do
+		if not item.hidden then
+			table.insert(resultlist, key)
+			longest = math.max(longest, string.len(key))
+		end
+	end -- for key, _ in pairs(sourcetable)
 	resultlist.longest = longest
 	
 	table.sort(resultlist, function(string1, string2) return string.lower(string1) < string.lower(string2) end)
@@ -81,6 +83,15 @@ utility.buildcombolist = function(itemlist)
 	end
 	
 	return resultlist
-end -- local function buildcombolist(itemlist)
+end -- local function buildcombolist(sourcetable)
+
+utility.addcombolist = function(sourcearray)
+-- sort array and add reverse lookup
+	table.sort(sourcearray, function(string1, string2) return string.lower(string1) < string.lower(string2) end)
+	for index, value in ipairs(sourcearray) do
+		sourcearray[value] = index
+		sourcearray.longest = math.max(sourcearray.longest, string.len(value))
+	end
+end
 
 return utility

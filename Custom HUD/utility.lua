@@ -1,14 +1,11 @@
 local utility = {}
 
-<<<<<<< HEAD
 utility.round = function(number, places)
 	local mult
 	if places then mult = math.pow(10, places) else mult = 1 end
 	return math.floor(number * mult + 0.5) / mult
 end
 
-=======
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 utility.serialize = function(sourcedata, currentoffset)
 -- convert entire table into a string, so it can be written to a file. recurses for nested tables.
 	
@@ -64,11 +61,7 @@ utility.serialize = function(sourcedata, currentoffset)
 	return result
 end -- local function serialize(sourcedata)
 
-<<<<<<< HEAD
 utility.tablecombolist = function(sourcetable)
-=======
-utility.buildcombolist = function(itemlist)
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 -- takes a string-indexed table, and returns an alphabetized index array with built-in reverse lookup.
 	
 	local resultlist = {}
@@ -76,19 +69,12 @@ utility.buildcombolist = function(itemlist)
 	local longest = 12
 	-- space needed when list is displayed in a combo box
 	
-<<<<<<< HEAD
 	for key, item in pairs(sourcetable) do
 		if not item.hidden then
 			table.insert(resultlist, key)
 			longest = math.max(longest, string.len(key))
 		end
 	end -- for key, _ in pairs(sourcetable)
-=======
-	for key, _ in pairs(itemlist) do
-		table.insert(resultlist, key)
-		longest = math.max(longest, string.len(key))
-	end -- for key, _ in pairs(itemlist)
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 	resultlist.longest = longest
 	
 	table.sort(resultlist, function(string1, string2) return string.lower(string1) < string.lower(string2) end)
@@ -97,7 +83,6 @@ utility.buildcombolist = function(itemlist)
 	end
 	
 	return resultlist
-<<<<<<< HEAD
 end -- local function buildcombolist(sourcetable)
 
 utility.addcombolist = function(sourcearray)
@@ -108,8 +93,5 @@ utility.addcombolist = function(sourcearray)
 		sourcearray.longest = math.max(sourcearray.longest, string.len(value))
 	end
 end
-=======
-end -- local function buildcombolist(itemlist)
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 
 return utility

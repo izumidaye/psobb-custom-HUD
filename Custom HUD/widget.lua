@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 local utility = require('custom hud.utility')
-=======
-local utility = require('Custom HUD.utility')
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 
 local datasource
 local widget = {}
@@ -21,18 +17,6 @@ what makes up a parameter type?
 ]]
 	
 	['widget name'] =
-<<<<<<< HEAD
-=======
-		{
-		datatype = 'string',
-		optional = true,
-		staticsource = true,
-		category = 'miscellaneous',
-		default = function() return '' end,
-		}
-	
-	['format table'] =
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 		{
 		datatype = 'string',
 		optional = true,
@@ -239,11 +223,7 @@ local function validateparameters(self)
 	self.ready = true
 end -- local function validateparameters(self)
 ------------------------------------------------------------------------
-<<<<<<< HEAD
 local function evaluategradient(self, colorparam, gradientparam, indexparam)
-=======
-local function evaluategradient(self, colorparam, gradientparam, indexparam, rangeparam,)
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 	
 	if self[gradientparam] then
 		for _, colorlevel in ipairs(self[gradientparam]) do
@@ -257,11 +237,7 @@ local function evaluategradient(self, colorparam, gradientparam, indexparam, ran
 	
 end -- local function evaluategradient(self)
 ------------------------------------------------------------------------
-<<<<<<< HEAD
 local function display(self, fieldlist)
-=======
-local function display(self)
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 	if self['ready'] then
 		if self['same line'] then imgui.SameLine() end
 		evaluategradient(self, 'text color', 'text color gradient', 'text gradient index', 'text gradient range')
@@ -283,38 +259,23 @@ end -- local function display(self)
 ------------------------------------------------------------------------
 local function combobox(data, key, combolist)
 	imgui.PushItemWidth(8 + (8 * combolist.longest))
-<<<<<<< HEAD
 		local changed, newvalue = imgui.Combo('##' .. key, combolist[data[key]], combolist, #combolist)
-=======
-		local changed, newvalue = imgui.Combo
-			('##' .. key, combolist[data[key]], combolist, #combolist)
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 	imgui.PopItemWidth()
 	if changed then data[key] = combolist[newvalue] end
 end
 ------------------------------------------------------------------------
-<<<<<<< HEAD
 local function paramsourceeditor(self, paramname)
-=======
-local function paramsourceeditor(widget, paramname)
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 	
 	local typedef = paramtype[paramname]
 	
 	if typedef.optional then
 		if imgui.Button('clear##' .. paramname) then
-<<<<<<< HEAD
 			self[paramname] = nil
 			self.map[paramname] = nil
-=======
-			widget[paramname] = nil
-			widget.map[paramname] = nil
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 		end
 		imgui.SameLine()
 	end
 	
-<<<<<<< HEAD
 	if self.fieldcombolist then
 		if typedef.fieldsource then
 			imgui.Text('source:')
@@ -326,24 +287,10 @@ local function paramsourceeditor(widget, paramname)
 					self.map[paramname] = self.fieldcombolist[1]
 				end
 			end -- if self.map[paramname]
-=======
-	if widget.fieldcombolist then
-		if typedef.fieldsource then
-			imgui.Text('source:')
-			imgui.SameLine()
-			if widget.map[paramname] then
-				combobox(widget.map, paramname, widget.fieldcombolist)
-			else
-				if imgui.Button('use list field##' .. paramname) then
-					widget.map[paramname] = widget.fieldcombolist[1]
-				end
-			end -- if widget.map[paramname]
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 			imgui.SameLine()
 		end -- if typedef.fieldsource
 		
 	elseif typedef.functionsource then
-<<<<<<< HEAD
 		if self.map[paramname] then
 			combobox(self.map, paramname, datasource[typedef.datatype].combolist)
 		else
@@ -358,28 +305,11 @@ local function paramsourceeditor(widget, paramname)
 		if imgui.Button('use static value##' .. paramname) then
 			self.map[paramname] = nil
 			self[paramname] = typedef.default()
-=======
-		if widget.map[paramname] then
-			combobox(widget.map, paramname, datasource[typedef.datatype].combolist)
-		else
-			if imgui.Button('use game data##' .. paramname) then
-				widget.map[paramname] = datasource[typedef.datatype].combolist[1]
-			end
-		end -- if widget.map[paramname]
-		imgui.SameLine()
-	end -- if widget.fieldcombolist
-	
-	if typedef.staticsource and widget.map[paramname] then
-		if imgui.Button('use static value##' .. paramname) then
-			widget.map[paramname] = nil
-			widget[paramname] = typedef.default()
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 		end
 	end
 	
 end -- local function paramsourceeditor
 ------------------------------------------------------------------------
-<<<<<<< HEAD
 local colorlabels = {'r', 'g', 'b', 'a'}
 local paramedit
 paramedit =
@@ -516,51 +446,15 @@ paramedit =
 	
 	end, -- ['format table'] = function
 	} -- local paramedit = {...}
-=======
-local paramedit = {}
-------------------------------------------------------------------------
-paramedit['string'] = function(widget, paramname)
-	imgui.Text(paramname)
-	imgui.SameLine()
-	local changed, newvalue = imgui.InputText
-end
-------------------------------------------------------------------------
-paramedit['boolean'] = function(widget, paramname)
-
-end
-------------------------------------------------------------------------
-paramedit['number'] = function(widget, paramname)
-
-end
-------------------------------------------------------------------------
-paramedit['color'] = function(widget, paramname)
-
-end
-------------------------------------------------------------------------
-paramedit['color gradient'] = function(widget, paramname)
-
-end
-------------------------------------------------------------------------
-paramedit['format table'] = function(widget, paramname)
-
-end
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 ------------------------------------------------------------------------
 local widgets =
 	{
 	['text'] =
 		{
-<<<<<<< HEAD
 		parameters = {'widget name', 'display text', 'text color', 'same line', 'text color gradient', 'text gradient index', --[['font scale',]]},
 		display = function(self, fieldlist)
 			if not display(self, fieldlist) then return end
 			-- evaluategradient(self, 'text color', 'text color gradient', 'text gradient index')
-=======
-		parameters = {'widget name', 'display text', 'text color', 'same line', 'text color gradient', 'text gradient index', 'text gradient range', --[['font scale',]]},
-		display = function(self)
-			if not display(self) then return end
-			-- evaluategradient(self, 'text color', 'text color gradient', 'text gradient index', 'text gradient range',)
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 			if self['text color'] then
 				imgui.TextColored(unpack(self['text color']), self['display text'])
 			else
@@ -665,7 +559,6 @@ local widgets =
 		end, -- display = function(self)
 		}, -- ['progress bar'] = {
 	
-<<<<<<< HEAD
 	['widget list'] =
 		{
 		parameters =
@@ -694,16 +587,6 @@ local function edit(self)
 end -- local function edit
 ------------------------------------------------------------------------
 widget.new = function(typename, fieldcombolist)
-=======
-	-- ['formatted table'] =
-		-- {
-		
-		-- },
-	
-	} -- local widgets = {
-------------------------------------------------------------------------
-widget.new = function(typename, fieldlist)
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 	
 	local newwidget = {}
 	setmetatable(newwidget, {__index = widgets[typename]})
@@ -731,27 +614,15 @@ widget.new = function(typename, fieldlist)
 		end -- if not typedef.optional
 	end -- for _, param in ipairs(newwidget.parameters)
 	
-	-- if fieldlist then
-		-- newwidget.fieldcombolist = utility.buildcombobox(fieldlist)
-	-- end
-	newwidget.fieldcombolist = fieldlist
-	newwidget.map = {}
-	
 	return newwidget
 	
 end -- widget.new = function(typename)
 ------------------------------------------------------------------------
-<<<<<<< HEAD
-=======
-widget.combolist = utility.buildcombolist(widgets)
-------------------------------------------------------------------------
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 local addwidgettype = function(newwidgetname, newwidgetdef)
 	widgets[newwidgetname] = newwidgetdef
 	widget.combolist = utility.buildcombolist(widgets)
 end
 ------------------------------------------------------------------------
-<<<<<<< HEAD
 widget.setdatasource = function(newdatasource)
 	datasource = newdatasource
 end
@@ -762,10 +633,4 @@ widget.setscreenresolution(width, height)
 	end
 end
 ------------------------------------------------------------------------
-=======
-local function setdatasource(newdatasource)
-	datasource = newdatasource
-end
-------------------------------------------------------------------------
->>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 return widget

@@ -5,12 +5,31 @@ Catherine S (IzumiDaye/NeonLuna)
 ]]
 
 local core_mainmenu = require('core_mainmenu')
+<<<<<<< HEAD
 local neondebug = require('custom hud.neondebug')
 local psodata = require('custom hud.psodata')
 local utility = require('custom hud.utility')
 local widget = require('custom hud.widget')
 -- neondebug.update('this is a test', 'wow')
 neondebug.enablelogging()
+=======
+local neondebug = require('Custom HUD.neondebug')
+local psodata = require('Custom HUD.psodata')
+local utility = require('Custom HUD.utility')
+local widget = require('Custom HUD.widget')
+neondebug.update('this is a test', 'wow')
+neondebug.enablelogging()
+
+local replacements =
+	{
+	
+	}
+
+local requireddefaults =
+	{
+	['editIndex'] = -1,
+	}
+>>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 
 local replacements =
 	{
@@ -27,7 +46,31 @@ local requireddefaults =
 local data
 -- 'data' will be overwritten in init(), so initializing here doesn't work
 
+<<<<<<< HEAD
 local windownames
+=======
+local dfNames = {}
+local windownames
+local widgets = {}
+local widgetSpecs = {}
+local widgetDefaults = {}
+local widgetNames = {}
+local widgetConfig = {}
+
+local function mapcall(window, item, fielddata)
+	local a = item.args
+	if item.map then
+		for name, value in pairs(item.map) do
+			if type(value) == 'string' then
+				a[name] = fielddata[value]
+			else
+				a[name] = psodata[value[1]][value[2]]()
+			end -- if type(value) == 'string'
+		end -- for name, value in pairs(map)
+	end -- if map
+	widgets[item.widgetType](window, a)
+end
+>>>>>>> 9c04c7cd01a29cdf0f43029f2280da6d32f1e0ec
 
 local function editlist(list, fieldsavailable)
 	local dragthisframe = false

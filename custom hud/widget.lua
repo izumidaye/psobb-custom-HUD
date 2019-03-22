@@ -1,217 +1,9 @@
 local utility = require('custom hud.utility')
+local paramtype = require('custom hud.paramtype')
+local paramedit = require('custom hud.paramedit')
 
-local datasource
+local datasource = {}
 local widget = {}
-------------------------------------------------------------------------
-local paramtype =
-	{
---[[
-what makes up a parameter type?
-
-* data type: string, number, slow number, boolean, progress, color, list
-* subtype: color level, widget
-* optional or not
-* source of data: static, function, or table field
-* category: data, style, layout, or miscellaneous
-* default value
-]]
-	
-	['widget name'] =
-		{
-		datatype = 'string',
-		optional = true,
-		staticsource = true,
-		category = 'miscellaneous',
-		default = '',
-		},
-	
-	['display text'] =
-		{
-		datatype = 'string',
-		staticsource = true,
-		functionsource = true,
-		fieldsource = true,
-		category = 'data',
-		default = 'taco cat backwards is taco cat',
-		},
-	
-	['overlay text'] =
-		{
-		datatype = 'string',
-		optional = true,
-		staticsource = true,
-		functionsource = true,
-		fieldsource = true,
-		category = 'data',
-		default = 'taco cat backwards is taco cat',
-		},
-	
-	['label text'] =
-		{
-		datatype = 'string',
-		optional = true,
-		staticsource = true,
-		category = 'data',
-		default = 'taco cat backwards is taco cat',
-		},
-	
-	-- ['font scale'] =
-		-- {
-		-- datatype = 'number',
-		-- optional = true,
-		-- staticsource = true,
-		-- category = 'style',
-		-- default = 1,
-		-- largestep = 0.1,
-		-- smallstep = 0.01,
-		-- minimum = 0.5,
-		-- maximum = 5,
-		-- displayformat = '%.2f',
-		-- },
-	
-	['widget width'] =
-		{
-		datatype = 'number',
-		optional = true,
-		staticsource = true,
-		category = 'layout',
-		default = 10,
-		largestep = .01,
-		smallstep = .0001
-		minimum = 0,
-		maximum = 1,
-		scale = 640,
-		},
-	
-	['widget height'] =
-		{
-		datatype = 'number',
-		optional = true,
-		staticsource = true,
-		category = 'layout',
-		default = 2,
-		largestep = .01,
-		smallstep = .0001
-		minimum = 0,
-		maximum = 1,
-		scale = 480,
-		},
-	
-	['text padding'] =
-		{
-		datatype = 'slow number',
-		optional = true,
-		staticsource = true,
-		category = 'layout',
-		default = 0,
-		step = 1,
-		minimum = 0,
-		maximum = 48,
-		},
-	
-	['same line'] =
-		{
-		datatype = 'boolean',
-		staticsource = true,
-		category = 'layout',
-		default = true,
-		},
-	
-	['scale progress bar'] =
-		{
-		datatype = 'boolean',
-		staticsource = true,
-		category = 'style',
-		default = true,
-		},
-	
-	['bar progress'] =
-		{
-		datatype = 'progress',
-		fieldsource = 'true',
-		functionsource = 'true',
-		category = 'data',
-		default = 1,
-		}
-	
-	['text gradient index'] =
-		{
-		datatype = 'progress',
-		optional = true,
-		functionsource = true,
-		fieldsource = true,
-		category = 'data',
-		default = 1,
-		},
-	
-	['widget color'] =
-		{
-		datatype = 'color',
-		optional = true,
-		staticsource = true,
-		category = 'style',
-		default = function() return {.9, .2, .2, 1} end,
-		},
-	
-	['text color'] =
-		{
-		datatype = 'color',
-		optional = true,
-		staticsource = true,
-		category = 'style',
-		default = function() return {.8, .8, .8, 1} end,
-		},
-	
-	['text color gradient'] =
-		{
-		datatype = 'list',
-		subtype = 'color level',
-		optional = true,
-		staticsource = true,
-		category = 'style',
-		default = function() return {} end,
-		},
-	
-	['progress color gradient'] =
-		{
-		datatype = 'list',
-		subtype = 'color level',
-		optional = true,
-		staticsource = true,
-		category = 'style',
-		default = function() return {} end,
-		},
-	
-	['widget list'] =
-		{
-		datatype = 'list',
-		subtype = 'widget',
-		staticsource = true,
-		category = 'data',
-		default = function() return {} end,
-		listitem = function(self, id, active)
-			local clicked = false
-			local name
-			if self['widget name'] then
-				name = self['widget name']
-			else
-			if active then
-				imgui.PushStyleColor('Button', .2, .5, 1, 1)
-				imgui.PushStyleColor('ButtonHovered', .3, .7, 1, 1)
-				imgui.PushStyleColor('ButtonActive', .5, .9, 1, 1)
-				clicked = imgui.Button(name .. '##' .. id)
-				imgui.PopStyleColor()
-				imgui.PopStyleColor()
-				imgui.PopStyleColor()
-			else
-				imgui.PushStyleColor('Button', .5, .5, .5, .3)
-				clicked = imgui.Button(name .. '##' .. index)
-				imgui.PopStyleColor()
-			end -- if list.selected == index
-		end, -- listitem = function(self
-		}, -- ['widget list'] = {...}
-	
-	}
 ------------------------------------------------------------------------
 local function validateparameters(self)
 	for _, parameter in ipairs(self.parameters) do
@@ -257,334 +49,189 @@ local function display(self, fieldlist)
 	end -- if self.fieldcombolist and fieldlist
 end -- local function display(self)
 ------------------------------------------------------------------------
-local function combobox(data, key, combolist)
-	imgui.PushItemWidth(8 + (8 * combolist.longest))
-		local changed, newvalue = imgui.Combo('##' .. key, combolist[data[key]], combolist, #combolist)
-	imgui.PopItemWidth()
-	if changed then data[key] = combolist[newvalue] end
-end
+local widgets = {}
 ------------------------------------------------------------------------
-local function paramsourceeditor(self, paramname)
+widgets['text'] = {
+	widgettype = 'text',
+	parameters =
+		{
+		-- 'widget name',
+		'display text',
+		'text color',
+		'same line',
+		'text color gradient',
+		'text gradient index',
+		'long name',
+		'short name',
+		--[[ 'font scale',]]
+		}, -- parameters = {...}
 	
-	local typedef = paramtype[paramname]
-	
-	if typedef.optional then
-		if imgui.Button('clear##' .. paramname) then
-			self[paramname] = nil
-			self.map[paramname] = nil
-		end
-		imgui.SameLine()
-	end
-	
-	if self.fieldcombolist then
-		if typedef.fieldsource then
-			imgui.Text('source:')
-			imgui.SameLine()
-			if self.map[paramname] then
-				combobox(self.map, paramname, self.fieldcombolist)
-			else
-				if imgui.Button('use list field##' .. paramname) then
-					self.map[paramname] = self.fieldcombolist[1]
-				end
-			end -- if self.map[paramname]
-			imgui.SameLine()
-		end -- if typedef.fieldsource
-		
-	elseif typedef.functionsource then
-		if self.map[paramname] then
-			combobox(self.map, paramname, datasource[typedef.datatype].combolist)
+	display = function(self, fieldlist)
+		if not display(self, fieldlist) then return end
+		-- evaluategradient(self, 'text color', 'text color gradient', 'text gradient index')
+		if self['text color'] then
+			imgui.TextColored(unpack(self['text color']), self['display text'])
 		else
-			if imgui.Button('use game data##' .. paramname) then
-				self.map[paramname] = datasource[typedef.datatype].combolist[1]
-			end
-		end -- if self.map[paramname]
-		imgui.SameLine()
-	end -- if self.fieldcombolist
-	
-	if typedef.staticsource and self.map[paramname] then
-		if imgui.Button('use static value##' .. paramname) then
-			self.map[paramname] = nil
-			self[paramname] = typedef.default()
-		end
-	end
-	
-end -- local function paramsourceeditor
+			imgui.Text(self['display text'])
+		end -- if self['text color']
+	end, -- display = function
+	} -- widgets['text'] = {...}
 ------------------------------------------------------------------------
-local colorlabels = {'r', 'g', 'b', 'a'}
-local paramedit
-paramedit =
-	{
-	['string'] = function(self, paramname)
-		imgui.Text(paramname)
-		imgui.SameLine()
-		local changed, newvalue =
-			imgui.InputText('##' .. paramname, self[paramname], 72)
-		if changed then self[paramname] = newvalue end
+widgets['labeled value'] = {
+	widgettype = 'labeled value',
+	parameters =
+		{
+		-- 'widget name',
+		'text color',
+		'same line',
+		'display text',
+		'label text',
+		'text color gradient',
+		'text gradient index',
+		'text gradient range',
+		}, -- parameters = {...}
 		
-		paramsourceeditor(self, paramname)
-	end, -- ['string'] = function
-
-	['number'] = function(self, paramname)
-		local typedef = paramtype[paramname]
-		local displayvalue
-		if typedef.scale then
-			displayvalue = utility.round(self[paramname] * typedef.scale)
-			-- displayvalue = string.format
-				-- {'%s', utility.round(self[paramname] * typedef.scale)}
-				-- not sure if i need to convert to string
+	display = function(self)
+		if not display(self) then return end
+		
+		if self['label text'] then
+			imgui.BeginGroup()
+				imgui.Text('|\n|')
+			imgui.EndGroup()
+			
+			imgui.BeginGroup()
+				imgui.Text(self['label text'])
+		end -- if self['label text']
+		
+		if self['text color'] then
+			imgui.TextColored
+				{unpack(self['text color']), self['display text']}
 		else
-			displayvalue = self[paramname]
-		end -- if typedef.scale
+			imgui.Text(self['display text'])
+		end -- if self['text color']
 		
-		imgui.Text(paramname .. ':')
-		imgui.SameLine()
-		imgui.PushItemWidth(72)
+		if self['label text'] then
+			imgui.EndGroup()
 			
-			local changed, newvalue = imgui.DragFloat
-				{
-				'##' .. paramname,
-				self[paramname],
-				typedef.largestep,
-				typedef.minimum,
-				typedef.maximum,
-				displayvalue
-				}
-			if changed then self[paramname] = newvalue end
-			imgui.SameLine()
-			
-			changed, newvalue = imgui.DragFloat
-				{
-				'##finetune' .. paramname,
-				self[paramname],
-				typedef.smallstep,
-				typedef.minimum,
-				typedef.maximum,
-				'fine tune'
-				}
-			if changed then self[paramname] = newvalue end
-			
-		imgui.PopItemWidth()
+			imgui.BeginGroup()
+				imgui.Text('|\n|')
+			imgui.EndGroup()
+		end -- if self['label text']
 		
-		paramsourceeditor(self, paramname)
-	end, -- ['number'] = function
-
-	['slow number'] = function(self, paramname)
-		local typedef = paramtype[paramname]
-		
-		imgui.Text(paramname)
-		imgui.SameLine()
-		
-		imgui.PushItemWidth(96)
-			local changed, newvalue = imgui.InputFloat
-				{
-				'##' .. paramname,
-				data[paramname],
-				typedef.step,
-				1,
-				1,
-				data[paramname]
-				}
-		imgui.PopItemWidth()
-		if changed then
-			if newvalue < typedef.minimum then
-				newvalue = typedef.minimum
-			elseif newvalue > typedef.maximum then
-				newvalue = typedef.maximum
-			end
-			self[paramname] = newvalue
-		end
-		
-	end, -- ['slow number'] = function
-
-	['boolean'] = function(self, paramname)
-		local changed, newvalue = imgui.Checkbox(paramname, self[paramname])
-		if changed then self[paramname] = newvalue end
-		
-		-- paramsourceeditor(self, paramname)
-		-- no reason to use game data for a boolean parameter?
-	end, -- ['boolean'] = function
-
-	['progress'] = function(self, paramname)
-		imgui.Text(paramname)
-		imgui.SameLine()
-		
-		paramsourceeditor(self, paramname)
-	end, -- ['progress'] = function
-
-	['color'] = function(self, paramname)
-		imgui.Text(paramname)
-		
-		imgui.PushItemWidth(40)
-			for i = 1, 4 do
-				imgui.SameLine()
-				local changed, newvalue = imgui.DragFloat
-					{
-					'##' .. paramname .. colorlabels[i],
-					self[paramname][i] * 255,
-					1,
-					0,
-					255,
-					colorlabels[i] .. ':%.0f'
-					}
-				if changed then self[paramname][i] = newvalue / 255 end
-			end
-		imgui.PopItemWidth()
-		
-		imgui.SameLine()
-		imgui.ColorButton(unpack(self[paramname]))
-	end, -- ['color'] = function
-	
-	['list'] = function(self, paramname)
-		
-	end, -- ['list'] = function
-	
-	['color gradient'] = function(self, paramname)
-		-- paramedit['color'](self, paramname)
-	end, -- ['color gradient'] = function
-	
-	['format table'] = function(self, paramname)
-	
-	end, -- ['format table'] = function
-	} -- local paramedit = {...}
+	end, -- display = function(self)
+	} -- widgets['labeled value'] = {...}
 ------------------------------------------------------------------------
-local widgets =
-	{
-	['text'] =
+widgets['progress bar'] = {
+	widgettype = 'progress bar',
+	parameters =
 		{
-		parameters = {'widget name', 'display text', 'text color', 'same line', 'text color gradient', 'text gradient index', --[['font scale',]]},
-		display = function(self, fieldlist)
-			if not display(self, fieldlist) then return end
-			-- evaluategradient(self, 'text color', 'text color gradient', 'text gradient index')
-			if self['text color'] then
-				imgui.TextColored(unpack(self['text color']), self['display text'])
-			else
-				imgui.Text(self['display text'])
-			end -- if self['text color']
-		end, -- display = function(self)
-		}, -- ['text'] = {
+		-- 'widget name',
+		'overlay text',
+		'text color',
+		'text color gradient',
+		'same line',
+		'progress color gradient',
+		'bar progress',
+		'widget color',
+		'widget width',
+		'widget height',
+		'scale progress bar',
+		}, -- parameters = {...}
 	
-	['labeled value'] =
-		{
-		parameters = {'widget name', 'text color', 'same line', 'display text', 'label text', 'text color gradient', 'text gradient index', 'text gradient range',},
-		display = function(self)
-			if not display(self) then return end
-			
-			if self['label text'] then
-				imgui.BeginGroup()
-					imgui.Text('|\n|')
-				imgui.EndGroup()
-				
-				imgui.BeginGroup()
-					imgui.Text(self['label text'])
-			end
-			
-			if self['text color'] then
-				imgui.TextColored
-					{unpack(self['text color']), self['display text']}
-			else
-				imgui.Text(self['display text'])
-			end -- if self['text color']
-			
-			if self['label text'] then
-				imgui.EndGroup()
-				
-				imgui.BeginGroup()
-					imgui.Text('|\n|')
-				imgui.EndGroup()
-			end
-			
-		end, -- display = function(self)
-		}, -- ['labeled value'] = {
-	
-	['progress bar'] =
-		{
+	display = function(self)
 		
-		parameters =
+		if not display(self) then return end
+		evaluategradient
 			{
-			'widget name',
-			'overlay text',
-			'text color',
-			'text color gradient',
-			'same line',
+			self,
+			'widget color',
 			'progress color gradient',
 			'bar progress',
-			'widget color',
-			'widget width',
-			'widget height',
-			'scale progress bar',
-			},
+			}
 		
-		display = function(self)
-			
-			if not display(self) then return end
-			evaluategradient
-				{
-				self,
-				'widget color',
-				'progress color gradient',
-				'bar progress',
-				}
-			
-			imgui.PushStyleColor
-				{
-				'PlotHistogram',
-				unpack
-					(
-					self['widget color'] or
-					paramtype['widget color'].default()
-					)
-				}
-			if self['text color'] then
-				imgui.PushStyleColor('Text', unpack(self['text color']))
-			end
-			
-			local progress
-			if self['scale progress bar'] then
-				progress = self['bar progress']
-			else
-				progress = 1
-			end
-			
-			imgui.ProgressBar
-				{
-				progress,
-				self['widget width'] or -1,
-				self['widget height'] or -1,
-				self['overlay text'] or '',
-				}
-			
-			if self['text color'] then imgui.PopStyleColor() end
-			imgui.PopStyleColor()
-			
-		end, -- display = function(self)
-		}, -- ['progress bar'] = {
-	
-	['widget list'] =
-		{
-		parameters =
+		imgui.PushStyleColor
 			{
-			'widget list',
-			},
+			'PlotHistogram',
+			unpack
+				{
+				self['widget color'] or
+				paramtype['widget color'].default()
+				}
+			}
+		if self['text color'] then
+			imgui.PushStyleColor('Text', unpack(self['text color']))
+		end
 		
-		display = function(self)
-			
-		end,
-		}, -- ['widget list'] = {...}
-	
-	-- ['formatted table'] =
-		-- {
+		local progress
+		if self['scale progress bar'] then
+			progress = self['bar progress']
+		else
+			progress = 1
+		end
 		
-		-- }, -- ['formatted table'] = {...}
+		imgui.ProgressBar
+			{
+			progress,
+			self['widget width'] or -1,
+			self['widget height'] or -1,
+			self['overlay text'] or '',
+			}
+		
+		if self['text color'] then imgui.PopStyleColor() end
+		imgui.PopStyleColor()
+		
+	end, -- display = function(self)
+	} -- widgets['progress bar'] = {...}
+------------------------------------------------------------------------
+widgets['widget list'] = {
+	widgettype = 'widget list',
+	parameters =
+		{
+		'widget list',
+		'font scale',
+		}, -- parameters = {...}
 	
-	} -- local widgets = {
+	display = function(self)
+		for _, childwidget in ipairs(self['widget list']) do
+			childwidget:display()
+		end
+	end, -- display = function
+	} -- widgets['widget list'] = {...}
+------------------------------------------------------------------------
+--[[widgets['formatted table'] = {
+	widgettype = 'text',
+	parameters =
+		{
+		
+		},
+	
+	display = function(self)
+	
+	end,
+	} -- widgets['formatted table'] = {...}]]
 ------------------------------------------------------------------------
 widget.combolist = utility.tablecombolist(widgets)
 ------------------------------------------------------------------------
 local function edit(self)
 	for _, param in ipairs(self.parameters) do
-		paramedit[paramtype[param].datatype](self, param)
+		local typedef = paramtype[param]
+		if not typedef.hidden then
+			paramedit[typedef.datatype](self, param)
+		end
 	end
 end -- local function edit
+------------------------------------------------------------------------
+local function serialize(self)
+	local result
+	for key, value in pairs(self) do
+		if not (key == 'parameters' or type(value) == 'function') then
+			if type(value) == 'table' then
+				result[key] = serialize(value)
+			result[key] = value
+		end
+	end -- for key, value in pairs(self)
+	return result
+end -- local function serialize
 ------------------------------------------------------------------------
 widget.new = function(typename, fieldcombolist)
 	
@@ -609,7 +256,7 @@ widget.new = function(typename, fieldcombolist)
 					newwidget.map[param] = fieldcombolist[1]
 				else
 					newwidget.map[param] = datasource.combolist[typedef.datatype][1]
-				end
+				end -- if fieldcombolist
 			end
 		end -- if not typedef.optional
 	end -- for _, param in ipairs(newwidget.parameters)

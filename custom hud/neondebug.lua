@@ -55,6 +55,11 @@ neondebug.present = function()
 		end
 	end
 	
+	-- local changed, newValue = imgui.InputInt('##checkMemoryOffset', checkMemoryOffset)
+	-- imgui.SameLine()
+	-- if changed then checkMemoryOffset = newValue end
+	-- showText({1,1,1,1}, '+' .. checkMemoryOffset .. ': ' .. pso.read_u32(0x00A97F44 + checkMemoryOffset))
+	
 	imgui.End()
 	return stayopen
 end

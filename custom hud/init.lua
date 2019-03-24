@@ -9,485 +9,53 @@ local neondebug = require('custom hud.neondebug')
 local psodata = require('custom hud.psodata')
 local utility = require('custom hud.utility')
 local widget = require('custom hud.widget')
+local paramedit = require('custom hud.paramedit')
+local default = require('custom hud.default')
+local convert = require('custom hud.language_english')
 -- neondebug.update('this is a test', 'wow')
 neondebug.enablelogging()
 
-local replacements =
-	{
-	
-	}
-
-local requireddefaults =
-	{
-	['editindex'] = -1,
-	}
-
--- local checkMemoryOffset = 0
-
+-- initialize values in init()
 local huddata
--- 'huddata' will be overwritten in init(), so initializing here doesn't work
-
 local windownames
 
-local usedids
+-- local usedids
 local freedids
 
-local function newid()
+local function getuniqueid()
 	local result
 	if #freedids > 0 then
 		result = table.remove(freedids, 1)
 	else
-		result = #usedids + 1
+		result = #huddata.windowlist + 1
 	end
-	usedids[result] = true
+	-- usedids[result] = true
 	return result
 end
 
 local function freeid(id)
 	table.insert(freedids, id)
-	usedids[id] = nil
+	-- usedids[id] = nil
 end
 
--- position and size values are stored as percentages; these functions scale those values based on the current game window size.
-local function scalex(value, offset)
-	if offset then
-		offset = 1 - offset / 100
-	else
-		offset = 1
-	end
-	return round((value / 100) * psodata.screenWidth * offset)
+local function checkbox(list, paramname)
+	local changed, newvalue = imgui.Checkbox(paramname, list[paramname])
+	if changed then list[paramname] = newvalue end
 end
 
-local function scaley(value, offset)
-	if offset then
-		offset = 1 - offset / 100
-	else
-		offset = 1
-	end
-	return round((value / 100) * psodata.screenHeight * offset)
+local function text(textdata, color)
+	color = color or default('text color')
+	imgui.TextColored(color[1], color[2], color[3], color[4], textdata)
 end
 
-local function unscalex(value, offset)
-	if offset then
-		offset = 1 - offset / 100
-	else
-		offset = 1
-	end
-	return value / psodata.screenWidth * 100 / offset
+local function textconstant(textdata, color)
+	color = color or default('text color')
+	imgui.TextColored(color[1], color[2], color[3], color[4], convert(textdata))
 end
 
-local function unscaley(value, offset)
-	if offset then
-		offset = 1 - offset / 100
-	else
-		offset = 1
-	end
-	return value / psodata.screenHeight * 100 / offset
-end
 
-local function savetable(filename, tabletosave)
--- saves current HUD configuration to disk as a runnable lua script.
-	
-	local outputstring = 'return\n' .. utility.serialize(tabletosave)
-	
-	local file = io.open('addons/custom hud/' .. filename .. '.lua', 'w')
-	if file then
-		io.output(file)
-		io.write(outputstring)
-		io.close(file)
-	end
-end
 
-local function loadtable(filename)
--- loads table from a lua file if the file returns a table when run
-	local success, tabledata = pcall(require, 'custom hud.' .. filename)
-	if success then return tabledata end
-end
-
-do --define widgetConfig functions
-
-	widgetConfig.colorGradient = function(paramname, paramlist, req)
-		local gradientList = paramlist[paramname]
-		imgui.Text(paramname)
-		imgui.SameLine()
-		if req == 'optional' then
-			if imgui.Button('clear##' .. paramname) then paramlist[paramname]=nil end
-		end
-		if not gradientList then
-			imgui.SameLine()
-			if imgui.Button('edit##' .. paramname) then
-				paramlist[paramname] = {{0,{0, 0, 0, 1}},{1,{1, 1, 1, 1}}}
-			end
-		else -- not gradientList
-			local addNew, addIndex = false, 1
-			local deleteLevel, deleteIndex = false, 1
-			local step = 0.01
-			local gfs = paramlist['global font scale'] or 1
-			-- imgui.PushItemWidth(40 * gfs)
-			
-			imgui.Text('Value >=')
-			for i = 1,4 do
-				imgui.SameLine((72 + (40 * (i - 1))) * gfs)
-				imgui.Text(colorLabels[i])
-			end
-			-- if imgui.Button('Add##first') then
-				-- addNew, addIndex = true, 1
-			-- end
-			
-			imgui.PushItemWidth(32 * gfs)
-			for index, colorLevel in ipairs(gradientList) do
-				local minValue, maxValue
-				local prevLevel = gradientList[index-1]
-				local nextLevel = gradientList[index+1]
-				if prevLevel then minValue = prevLevel[1] + step else minValue = 0 end
-				if nextLevel then maxValue = nextLevel[1] - step else maxValue = 1 end
-				
-				if index > 1 and index < #gradientList then
-					imgui.PushItemWidth(56 * gfs)
-					local changed, newValue = imgui.DragFloat('##value' .. index .. paramname, colorLevel[1], step, minValue, maxValue, '%.2f')
-					imgui.PopItemWidth()
-					if changed then colorLevel[1] = newValue end
-				else
-					imgui.Text(colorLevel[1])
-				end
-				
-				for i = 1,4 do
-					imgui.SameLine((72 + (40 * (i - 1))) * gfs)
-					local changed, newValue = imgui.DragFloat('##' .. index .. paramname .. colorLabels[i], colorLevel[2][i] * 255, 1, 0, 255, '%.0f')
-					if changed then colorLevel[2][i] = newValue / 255 end
-				end
-				imgui.SameLine()
-				imgui.ColorButton(unpack(colorLevel[2]))
-				
-				if index > 1 and index < #gradientList then
-					imgui.SameLine(252 * gfs)
-					if imgui.Button('Delete##' .. index) then
-						deleteLevel, deleteIndex = true, index
-					end
-				end
-				
-				if index < #gradientList then
-					imgui.SameLine(308 * gfs)
-					if imgui.Button('Add After##' .. index) then
-						addNew, addIndex = true, index+1
-					end
-				end
-				
-			end
-			imgui.PopItemWidth()
-			if addNew then
-				local newLevel = {0, {}}
-				local newColor = {0, 0, 0, 1}
-				if addIndex == 1 then
-					newLevel[1] = gradientList[1][1] + step
-				elseif addIndex > #paramlist[paramname] then
-					newLevel[1] = gradientList[#gradientList][1] - step
-				else
-					newLevel[1] = (gradientList[addIndex-1][1] + gradientList[addIndex][1]) / 2
-					for i = 1, 4 do
-						newColor[i] = (gradientList[addIndex-1][2][i] + gradientList[addIndex][2][i]) / 2
-					end
-				end
-				newLevel[2] = newColor
-				table.insert(gradientList, addIndex, newLevel)
-			elseif deleteLevel then
-				table.remove(gradientList, deleteIndex)
-			end
-		end -- if not gradientList
-	end -- widgetConfig.colorGradient = function
-
-	local compositeString0 = function(paramname, paramlist, req)
-		local segmentList = paramlist[paramname]
-		local anyChange = false
-		imgui.Text(paramname)
-		if req == 'optional' then
-			imgui.SameLine()
-			if segmentList then
-				if imgui.Button('clear##' .. paramname) then
-					paramlist[paramname]=nil
-					anyChange = true
-				end
-			else -- segmentList == nil
-				if imgui.Button('edit##' .. paramname) then
-					paramlist[paramname] = newCompositeString()
-					anyChange = true
-					-- possible contents:
-					-- 'whatever' - a string to be displayed
-					-- {'function name', #zero fill} - pso paramlist to be displayed
-				end -- if imgui.Button('edit##' .. paramname)
-			end -- if segmentList
-		end -- if req == 'optional'
-		if not segmentList then return end
-		local addString, addData, addIndex = false, false, 1
-		local deleteSegment, deleteIndex = false, 1
-		local gfs = huddata['global font scale'] or 1
-		if imgui.Button('add string##first' .. paramname) then
-			addString, addIndex = true, 1
-		end
-		imgui.SameLine()
-		if imgui.Button('add paramlist##first' .. paramname) then
-			addData, addIndex = true, 1
-		end
-		for index, segment in ipairs(segmentList) do
-			if type(segment) == 'string' then
-				imgui.PushItemWidth(150 * gfs)
-				local changed, newValue = imgui.InputText('##static string' .. paramname .. index, segment, 100)
-				imgui.PopItemWidth()
-				if changed then
-					segmentList[index] = newValue
-					anyChange = true
-				end
-			else -- segment is not a string
-				imgui.PushItemWidth(360)
-				local changed, newValue = imgui.Combo('##string function' .. paramname .. index, dfNames['stringFunction'][segment[1]] or 1, dfNames['stringFunction'], #dfNames['stringFunction'])
-				imgui.PopItemWidth()
-				if changed then
-					segment[1] = dfNames['stringFunction'][newValue]
-					anyChange = true
-				end
-				imgui.SameLine()
-				imgui.PushItemWidth(76)
-				changed, newValue = imgui.InputInt('##padding' .. paramname .. index, segment[2])
-				imgui.PopItemWidth()
-				if changed then
-					segment[2] = newValue
-					anyChange = true
-				end
-			end -- if type(segment) == 'string'
-			imgui.SameLine()
-			if imgui.Button('delete##' .. paramname .. index) then
-				deleteSegment, deleteIndex = true, index
-			end
-			-- if index < #segmentList then
-				imgui.SameLine()
-				if imgui.Button('add string after##' .. paramname .. index) then
-					addString, addIndex = true, index + 1
-				end
-				imgui.SameLine()
-				if imgui.Button('add paramlist after##' .. paramname .. index) then
-					addData, addIndex = true, index + 1
-				end
-			-- end -- if index < #segmentList
-		end -- for index, segment in ipairs(segmentList)
-		if addString then
-			table.insert(segmentList, addIndex, '')
-			anyChange = true
-		elseif addData then
-			table.insert(segmentList, addIndex, {'Player Current HP', 0})
-			anyChange = true
-		elseif deleteSegment then
-			table.remove(segmentList, deleteIndex)
-			anyChange = true
-		end
-		if anyChange then
-			compileCompositeString(segmentList)
-		end
-	end -- widgetConfig.composite = function
-
-	local function newFormatList(sourceFunction)
-		print(sourceFunction)
-		local formatTable = {['list source function'] = sourceFunction}
-		formatTable['format huddata'] = {['format string'] = ''}
-		formatTable['field list'] = {}
-		if psodata.listFields[sourceFunction] then
-			formatTable['sub format table'] = nil
-			formatTable['sub field table'] = nil
-			formatTable['subtype edit index'] = nil
-			-- formatTable['field combo list'] = utility.buildcombolist(psodata.listFields[sourceFunction])
-			formatTable['field combo list'] = psodata.listFields[sourceFunction]
-		else -- assume this sourceFunction has subtypes
-			formatTable['sub format table'] = {}
-			formatTable['sub field table'] = {}
-			local subFields = psodata.listSubFields[sourceFunction]
-			formatTable['subtype combo list'] = utility.buildcombolist(subFields)
-			formatTable['subtype edit index'] = formatTable['subtype combo list'][1]
-			for key, _ in pairs(subFields) do
-				formatTable['sub format table'][key] = {['format string'] = ''}
-				formatTable['sub field table'][key] = {}
-			end -- for key, _ in pairs(subFields)
-			-- formatTable['format huddata'] = ''
-			-- formatTable['field list'] = {}
-			-- formatTable['field combo list'] = utility.buildcombolist(psodata.listSubFields[sourceFunction][formatTable['subtype edit index']])
-			formatTable['field combo list'] = psodata.listSubFields[sourceFunction][formatTable['subtype edit index']]
-		end -- if psodata.listFields[sourceFunction]
-		return formatTable
-	end -- local function newFormatList
-
-	widgetConfig['format list'] = function(paramname, paramlist, req)
-		--[[
-		'format list' is a collection of paramlist that specifies how to transform a row of fields in a table into a displayable string.
-		components:
-		+ list source function (list function) - used to look up the list of potential fields contained by our source paramlist table. if this exists as a key in psodata.listFields, then every item in the table has the same type, and the same list of fields. if not, then we assume that it is instead a key in psodata.listSubFields, and that items in this table each have one of several different types, and a list of fields corresponding with that type.
-		+ format paramlist - first argument passed to string.format, and the list of static strings and field names that the format string is constructed from
-		+ field list - list of which item fields are used, in order
-		+ sub format table - used if source list has subtypes; format paramlist for each subtype
-		+ sub field table - used if source list has subtypes; list of used fields for each subtype
-		]]
-		local formatTable = paramlist[paramname]
-		if not formatTable then
-			formatTable = newFormatList('Party Members')
-			paramlist[paramname] = formatTable
-		end
-		local sourceFunction = formatTable['list source function']
-		local subeditindex
-		if formatTable['sub field table'] then
-			subeditindex = formatTable['subtype edit index']
-			local changed, newValue = imgui.Combo('##' .. paramname .. ' subtype combobox', formatTable['subtype combo list'][subeditindex], formatTable['subtype combo list'], #formatTable['subtype combo list'])
-			if changed then
-				-- formatTable['sub format list'][subeditindex] = formatTable['format string']
-				-- formatTable['sub field list'][subeditindex] = formatTable['field list']
-				subeditindex = formatTable['subtype combo list'][newValue]
-				formatTable['subtype edit index'] = subeditindex
-				-- formatTable['field combo list'] = utility.buildcombolist(psodata.listSubFields[sourceFunction][subeditindex])
-				formatTable['field combo list'] = psodata.listSubFields[sourceFunction][subeditindex]
-				formatTable['field list'] = formatTable['sub field table'][subeditindex]
-				formatTable['format paramlist'] = formatTable['sub format table'][subeditindex]
-			end -- if changed
-		end -- if formatTable['sub field list']
-		-- local usedFieldList, formatList
-		local usedFieldList = formatTable['field list']
-		local formatData = formatTable['format paramlist']
-		local anyChange = false
-		local addString, addField, addIndex = false, false, 1
-		local deleteSegment, deleteIndex = false, 1
-		local gfs = huddata['global font scale'] or 1
-		if imgui.Button('add string##first' .. paramname) then
-			addString, addIndex = true, 1
-		end
-		imgui.SameLine()
-		if imgui.Button('add field##first' .. paramname) then
-			addField, addIndex = true, 1
-		end
-		for index, segment in ipairs(formatData) do
-			if type(segment) == 'string' then
-				imgui.PushItemWidth(150 * gfs)
-				local changed, newValue = imgui.InputText('##static string ' .. paramname .. index, segment, 100)
-				imgui.PopItemWidth()
-				if changed then
-					formatData[index] = newValue
-					anyChange = true
-				end
-			else -- segment is not a string
-				imgui.PushItemWidth(160)
-				local changed, newValue = imgui.Combo('##item field combobox ' .. paramname .. index, formatTable['field combo list'][segment[1]], formatTable['field combo list'], #formatTable['field combo list'])
-				imgui.PopItemWidth()
-				if changed then
-					segment[1] = formatTable['field combo list'][newValue]
-					anyChange = true
-				end
-				imgui.SameLine()
-				imgui.PushItemWidth(76)
-				changed, newValue = imgui.InputInt('##padding' .. paramname .. index, segment[2])
-				imgui.PopItemWidth()
-				if changed then
-					segment[2] = newValue
-					anyChange = true
-				end
-			end -- if type(segment) == 'string'
-			imgui.SameLine()
-			if imgui.Button('delete##' .. paramname .. index) then
-				deleteSegment, deleteIndex = true, index
-			end
-			imgui.SameLine()
-			if imgui.Button('add string after##' .. paramname .. index) then
-				addString, addIndex = true, index + 1
-			end
-			imgui.SameLine()
-			if imgui.Button('add field after##' .. paramname .. index) then
-				addField, addIndex = true, index + 1
-			end
-		end -- for index, segment in ipairs(formatData)
-		if addString then
-			table.insert(formatData, addIndex, '')
-			anyChange = true
-		elseif addField then
-			table.insert(formatData, addIndex, {formatTable['field combo list'][1], 0})
-			anyChange = true
-		elseif deleteSegment then
-			table.remove(formatData, deleteIndex)
-			anyChange = true
-		end
-		imgui.Text(paramname .. '\n' .. 'paramlist source:')
-		imgui.SameLine()
-		local changed, newValue = imgui.Combo('##' .. paramname .. ' source paramlist function combobox', dfNames['listFunction'][sourceFunction] or 1, dfNames['listFunction'], #dfNames['listFunction'])
-		if changed then
-			anyChange = true
-			sourceFunction = dfNames['listFunction'][newValue]
-			paramlist[paramname] = newFormatList(sourceFunction)
-		end -- if changed
-		if anyChange then
-			formatData['format string'] = ''
-			usedFieldList = {}
-			for index, segment in ipairs(formatData) do
-				if type(segment) == 'string' then
-					formatData['format string'] = formatData['format string'] .. segment
-				else
-					formatData['format string'] = formatData['format string'] .. '%' .. segment[2] .. 's'
-					table.insert(usedFieldList, segment[1])
-				end -- if type(segment) == 'string'
-			end -- for index, segment in ipairs(formatData)
-			if formatTable['sub field table'] then
-			-- print(subeditindex)
-				formatTable['sub field table'][subeditindex] = usedFieldList
-				formatTable['sub format table'][subeditindex]['format string'] = formatData['format string']
-			else
-				formatTable['field list'] = usedFieldList
-			end -- if formatTable['sub field table')
-		end -- if anyChange
-	end -- widgetConfig['format list'] = function
-
-end -- do -- define widgetConfig functions
-
-local function showText(color, text)
-	imgui.TextColored(color[1], color[2], color[3], color[4], text)
-end
-
-do --define widgets and widgetSpecs
-	
-	widgetSpecs['show formatted list'] = {['format table']={fl,o}, ['text color']={c,o}}
-	widgetDefaults['show formatted list'] = {}
-	widgets['show formatted list'] = function(window, a)
-		local formatTable = a['format table']
-		if not formatTable then return end
-		local sourceFunction = formatTable['list source function']
-		local sourceList = psodata.listFunction[sourceFunction]()
-		local color = a['text color'] or window['textColor']
-		local fieldList = formatTable['field list']
-		local formatString = formatTable['format huddata']['format string']
-		local subTypes = false
-		-- local subFieldList, subFormatList = {}, {}
-		if formatTable['sub field table'] then
-			-- subFieldList = formatTable.subFieldList
-			-- subFormatList = formatTable.subFormatList
-			subTypes = true
-		end
-		for _, item in ipairs(sourceList) do
-			if subTypes then
-				-- print('trying to show a list which has subtypes')
-				fieldList = formatTable['sub field table'][item['type']]
-				formatString = formatTable['sub format table'][item['type']]['format string']
-			-- else
-				-- print('trying to show a list which does not have subtypes')
-			end
-			local itemData = {}
-			local notEmpty = false
-			for _, field in ipairs(fieldList) do
-				if item[field] then
-					table.insert(itemData, item[field])
-				else
-					table.insert(itemData, 0)
-				end -- if item[field]
-				notEmpty = true
-			end -- for_, field in ipairs(fieldList)
-			if notEmpty then
-				showText(color, string.format(formatString, unpack(itemData)))
-			end
-		end -- for _, item in ipairs(sourceList)
-	end -- widgets['show formatted list'] = function
-	
-end -- do --define widgets and widgetSpecs
-
-local function presentWindow(windowname)
+local function presentwindow(windowname)
 --[[
 'window' attributes (*denotes required): list {*title, *id, *x, *y, *w, *h, enabled, openEditor, optionchanged, fontScale, textColor, transparent, *options, *displayList}
 'options' format: list {noTitleBar, noResize, noMove, noScrollBar, AlwaysAutoResize}
@@ -551,27 +119,9 @@ local function presentWindow(windowname)
 		
 	imgui.End()
 	window.optionchanged = false
-end -- local function presentWindow(windowname)
+end -- local function presentwindow(windowname)
 
-local function flagCheckBox(windowname, a)
-	local window = huddata.windowlist[windowname]
-	local opt = window.options
-	if imgui.Checkbox(a.label .. '##' .. windowname, opt[a.index] == a.flag) then
-		if opt[a.index] == a.flag then
-			opt[a.index] = ''
-		else
-			opt[a.index] = a.flag
-		end
-		window.optionchanged = true
-	end
-end
-
-local function checkbox(list, paramname)
-	local changed, newvalue = imgui.Checkbox(paramname, list[paramname])
-	if changed then list[paramname] = newvalue end
-end
-
-local function presentWindowEditor(windowname)
+local function presentwindoweditor(windowname)
 	local window = huddata.windowlist[windowname]
 	local gfs = huddata['global font scale'] or 1
 	imgui.SetWindowFontScale(gfs)
@@ -742,11 +292,21 @@ local function presentWindowEditor(windowname)
 -- imgui.End()
 end
 
-local function newwindow()
-	local uniqueid = newid()
-	local offset = uniqueid * 5
-	return
+local function presentwindowoptions(windowid)
+	local thiswindow = huddata.windowlist[windowid]
+	textconstant('window option - title')
+	local changed, newvalue = imgui.InputText
+		{'##title', thiswindow['title'], default('inputtext buffer size')}
+	if changed then thiswindow['title'] = newvalue end
+end
+
+local function addwindow(newtitle)
+	local newid = getuniqueid()
+	local offset = newid * 5
+	huddata.windowlist[newid] =
 		{
+		-- ['general'] = {['title']
+		title = newtitle,
 		x=offset,
 		y=offset,
 		w=20,
@@ -759,10 +319,8 @@ local function newwindow()
 		hideField=true,
 		hideMenuStates = {['full screen menu open']=true},
 		widget = widget.new('widget list'),
-		-- editindex=-1,
-		-- newWidgetType=1,
-		-- fontScale=1,
-		-- textColor={1,1,1,1},
+		fontScale=1,
+		[stringconstant['parameter - text color']] = default('text color'),
 		}
 end
 
@@ -800,7 +358,7 @@ local function presentwindowlist()
 			end
 			-- definitely make a pop-up to confirm delete
 			
-			if imgui.Button('save') then savetable('profile', huddata) end
+			if imgui.Button('save') then utility.savetable('profile', huddata) end
 			
 			checkbox(huddata, 'show debug window')
 			
@@ -811,8 +369,12 @@ local function presentwindowlist()
 		imgui.SameLine()
 		imgui.BeginChild('window editor', -1, -1, true)
 			if huddata['selected window'] then
-				presentWindowEditor(huddata['selected window'])
-			end
+				if huddata['show window options'] then
+					presentwindowoptions(huddata['selected window'])
+				else
+					presentwindoweditor(huddata['selected window'])
+				end -- if huddata['show window options']
+			end -- if huddata['selected window']
 		imgui.EndChild()
 		
 	imgui.End()
@@ -835,7 +397,7 @@ local function present()
 	for windowname, window in pairs(huddata.windowlist) do
 		if window.enabled then
 			neondebug.log('attempting to present window: ' .. windowname .. '...', 5)
-			presentWindow(windowname)
+			presentwindow(windowname)
 		end
 		neondebug.log('...succeeded', 5)
 	end
@@ -870,7 +432,7 @@ local function init()
 	psodata.setActive('sessionTime')
 	neondebug.log('set up game huddata access')
 	
-	huddata = loadtable('profile')
+	huddata = utility.loadtable('profile')
 	if huddata then
 		neondebug.log('\'profile\' loaded')
 		for _, window in pairs(huddata.windowlist) do

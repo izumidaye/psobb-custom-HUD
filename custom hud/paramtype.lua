@@ -11,11 +11,10 @@ local paramtype = {}
 --[[
 what makes up a parameter type?
 
-* data type: string, number, slow number, boolean, progress, color, list
+* data type: string, number, slow number, boolean, progress, color, list, window position and size
 * subtype: color level, widget
 * optional or not
 * source of data: static, function, or table field
-* category: data, style, layout, or miscellaneous
 * default value
 ]]
 ------------------------------------------------------------------------
@@ -23,36 +22,34 @@ what makes up a parameter type?
 	datatype = 'string',
 	optional = true,
 	staticsource = true,
-	category = 'miscellaneous',
 	default = '',
 	update = function(self)
 		updatename(self, 'widget name')
 	end,
-	},]]
+	}]]
 ------------------------------------------------------------------------
 paramtype['short name'] = {
 	datatype = 'string',
 	hidden = true,
 	default = '',
-	},
+	}
 ------------------------------------------------------------------------
 paramtype['long name'] = {
 	datatype = 'string',
 	hidden = true,
 	default = '',
-	},
+	}
 ------------------------------------------------------------------------
 paramtype['display text'] = {
 	datatype = 'string',
 	staticsource = true,
 	functionsource = true,
 	fieldsource = true,
-	category = 'data',
 	default = 'taco cat backwards is taco cat',
 	update = function(self)
 		updatename(self, 'display text')
 	end,
-	},
+	}
 ------------------------------------------------------------------------
 paramtype['overlay text'] = {
 	datatype = 'string',
@@ -60,86 +57,176 @@ paramtype['overlay text'] = {
 	staticsource = true,
 	functionsource = true,
 	fieldsource = true,
-	category = 'data',
 	default = 'taco cat backwards is taco cat',
-	},
+	}
 ------------------------------------------------------------------------
 paramtype['label text'] = {
 	datatype = 'string',
 	optional = true,
 	staticsource = true,
-	category = 'data',
 	default = 'taco cat backwards is taco cat',
-	},
+	}
+------------------------------------------------------------------------
+paramtype['window title'] = {
+	datatype = 'string',
+	staticsource = true,
+	default = '',
+}
 ------------------------------------------------------------------------
 paramtype['font scale'] = {
 	datatype = 'slow number',
 	optional = true,
 	staticsource = true,
-	category = 'style',
 	default = 1,
 	step = 0.1,
 	minimum = 0.5,
 	maximum = 5,
 	displayformat = '%.1f',
-	},
+	}
+------------------------------------------------------------------------
+paramtype['display number'] = {
+	datatype = 'number',
+	optional = true,
+	functionsource = true,
+	fieldsource = true,
+	default = 0,
+	}
+------------------------------------------------------------------------
+paramtype['display number range'] = {
+	datatype = 'number',
+	optional = true,
+	functionsource = true,
+	fieldsource = true,
+	default = 0,
+	}
 ------------------------------------------------------------------------
 paramtype['widget width'] = {
 	datatype = 'number',
 	optional = true,
 	staticsource = true,
-	category = 'layout',
 	default = 10,
 	largestep = .01,
 	smallstep = .0001
 	minimum = 0,
 	maximum = 1,
 	scale = 640,
-	},
+	}
 ------------------------------------------------------------------------
 paramtype['widget height'] = {
 	datatype = 'number',
 	optional = true,
 	staticsource = true,
-	category = 'layout',
 	default = 2,
 	largestep = .01,
 	smallstep = .0001
 	minimum = 0,
 	maximum = 1,
 	scale = 480,
-	},
+	}
 ------------------------------------------------------------------------
 paramtype['text padding'] = {
 	datatype = 'slow number',
 	optional = true,
 	staticsource = true,
-	category = 'layout',
 	default = 0,
 	step = 1,
 	minimum = 0,
 	maximum = 48,
-	},
+	}
 ------------------------------------------------------------------------
 paramtype['same line'] = {
 	datatype = 'boolean',
 	staticsource = true,
-	category = 'layout',
 	default = true,
-	},
+	}
 ------------------------------------------------------------------------
 paramtype['scale progress bar'] = {
 	datatype = 'boolean',
 	staticsource = true,
-	category = 'style',
 	default = true,
-	},
+	}
+------------------------------------------------------------------------
+paramtype['enable window'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = true,
+	}
+------------------------------------------------------------------------
+paramtype['auto resize'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = true,
+	}
+------------------------------------------------------------------------
+paramtype['move with mouse'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = false,
+	}
+------------------------------------------------------------------------
+paramtype['resize with mouse'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = false,
+	disableif = 'auto resize',
+	}
+------------------------------------------------------------------------
+paramtype['not in field'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = false,
+	}
+------------------------------------------------------------------------
+paramtype['in lobby'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = true,
+	disableif = 'not in field',
+	}
+------------------------------------------------------------------------
+paramtype['any menu is open'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = false,
+	}
+------------------------------------------------------------------------
+paramtype['lower screen menu is open'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = false,
+	disableif = 'any menu is open',
+	}
+------------------------------------------------------------------------
+paramtype['main menu is open'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = false,
+	disableif = 'any menu is open',
+	}
+------------------------------------------------------------------------
+paramtype['full screen menu is open'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = true,
+	disableif = 'any menu is open'
+	}
+------------------------------------------------------------------------
+paramtype['show titlebar'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = false,
+	}
+------------------------------------------------------------------------
+paramtype['show scrollbar'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = false,
+	}
 ------------------------------------------------------------------------
 paramtype['bar progress'] = {
 	datatype = 'progress',
 	fieldsource = 'true',
 	functionsource = 'true',
-	category = 'data',
 	default = 1,
 	update = function(self)
 		updatename(self, 'bar progress')
@@ -151,49 +238,59 @@ paramtype['text gradient index'] = {
 	optional = true,
 	functionsource = true,
 	fieldsource = true,
-	category = 'data',
 	default = 1,
-	},
+	}
+------------------------------------------------------------------------
+paramtype['bar color'] = {
+	datatype = 'color',
+	optional = true,
+	staticsource = true,
+	default = function() return {.9, .2, .2, 1} end,
+	disableif = 'bar color gradient',
+	}
 ------------------------------------------------------------------------
 paramtype['widget color'] = {
 	datatype = 'color',
 	optional = true,
 	staticsource = true,
-	category = 'style',
 	default = function() return {.9, .2, .2, 1} end,
-	},
+	}
 ------------------------------------------------------------------------
 paramtype['text color'] = {
 	datatype = 'color',
 	optional = true,
 	staticsource = true,
-	category = 'style',
 	default = function() return {.8, .8, .8, 1} end,
-	},
+	disableif = 'text color gradient',
+	}
+------------------------------------------------------------------------
+paramtype['background color'] = {
+	datatype = 'color',
+	optional = true,
+	staticsource = true,
+	default = function() return {.1, .1, .1, .5} end,
+	}
 ------------------------------------------------------------------------
 paramtype['text color gradient'] = {
 	datatype = 'list',
 	subtype = 'color level',
-	optional = true,
+	-- optional = true,
 	staticsource = true,
-	category = 'style',
 	default = function() return {} end,
-	},
+	}
 ------------------------------------------------------------------------
-paramtype['progress color gradient'] = {
+paramtype['bar color gradient'] = {
 	datatype = 'list',
 	subtype = 'color level',
 	optional = true,
 	staticsource = true,
-	category = 'style',
 	default = function() return {} end,
-	},
+	}
 ------------------------------------------------------------------------
 paramtype['widget list'] = {
 	datatype = 'list',
 	subtype = 'widget',
 	staticsource = true,
-	category = 'data',
 	dragtargetmargin = 48,
 	
 	default = function()
@@ -232,7 +329,15 @@ paramtype['widget list'] = {
 	end, -- listitem = function
 	
 	tooltip = function(self) return self['long name'] end,
-	}, -- paramtype['widget list'] = {...}
+	} -- paramtype['widget list'] = {...}
+------------------------------------------------------------------------
+paramtype['position and size'] = {
+	datatype = 'window position and size',
+	staticsource = true,
+	default = function()
+		return {x=0, y=0, w=5, h=5,}
+	end,
+}
 ------------------------------------------------------------------------
 return paramtype
 --[[
@@ -242,6 +347,5 @@ what makes up a parameter type?
 * subtype: color level, widget
 * optional or not
 * source of data: static, function, or table field
-* category: data, style, layout, or miscellaneous
 * default value
 ]]

@@ -155,4 +155,31 @@ do
 	end -- serialize['table'] = function
 end
 ------------------------------------------------------------------------
+utility.savestring = function(filename, stringtosave)
+	local file = io.open('addons/custom hud/' .. filename .. '.lua', 'w')
+	if file then
+		file:write(stringtosave)
+		file:close()
+		-- io.output(file)
+		-- io.write(stringtosave)
+		-- io.close(file)
+	end
+end -- utility.savestring = function
+------------------------------------------------------------------------
+utility.loadstring = function(filename)
+	
+end -- utility.loadstring = function
+------------------------------------------------------------------------
+utility.savetable = function(filename, tabletosave)
+-- saves current HUD configuration to disk as a runnable lua script.
+	local outputstring = 'return\n' .. utility.serialize(tabletosave)
+	utility.savestring(filename, outputstring)
+end -- utility.savetable = function
+------------------------------------------------------------------------
+utility.loadtable = function(filename)
+-- loads table from a lua file if the file returns a table when run
+	local success, tabledata = pcall(require, 'custom hud.' .. filename)
+	if success then return tabledata end
+end -- utility.loadtable = function
+------------------------------------------------------------------------
 return utility

@@ -155,8 +155,13 @@ paramedit['slow number'] = function(self, paramname)
 end -- paramedit['slow number'] = function
 ------------------------------------------------------------------------
 paramedit['boolean'] = function(self, paramname)
-	local changed, newvalue = imgui.Checkbox(paramname, self[paramname])
-	if changed then self[paramname] = newvalue end
+	local typedef = paramtype[paramname]
+	if typedef.disableif and self[typedef.disableif] then
+		imgui.TextDisabled(paramname)
+	else
+		local changed, newvalue = imgui.Checkbox(paramname, self[paramname])
+		if changed then self[paramname] = newvalue end
+	end
 	
 	-- paramsourceeditor(self, paramname)
 	-- no reason to use game data for a boolean parameter?

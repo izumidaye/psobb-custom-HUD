@@ -1,4 +1,5 @@
-return
+local converter = {}
+converter.conversiontable =
 	{
 	['parameter - widget name'] = 'widget name',
 	['parameter - format table'] = 'format table',
@@ -17,6 +18,7 @@ return
 	['parameter - scale progress bar'] = 'scale progress bar',
 	['parameter - widget width'] = 'widget width',
 	['parameter - widget height'] = 'widget height',
+	
 	['category - data'] = 'data',
 	['category - style'] = 'style',
 	['category - layout'] = 'layout',
@@ -44,5 +46,11 @@ return
 	['psodata - item location: inventory'] = 'inventory',
 	['psodata - unknown item name'] = '???',
 	['psodata - item special none'] = 'none',
-	
+	['window option - title'] = 'title:',
 	}
+
+converter.convert = function(valuename)
+	return converter.conversiontable[valuename] or valuename
+end
+
+return converter.convert

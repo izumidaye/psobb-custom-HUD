@@ -32,7 +32,7 @@ end -- local function evaluategradient(self)
 local function display(self, fieldlist)
 	if self['ready'] then
 		if self['same line'] then imgui.SameLine() end
-		evaluategradient(self, 'text color', 'text color gradient', 'text gradient index', 'text gradient range')
+		-- evaluategradient(self, 'text color', 'text color gradient', 'text gradient index', 'text gradient range')
 		return true
 	else
 		return false
@@ -55,12 +55,9 @@ widgets['text'] = {
 	widgettype = 'text',
 	parameters =
 		{
-		-- 'widget name',
 		'display text',
 		'text color',
 		'same line',
-		'text color gradient',
-		'text gradient index',
 		'long name',
 		'short name',
 		--[[ 'font scale',]]
@@ -68,7 +65,6 @@ widgets['text'] = {
 	
 	display = function(self, fieldlist)
 		if not display(self, fieldlist) then return end
-		-- evaluategradient(self, 'text color', 'text color gradient', 'text gradient index')
 		if self['text color'] then
 			imgui.TextColored(unpack(self['text color']), self['display text'])
 		else
@@ -77,11 +73,31 @@ widgets['text'] = {
 	end, -- display = function
 	} -- widgets['text'] = {...}
 ------------------------------------------------------------------------
+widgets['color change text'] = {
+	widgettype = 'text',
+	parameters =
+		{
+		'display number',
+		'display number range',
+		'same line',
+		'text color',
+		'text color gradient',
+		'long name',
+		'short name',
+		--[[ 'font scale',]]
+		}, -- parameters = {...}
+	
+	display = function(self, fieldlist)
+		if not display(self, fieldlist) then return end
+		evaluategradient(self, 'text color', 'text color gradient', self['display number'] / self['display number range'])
+		imgui.TextColored(unpack(self['text color']), self['display number'])
+	end, -- display = function
+	} -- widgets['text'] = {...}
+------------------------------------------------------------------------
 widgets['labeled value'] = {
 	widgettype = 'labeled value',
 	parameters =
 		{
-		-- 'widget name',
 		'text color',
 		'same line',
 		'display text',
@@ -125,14 +141,13 @@ widgets['progress bar'] = {
 	widgettype = 'progress bar',
 	parameters =
 		{
-		-- 'widget name',
 		'overlay text',
 		'text color',
-		'text color gradient',
+		-- 'text color gradient',
 		'same line',
-		'progress color gradient',
+		'bar color gradient',
 		'bar progress',
-		'widget color',
+		'bar color',
 		'widget width',
 		'widget height',
 		'scale progress bar',
@@ -144,8 +159,8 @@ widgets['progress bar'] = {
 		evaluategradient
 			{
 			self,
-			'widget color',
-			'progress color gradient',
+			'bar color',
+			'bar color gradient',
 			'bar progress',
 			}
 		
@@ -154,8 +169,8 @@ widgets['progress bar'] = {
 			'PlotHistogram',
 			unpack
 				{
-				self['widget color'] or
-				paramtype['widget color'].default()
+				self['bar color'] or
+				paramtype['bar color'].default()
 				}
 			}
 		if self['text color'] then
@@ -197,6 +212,40 @@ widgets['widget list'] = {
 		end
 	end, -- display = function
 	} -- widgets['widget list'] = {...}
+------------------------------------------------------------------------
+widgets['window'] = {
+	widgettype = 'window',
+	hidden = true,
+	
+	parameters = {
+		['general'] = {'window title', 'enable window',},
+		['layout'] = {
+			'position and size',
+			'auto resize',
+			'move with mouse',
+			'resize with mouse',
+			},
+		['hide window when:'] = {
+			'not in field',
+			'in lobby',
+			'any menu is open',
+			'lower screen menu is open',
+			'main menu is open',
+			'full screen menu is open',
+			},
+		['style'] = {
+			'font scale',
+			'text color',
+			'background color',
+			'show titlebar',
+			'show scrollbar',
+			},
+	}, -- parameters = {...}
+	
+	display = function(self)
+	
+	end,
+	}
 ------------------------------------------------------------------------
 --[[widgets['formatted table'] = {
 	widgettype = 'text',

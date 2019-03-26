@@ -4,6 +4,12 @@ local paramtype = require('custom hud.paramtype')
 local datasource
 
 ------------------------------------------------------------------------
+local function updatename(self, paramname)
+	local newname = self.map[paramname] or self[paramname]
+	self['long name'] = self.widgettype .. ': ' .. newname
+	self['short name'] = datasource.shortname[newname] or newname
+end -- local function updatename
+------------------------------------------------------------------------
 local function combobox(data, key, combolist)
 	imgui.PushItemWidth(8 + (8 * combolist.longest))
 		local changed, newvalue = imgui.Combo('##' .. key, combolist[data[key]], combolist, #combolist)
@@ -29,13 +35,14 @@ local function paramsourceeditor(self, paramname)
 			imgui.Text('source:')
 			imgui.SameLine()
 			if self.map[paramname] then
-				if combobox(self.map, paramname, self.fieldcombolist) and typedef.update then
-					typedef.update(self)
+				if combobox(self.map, paramname, self.fieldcombolist)
+				and typedef.updatename then
+					updatename(self, paramname)
 				end
 			else
 				if imgui.Button('use list field##' .. paramname) then
 					self.map[paramname] = self.fieldcombolist[1]
-					if typedef.update then typedef.update(self) end
+					if typedef.updatename then updatename(self, paramname) end
 				end
 			end -- if self.map[paramname]
 			imgui.SameLine()
@@ -43,13 +50,13 @@ local function paramsourceeditor(self, paramname)
 		
 	elseif typedef.functionsource then
 		if self.map[paramname] then
-			if combobox(self.map, paramname, datasource.combolist[typedef.datatype]) and typedef.update then
-				typedef.update(self)
+			if combobox(self.map, paramname, datasource.combolist[typedef.datatype]) and typedef.updatename then
+				updatename(self, paramname)
 			end
 		else
 			if imgui.Button('use game data##' .. paramname) then
 				self.map[paramname] = datasource.combolist[typedef.datatype][1]
-				if typedef.update then typedef.update(self) end
+				if typedef.updatename then updatename(self, paramname) end
 			end
 		end -- if self.map[paramname]
 		imgui.SameLine()
@@ -59,7 +66,7 @@ local function paramsourceeditor(self, paramname)
 		if imgui.Button('use static value##' .. paramname) then
 			self.map[paramname] = nil
 			self[paramname] = typedef.default()
-			if typedef.update then typedef.update(self) end
+			if typedef.updatename then updatename(self, paramname) end
 		end
 	end
 	
@@ -74,8 +81,8 @@ paramedit['string'] = function(self, paramname)
 		imgui.InputText('##' .. paramname, self[paramname], 72)
 	if changed then
 		self[paramname] = newvalue
-		if paramtype[paramname].update then
-			paramtype[paramname].update(self)
+		if paramtype[paramname].updatename then
+			updatename(self, paramname)
 		end
 	end
 	
@@ -275,8 +282,8 @@ paramedit['list'] = function(self, paramname)
 			
 			if iswithinrect({x=mousex, y=mousey}, list.dragtarget) then
 				if list.orientation == 'horizontal' then
-					list.dragdest = utility.binarysearch
-						{mousex, list.buttoncenters}
+					list.dragdest = utility.binarysearch(mousex,
+						function(index) return list.buttoncenters[index] end)
 				else
 					-- figure this out once everything else is working
 				end -- if list.orientation == 'horizontal'

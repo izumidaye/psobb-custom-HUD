@@ -21,18 +21,18 @@ utility.rounddown = function(number, places)
 	end
 end -- utility.rounddown = function
 ------------------------------------------------------------------------
-utility.binarysearch = function(target, array)
+utility.binarysearch = function(target, arrayfunc)
 	local result
 	local rangestart, rangeend = 1, #array
 	repeat
-		result = utility.rounddown((rangestart + rangeend) / 2)
-		if target < array[result] then
-			rangeend = result
-		else
+		result = utility.round((rangestart + rangeend) / 2)
+		if target >= arrayfunc(result) then
 			rangestart = result
+		else
+			rangeend = result
 		end -- if mousex < list.buttoncenters[dragdest]
 	until rangestart + 1 == rangeend
-	return result
+	return rangestart
 end -- utility.binarysearch = function
 ------------------------------------------------------------------------
 utility.tablecombolist = function(sourcetable)
@@ -109,7 +109,7 @@ end
 do
 -- convert entire table into a string, so it can be written to a file. recurses for nested tables.
 	local serialize = {}
-	utility.serialize = function(sourcedata, offset)
+	utility.serialize = function(sourcedata, offset, excludekeys)
 		return serialize[type(sourcedata)](sourcedata, offset)
 	end
 ------------------------------------------------------------------------
@@ -119,7 +119,7 @@ do
 		return string.format('\'%s\'', sourcedata)
 	end
 ------------------------------------------------------------------------
-	serialize['table'] = function(sourcedata, currentoffset)
+	serialize['table'] = function(sourcedata, currentoffset, excludekeys)
 		
 		if sourcedata.serialize then return sourcedata:serialize() end
 		
@@ -131,8 +131,8 @@ do
 		local optionallinebreak = ''
 		local tableending = '}'
 		
-		for _, value in pairs(sourcedata) do
-			if type(value) == 'table' then
+		for key, value in pairs(sourcedata) do
+			if type(value) == 'table' and not (excludekeys and excludekeys[key]) then
 				result = '\n' .. indent .. '{'
 				optionallinebreak = '\n' .. indent
 				tableending = '\n' .. indent .. '}'
@@ -142,13 +142,14 @@ do
 		-- if sourcedata contains any tables, then put each element of sourcedata on a separate line, with proper indentation; if sourcedata contains no tables, then put all its elements on one line.
 		
 		for key, value in pairs(sourcedata) do
-			result = result .. optionallinebreak
-			if type(key) ~= 'number' then
-				result = result .. string.format('[%s]=', utility.serialize(key))
-			end -- if type(key) == 'number'
-			result = result .. utility.serialize(value, currentoffset + 2) .. ','
-			-- recursion is fun! :)
-			
+			if not (excludekeys and excludekeys[key]) then
+				result = result .. optionallinebreak
+				if type(key) ~= 'number' then
+					result = result .. string.format('[%s]=', utility.serialize(key))
+				end -- if type(key) == 'number'
+				result = result .. utility.serialize(value, currentoffset + 2) .. ','
+				-- recursion is fun! :)
+			end
 		end -- for key, value in pairs(sourcedata)
 			
 		return result .. tableending

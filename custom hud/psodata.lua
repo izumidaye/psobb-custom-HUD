@@ -666,7 +666,7 @@ do -- define psodata getter functions
 	sf['invulnerability time'] = function() return GameData.playerInvulnerabilityTime end
 	sf['player level'] = function() return GameData.level end
 	sf['level base xp'] = function() return GameData.thisLevelXp end
-	sf['xp progress'] = function() return GameData.levelProgress end
+	sf['xp this level'] = function() return GameData.levelProgress end
 	sf['player ata'] = function() return GameData.ata end
 	sf['pack meseta'] = function() return GameData.meseta end
 	sf['session time elapsed'] = function() return GameData.elapsedTime end
@@ -698,22 +698,32 @@ do -- define psodata getter functions
 	-- bf['Player Status: Confused'] = function() return GameData.playerConfused end
 	-- bf['Player Status: Paralyzed'] = function() return GameData.playerParalyzed end
 
-	sf['player hp'] = function() return GameData.playerHP / GameData.playerHPmax end
-	sf['player tp'] = function() return GameData.playerTP / GameData.playerTPmax end
-	sf['player deband/zalure timer'] = function()
-		local result = 0
-		result = GameData.playerDefTech.timeLeft / GameData.playerDefTech.totalTime
-	end
-	sf['player shifta/jellen timer'] = function() return GameData.playerAtkTech.timeLeft / GameData.playerAtkTech.totalTime end
-	sf['xp progress'] = function() return GameData.levelProgress / GameData.thisLevelXp end
+	sf['player hp'] = function() return
+		{GameData.playerHP, GameData.playerHPmax} end
+	sf['player tp'] = function() return
+		{GameData.playerTP, GameData.playerTPmax} end
+	sf['xp progress'] = function() return
+		{GameData.levelProgress, GameData.thisLevelXp} end
+	sf['pack space'] = function() return
+		{GameData.inventorySpaceUsed, 30} end
+	sf['bank space'] = function() return
+		{GameData.bankSpaceUsed, 200} end
+	sf['player deband/zalure timer'] = function() return
+		{GameData.playerDefTech.timeLeft,
+		GameData.playerDefTech.totalTime} end
+	sf['player shifta/jellen timer'] = function() return
+		{GameData.playerAtkTech.timeLeft,
+		GameData.playerAtkTech.totalTime} end
 
 	sf['player s/d/j/z timer'] = function()
 		defFloat = GameData.playerDefTech.timeLeft / GameData.playerDefTech.totalTime
 		atkFloat = GameData.playerAtkTech.timeLeft / GameData.playerAtkTech.totalTime
 		if (defFloat == 0) or (defFloat > atkFloat) then
-			return atkFloat
+			return {GameData.playerAtkTech.timeLeft,
+				GameData.playerAtkTech.totalTime}
 		else
-			return defFloat
+			return {GameData.playerDefTech.timeLeft, 
+				GameData.playerDefTech.totalTime}
 		end
 	end
 	
@@ -748,7 +758,7 @@ do -- define psodata getter functions
 			'invulnerability time',
 			'player level',
 			'level base xp',
-			'xp progress',
+			'xp this level',
 			'player ata',
 			'pack meseta',
 			'session time elapsed',

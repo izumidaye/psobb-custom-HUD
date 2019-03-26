@@ -5,38 +5,26 @@ local paramedit = require('custom hud.paramedit')
 local datasource = {}
 local widget = {}
 ------------------------------------------------------------------------
-local function validateparameters(self)
-	for _, parameter in ipairs(self.parameters) do
-		if (not paramtype[parameter].optional) and (not self[parameter]) then
-			self.ready = false
-			return
-		end
-	end
-	self.ready = true
-end -- local function validateparameters(self)
-------------------------------------------------------------------------
-local function evaluategradient(self, colorparam, gradientparam, indexparam)
+local function evaluategradient(self, colorparam, gradientparam, progressparam)
 	
 	if self[gradientparam] then
-		for _, colorlevel in ipairs(self[gradientparam]) do
-			if self[indexparam] >= colorlevel[1] then
-				self[colorparam] = colorlevel[2]
-			else
-				return
-			end
-		end -- for _, colorlevel in ipairs(self['color gradient'])
+		self[colorparam] = self[gradientparam][utility.binarysearch
+			{self[progressparam][1] / self[progressparam][2],
+			function(index) return self[gradientparam][index][1] end}][2]
+		-- local progress = self[progressparam][1] / self[progressparam][2]
+		-- for _, colorlevel in ipairs(self[gradientparam]) do
+			-- if progress >= colorlevel[1] then
+				-- self[colorparam] = colorlevel[2]
+			-- else
+				-- return
+			-- end
+		-- end -- for _, colorlevel in ipairs(self['color gradient'])
 	end -- if self['color gradient']
 	
 end -- local function evaluategradient(self)
 ------------------------------------------------------------------------
 local function display(self, fieldlist)
-	if self['ready'] then
-		if self['same line'] then imgui.SameLine() end
-		-- evaluategradient(self, 'text color', 'text color gradient', 'text gradient index', 'text gradient range')
-		return true
-	else
-		return false
-	end -- if self['ready']
+	if self['same line'] then imgui.SameLine() end
 	
 	if self.fieldcombolist and fieldlist then
 		for param, field in pairs(self.map) do
@@ -52,19 +40,14 @@ end -- local function display(self)
 local widgets = {}
 ------------------------------------------------------------------------
 widgets['text'] = {
-	widgettype = 'text',
-	parameters =
-		{
-		'display text',
-		'text color',
-		'same line',
-		'long name',
-		'short name',
-		--[[ 'font scale',]]
+	-- widgettype = 'text',
+	parameters = {
+		['all'] = {'display text', 'text color', 'same line',--[[ 'font scale',]]},
+		['hidden'] = {'long name', 'short name',},
 		}, -- parameters = {...}
 	
 	display = function(self, fieldlist)
-		if not display(self, fieldlist) then return end
+		display(self, fieldlist)
 		if self['text color'] then
 			imgui.TextColored(unpack(self['text color']), self['display text'])
 		else
@@ -74,30 +57,26 @@ widgets['text'] = {
 	} -- widgets['text'] = {...}
 ------------------------------------------------------------------------
 widgets['color change text'] = {
-	widgettype = 'text',
+	-- widgettype = 'color change text',
 	parameters =
 		{
-		'display number',
-		'display number range',
-		'same line',
-		'text color',
-		'text color gradient',
-		'long name',
-		'short name',
-		--[[ 'font scale',]]
+		['all'] = {'display value', 'show range', 'same line',--[[ 'font scale',]]},
+		['color'] = {'text color gradient',},
+		['hidden'] ={'long name', 'short name',},
 		}, -- parameters = {...}
 	
 	display = function(self, fieldlist)
-		if not display(self, fieldlist) then return end
-		evaluategradient(self, 'text color', 'text color gradient', self['display number'] / self['display number range'])
+		-- if not display(self, fieldlist) then return end
+		display(self, fieldlist)
+		evaluategradient
+			{self, 'text color', 'text color gradient', 'display value',}
 		imgui.TextColored(unpack(self['text color']), self['display number'])
 	end, -- display = function
 	} -- widgets['text'] = {...}
 ------------------------------------------------------------------------
 widgets['labeled value'] = {
-	widgettype = 'labeled value',
-	parameters =
-		{
+	-- widgettype = 'labeled value',
+	parameters = {
 		'text color',
 		'same line',
 		'display text',
@@ -108,7 +87,8 @@ widgets['labeled value'] = {
 		}, -- parameters = {...}
 		
 	display = function(self)
-		if not display(self) then return end
+		-- if not display(self) then return end
+		display(self, fieldlist)
 		
 		if self['label text'] then
 			imgui.BeginGroup()
@@ -138,7 +118,7 @@ widgets['labeled value'] = {
 	} -- widgets['labeled value'] = {...}
 ------------------------------------------------------------------------
 widgets['progress bar'] = {
-	widgettype = 'progress bar',
+	-- widgettype = 'progress bar',
 	parameters =
 		{
 		'overlay text',
@@ -155,7 +135,8 @@ widgets['progress bar'] = {
 	
 	display = function(self)
 		
-		if not display(self) then return end
+		-- if not display(self) then return end
+		display(self, fieldlist)
 		evaluategradient
 			{
 			self,
@@ -199,7 +180,7 @@ widgets['progress bar'] = {
 	} -- widgets['progress bar'] = {...}
 ------------------------------------------------------------------------
 widgets['widget list'] = {
-	widgettype = 'widget list',
+	-- widgettype = 'widget list',
 	parameters =
 		{
 		'widget list',
@@ -271,15 +252,16 @@ local function edit(self)
 end -- local function edit
 ------------------------------------------------------------------------
 local function serialize(self)
-	local result
-	for key, value in pairs(self) do
-		if not (key == 'parameters' or type(value) == 'function') then
-			if type(value) == 'table' then
-				result[key] = serialize(value)
-			result[key] = value
-		end
-	end -- for key, value in pairs(self)
-	return result
+	return utility.serialize(self, excludekeys = {'parameters' = true})
+	-- local result
+	-- for key, value in pairs(self) do
+		-- if not (key == 'parameters' or type(value) == 'function') then
+			-- if type(value) == 'table' then
+				-- result[key] = serialize(value)
+			-- result[key] = value
+		-- end
+	-- end -- for key, value in pairs(self)
+	-- return result
 end -- local function serialize
 ------------------------------------------------------------------------
 widget.new = function(typename, fieldcombolist)

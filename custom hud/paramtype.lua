@@ -1,10 +1,10 @@
 local shortname = require('customhud.shortname')
 
-local function updatename(self, paramname)
+--[[local function updatename(self, paramname)
 	local newname = self.map[paramname] or self[paramname]
 	self['long name'] = self.widgettype .. ': ' .. newname
 	self['short name'] = datasource.shortname[newname] or newname
-end -- local function updatename
+end -- local function updatename]]
 ------------------------------------------------------------------------
 local paramtype = {}
 ------------------------------------------------------------------------
@@ -23,9 +23,10 @@ what makes up a parameter type?
 	optional = true,
 	staticsource = true,
 	default = '',
-	update = function(self)
-		updatename(self, 'widget name')
-	end,
+	-- update = function(self)
+		-- updatename(self, 'widget name')
+	-- end,
+	updatename = true
 	}]]
 ------------------------------------------------------------------------
 paramtype['short name'] = {
@@ -46,9 +47,10 @@ paramtype['display text'] = {
 	functionsource = true,
 	fieldsource = true,
 	default = 'taco cat backwards is taco cat',
-	update = function(self)
-		updatename(self, 'display text')
-	end,
+	-- update = function(self)
+		-- updatename(self, 'display text')
+	-- end,
+	updatename = true
 	}
 ------------------------------------------------------------------------
 paramtype['overlay text'] = {
@@ -84,21 +86,25 @@ paramtype['font scale'] = {
 	displayformat = '%.1f',
 	}
 ------------------------------------------------------------------------
-paramtype['display number'] = {
+--[[paramtype['display number'] = {
 	datatype = 'number',
-	optional = true,
+	optional = false,
 	functionsource = true,
 	fieldsource = true,
 	default = 0,
-	}
+	-- update = function(self)
+		-- updatename(self, 'display number')
+	-- end,
+	updatename = true
+	}]]
 ------------------------------------------------------------------------
-paramtype['display number range'] = {
+--[[paramtype['display number range'] = {
 	datatype = 'number',
 	optional = true,
 	functionsource = true,
 	fieldsource = true,
 	default = 0,
-	}
+	}]]
 ------------------------------------------------------------------------
 paramtype['widget width'] = {
 	datatype = 'number',
@@ -141,6 +147,12 @@ paramtype['same line'] = {
 	}
 ------------------------------------------------------------------------
 paramtype['scale progress bar'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = true,
+	}
+------------------------------------------------------------------------
+paramtype['show range'] = {
 	datatype = 'boolean',
 	staticsource = true,
 	default = true,
@@ -228,17 +240,21 @@ paramtype['bar progress'] = {
 	fieldsource = 'true',
 	functionsource = 'true',
 	default = 1,
-	update = function(self)
-		updatename(self, 'bar progress')
-	end,
+	-- update = function(self)
+		-- updatename(self, 'bar progress')
+	-- end,
+	updatename = true
 	}
 ------------------------------------------------------------------------
-paramtype['text gradient index'] = {
+paramtype['display value'] = {
 	datatype = 'progress',
-	optional = true,
 	functionsource = true,
 	fieldsource = true,
 	default = 1,
+	-- update = function(self)
+		-- updatename(self, 'display value')
+	-- end,
+	updatename = true
 	}
 ------------------------------------------------------------------------
 paramtype['bar color'] = {
@@ -246,7 +262,7 @@ paramtype['bar color'] = {
 	optional = true,
 	staticsource = true,
 	default = function() return {.9, .2, .2, 1} end,
-	disableif = 'bar color gradient',
+	hideif = function(self) return self['bar color gradient'] end,
 	}
 ------------------------------------------------------------------------
 paramtype['widget color'] = {
@@ -261,7 +277,7 @@ paramtype['text color'] = {
 	optional = true,
 	staticsource = true,
 	default = function() return {.8, .8, .8, 1} end,
-	disableif = 'text color gradient',
+	hideif = function(self) return self['text color gradient'] end,
 	}
 ------------------------------------------------------------------------
 paramtype['background color'] = {

@@ -60,6 +60,7 @@ paramtype['overlay text'] = {
 	functionsource = true,
 	fieldsource = true,
 	default = 'taco cat backwards is taco cat',
+	hideif = function(self) return self['show value'] end,
 	}
 ------------------------------------------------------------------------
 paramtype['label text'] = {
@@ -152,10 +153,29 @@ paramtype['scale progress bar'] = {
 	default = true,
 	}
 ------------------------------------------------------------------------
+paramtype['dynamic bar color'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = true,
+	}
+------------------------------------------------------------------------
+paramtype['dynamic text color'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = true,
+	}
+------------------------------------------------------------------------
+paramtype['show value'] = {
+	datatype = 'boolean',
+	staticsource = true,
+	default = true,
+	}
+------------------------------------------------------------------------
 paramtype['show range'] = {
 	datatype = 'boolean',
 	staticsource = true,
 	default = true,
+	hideif = function(self) return not self['show value'] end,
 	}
 ------------------------------------------------------------------------
 paramtype['enable window'] = {
@@ -235,7 +255,7 @@ paramtype['show scrollbar'] = {
 	default = false,
 	}
 ------------------------------------------------------------------------
-paramtype['bar progress'] = {
+paramtype['bar value'] = {
 	datatype = 'progress',
 	fieldsource = 'true',
 	functionsource = 'true',
@@ -261,8 +281,7 @@ paramtype['bar color'] = {
 	datatype = 'color',
 	optional = true,
 	staticsource = true,
-	default = function() return {.9, .2, .2, 1} end,
-	hideif = function(self) return self['bar color gradient'] end,
+	hideif = function(self) return self['dynamic bar color'] end,
 	}
 ------------------------------------------------------------------------
 paramtype['widget color'] = {
@@ -277,7 +296,7 @@ paramtype['text color'] = {
 	optional = true,
 	staticsource = true,
 	default = function() return {.8, .8, .8, 1} end,
-	hideif = function(self) return self['text color gradient'] end,
+	hideif = function(self) return self['dynamic text color'] end,
 	}
 ------------------------------------------------------------------------
 paramtype['background color'] = {
@@ -287,20 +306,22 @@ paramtype['background color'] = {
 	default = function() return {.1, .1, .1, .5} end,
 	}
 ------------------------------------------------------------------------
-paramtype['text color gradient'] = {
+paramtype['text gradient'] = {
 	datatype = 'list',
 	subtype = 'color level',
 	-- optional = true,
 	staticsource = true,
 	default = function() return {} end,
+	hideif = function(self) return not self['dynamic text color'] end,
 	}
 ------------------------------------------------------------------------
-paramtype['bar color gradient'] = {
+paramtype['bar gradient'] = {
 	datatype = 'list',
 	subtype = 'color level',
 	optional = true,
 	staticsource = true,
 	default = function() return {} end,
+	hideif = function(self) return not self['dynamic bar color'] end,
 	}
 ------------------------------------------------------------------------
 paramtype['widget list'] = {

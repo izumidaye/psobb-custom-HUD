@@ -6,6 +6,9 @@ defaultvalue['text color'] = function() return {.8, .8, .8, 1} end
 
 defaultvalue['background color'] = function() return {.1, .1, .1, .5} end
 
+defaultvalue['bar color'] =
+	function() return {.2, .9, .2, 1} end
+
 defaultvalue['inputtext buffer size'] = 72
 
 return function(valuename)

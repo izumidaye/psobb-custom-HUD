@@ -1,29 +1,27 @@
 local utility = require('custom hud.utility')
 local paramtype = require('custom hud.paramtype')
 local paramedit = require('custom hud.paramedit')
+local default = require('custom hud.default')
 
 local datasource = {}
 local widget = {}
 ------------------------------------------------------------------------
-local function evaluategradient(self, colorparam, gradientparam, progressparam)
-	
-	if self[gradientparam] then
-		self[colorparam] = self[gradientparam][utility.binarysearch
-			{self[progressparam][1] / self[progressparam][2],
-			function(index) return self[gradientparam][index][1] end}][2]
-		-- local progress = self[progressparam][1] / self[progressparam][2]
-		-- for _, colorlevel in ipairs(self[gradientparam]) do
-			-- if progress >= colorlevel[1] then
-				-- self[colorparam] = colorlevel[2]
-			-- else
-				-- return
-			-- end
-		-- end -- for _, colorlevel in ipairs(self['color gradient'])
-	end -- if self['color gradient']
-	
+local function evaluategradient(gradient, value)
+	local barvalue = value[1] / value[2]
+	for index = #gradient, 1, -1 do -- change gradient data structure to be highest level -> lowest level (instead of the other way around, as it is now) so i can use 'for _, colorlevel in ipairs(gradient) do ... end'
+		if barvalue >= gradient[index][1] then
+			return gradient[index][2]
+		end
+	end -- for index = #self[gradientparam], 1, -1
 end -- local function evaluategradient(self)
 ------------------------------------------------------------------------
 local function display(self, fieldlist)
+	if self.gradient then
+		for _, gradientname in ipairs(self.gradient) do
+			evaluategradient(self, gradientname)
+		end
+	end
+	
 	if self['same line'] then imgui.SameLine() end
 	
 	if self.fieldcombolist and fieldlist then
@@ -39,9 +37,11 @@ end -- local function display(self)
 ------------------------------------------------------------------------
 local widgets = {}
 ------------------------------------------------------------------------
-widgets['text'] = {
+widgets['text'] =
+	{
 	-- widgettype = 'text',
-	parameters = {
+	parameters =
+		{
 		['all'] = {'display text', 'text color', 'same line',--[[ 'font scale',]]},
 		['hidden'] = {'long name', 'short name',},
 		}, -- parameters = {...}
@@ -56,12 +56,14 @@ widgets['text'] = {
 	end, -- display = function
 	} -- widgets['text'] = {...}
 ------------------------------------------------------------------------
-widgets['color change text'] = {
+--[[widgets['color change text'] =
+	{
 	-- widgettype = 'color change text',
 	parameters =
 		{
+		'color',
 		['all'] = {'display value', 'show range', 'same line',--[[ 'font scale',]]},
-		['color'] = {'text color gradient',},
+		['color'] = {'text gradient',},
 		['hidden'] ={'long name', 'short name',},
 		}, -- parameters = {...}
 	
@@ -69,21 +71,18 @@ widgets['color change text'] = {
 		-- if not display(self, fieldlist) then return end
 		display(self, fieldlist)
 		evaluategradient
-			{self, 'text color', 'text color gradient', 'display value',}
+			{self, 'text color', 'text gradient', 'display value',}
 		imgui.TextColored(unpack(self['text color']), self['display number'])
 	end, -- display = function
-	} -- widgets['text'] = {...}
+	} -- widgets['color change text'] = {...}]]
 ------------------------------------------------------------------------
-widgets['labeled value'] = {
+--[[widgets['labeled value'] =
+	{
 	-- widgettype = 'labeled value',
-	parameters = {
-		'text color',
-		'same line',
-		'display text',
-		'label text',
-		'text color gradient',
-		'text gradient index',
-		'text gradient range',
+	parameters =
+		{
+		['all'] = {'display text', 'label text', 'same line', 'text color',}
+		-- 'text gradient',
 		}, -- parameters = {...}
 		
 	display = function(self)
@@ -115,44 +114,40 @@ widgets['labeled value'] = {
 		end -- if self['label text']
 		
 	end, -- display = function(self)
-	} -- widgets['labeled value'] = {...}
+	} -- widgets['labeled value'] = {...}]]
 ------------------------------------------------------------------------
-widgets['progress bar'] = {
+widgets['progress bar'] =
+	{
 	-- widgettype = 'progress bar',
 	parameters =
 		{
-		'overlay text',
-		'text color',
-		-- 'text color gradient',
-		'same line',
-		'bar color gradient',
-		'bar progress',
-		'bar color',
-		'widget width',
-		'widget height',
-		'scale progress bar',
+		'layout', 'bar color', 'text color',
+		['all'] = {'bar value', 'show value', 'show range', 'overlay text',
+			'scale progress bar',},
+		['layout'] = {'same line', 'widget width', 'widget height',},
+		['bar color'] = {'dynamic bar color', 'bar color', 'bar gradient',}
+		['text color'] =
+			{'dynamic text color', 'text color', 'text gradient',},
 		}, -- parameters = {...}
+	
+	gradient = {'bar', 'text',},
 	
 	display = function(self)
 		
 		-- if not display(self) then return end
 		display(self, fieldlist)
-		evaluategradient
-			{
-			self,
-			'bar color',
-			'bar color gradient',
-			'bar progress',
-			}
+		if self['dynamic bar color'] then
+			evaluategradient
+				{self, 'bar color', 'bar gradient', 'bar value',}
+		end
+		if self['dynamic text color'] then
+			evaluategradient
+				{self, 'text color', 'text gradient', 'bar value',}
+		end
 		
 		imgui.PushStyleColor
-			{
-			'PlotHistogram',
-			unpack
-				{
-				self['bar color'] or
-				paramtype['bar color'].default()
-				}
+			{'PlotHistogram', unpack
+				{self['bar color'] or paramtype['bar color'].default()}
 			}
 		if self['text color'] then
 			imgui.PushStyleColor('Text', unpack(self['text color']))
@@ -179,7 +174,8 @@ widgets['progress bar'] = {
 	end, -- display = function(self)
 	} -- widgets['progress bar'] = {...}
 ------------------------------------------------------------------------
-widgets['widget list'] = {
+widgets['widget list'] =
+	{
 	-- widgettype = 'widget list',
 	parameters =
 		{
@@ -194,19 +190,26 @@ widgets['widget list'] = {
 	end, -- display = function
 	} -- widgets['widget list'] = {...}
 ------------------------------------------------------------------------
-widgets['window'] = {
+widgets['window'] =
+	{
 	widgettype = 'window',
 	hidden = true,
 	
 	parameters = {
-		['general'] = {'window title', 'enable window',},
-		['layout'] = {
+		['general'] =
+			{
+			'window title',
+			'enable window',
+			},
+		['layout'] =
+			{
 			'position and size',
 			'auto resize',
 			'move with mouse',
 			'resize with mouse',
 			},
-		['hide window when:'] = {
+		['hide window when:'] =
+			{
 			'not in field',
 			'in lobby',
 			'any menu is open',
@@ -214,7 +217,8 @@ widgets['window'] = {
 			'main menu is open',
 			'full screen menu is open',
 			},
-		['style'] = {
+		['style'] =
+			{
 			'font scale',
 			'text color',
 			'background color',
@@ -243,12 +247,12 @@ widgets['window'] = {
 widget.combolist = utility.tablecombolist(widgets)
 ------------------------------------------------------------------------
 local function edit(self)
-	for _, param in ipairs(self.parameters) do
-		local typedef = paramtype[param]
-		if not typedef.hidden then
+	if self.parameters['all'] then
+		for _, param in ipairs(self.parameters['all']) do
+			local typedef = paramtype[param]
 			paramedit[typedef.datatype](self, param)
 		end
-	end
+	end -- if self.parameters['all']
 end -- local function edit
 ------------------------------------------------------------------------
 local function serialize(self)

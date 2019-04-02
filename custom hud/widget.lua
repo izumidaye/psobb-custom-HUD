@@ -1,4 +1,5 @@
 local utility = require('custom hud.utility')
+local updatewindowoption = utility.updatewindowoption
 local paramtype = require('custom hud.paramtype')
 local typedef = paramtype.typedef
 local datatype = paramtype.datatype
@@ -36,10 +37,7 @@ local widgets = {}
 widgets['text'] =
 	{
 	parameters =
-		{
-		['all'] = {'display text', 'text color', 'same line',--[[ 'font scale',]]},
-		-- ['hidden'] = {'long name', 'short name',},
-		}, -- parameters = {...}
+		{'all', ['all'] = {'display text', 'text color', 'same line',},},
 	
 	display = function(self, fieldlist)
 		display(self, fieldlist)
@@ -113,7 +111,6 @@ widgets['text'] =
 --------------------------------------------------------------------------------
 widgets['progress bar'] =
 	{
-	-- widgettype = 'progress bar',
 	parameters =
 		{
 		'general', 'layout', 'bar color', 'text color',
@@ -190,7 +187,8 @@ widgets['window'] =
 	hidden = true,
 	
 	parameters =
-	{
+		{
+		'general', 'layout', 'hide window when:', 'style',
 		['general'] = {'window title', 'enable window',},
 		['layout'] = {'position and size', 'auto resize', 'move with mouse',
 			'resize with mouse',},
@@ -200,37 +198,49 @@ widgets['window'] =
 		['style'] = {'font scale', 'text color', 'background color',
 			'show titlebar', 'show scrollbar',},
 		['content'] = {'widget list',},
-		['hidden'] = {'id', 'window options', 'x', 'y', 'w', 'h', 'layout', 
-			'menustate',},
-	}, -- parameters = {...}
+		['hidden'] =
+			{'id', 'window options', 'layout',},
+		}, -- parameters = {...}
 	
 	init = function(self)
 		self.id = id.new()
-		self.windowoptions = {'', '', '', '', ''}
+		
+		updatewindowoption(self, not self['show titlebar'], 1, 'NoTitleBar')
+		updatewindowoption(self, not self['resize with mouse'], 2, 'NoResize')
+		updatewindowoption(self, not self['move with mouse'], 3, 'NoMove')
+		updatewindowoption(self, not self['show scrollbar'], 4, 'NoScrollBar')
+		updatewindowoption(self, self['auto resize'], 5, 'AlwaysAutoResize')
+		
+		self.layout.w = utility.scale(self['position and size'].w, gamewindowwidth)
+		self.layout.h = utility.scale(self['position and size'].h, gamewindowheight)
+		updatelayoutx(self)
+		updatelayouty(self)
+		
+		self.dontserialize['id'] = true
+		self.dontserialize['window options'] = true
 		self.dontserialize['layout'] = true
-		self.dontserialize['menustate'] = true
 	end
 	
 	menustate = {},
 --------------------------------------------------------------------------------
 	updatelayoutx = function(self)
-		self.layout.x = utility.scale(self.x, gamewindowwidth, self.w)
+		self.layout.x = utility.scale(self['position and size'].x, gamewindowwidth, self['position and size'].w)
 	end,
 --------------------------------------------------------------------------------
 	updatelayouty = function(self)
-		self.layout.y = utility.scale(self.y, gamewindowheight, self.h)
+		self.layout.y = utility.scale(self['position and size'].y, gamewindowheight, self['position and size'].h)
 	end,
 --------------------------------------------------------------------------------
 	detectmouseresize = function(self)
 		if self['window options'][2] ~= 'NoResize' then
 			local neww, newh = imgui.GetWindowSize()
 			if neww ~= self['layout'].w then
-				self.w = utility.unscale(neww, datasource.screenwidth)
+				self['position and size'].w = utility.unscale(neww, gamewindowwidth)
 				self['layout'].w = neww
 				self:updatelayoutx()
 			end
 			if newh ~= self['layout'] then
-				self.h = utility.unscale(newh, datasource.screenheight)
+				self['position and size'].h = utility.unscale(newh, gamewindowheight)
 				self['layout'].h = newh
 				self:updatelayouty()
 			end
@@ -238,19 +248,18 @@ widgets['window'] =
 	end,
 --------------------------------------------------------------------------------
 	detectmousemove = function(self)
-		if not (self['window options'][3] == 'NoMove'
-		--[[or self['window option changed'] ]]) then
+		if self['window options'][3] ~= 'NoMove' then
 			local newx, newy = imgui.GetWindowPos()
 			if newx ~= self['layout'].x then
-				self.x = utility.bindnumber(
-					utility.unscale(newx, gamewindowwidth, self.w),
-					boundary.left, boundary.right - self.w)
+				self['position and size'].x = utility.bindnumber(
+					utility.unscale(newx, gamewindowwidth, self['position and size'].w),
+					boundary.left, boundary.right - self['position and size'].w)
 				self:updatelayoutx()
 			end -- if newx ~= self['layout'].x
 			if newy ~= self['layout'].y then
-				self.y = utility.bindnumber(
-					utility.unscale(newy, gamewindowheight, self.h),
-					boundary.top, boundary.bottom - self.h)
+				self['position and size'].y = utility.bindnumber(
+					utility.unscale(newy, gamewindowheight, self['position and size'].h),
+					boundary.top, boundary.bottom - self['position and size'].h)
 				self:updatelayouty()
 			end -- if newy ~= self['layout'].y
 		end -- if self['window options'][3] ~= 'NoMove'
@@ -259,6 +268,7 @@ widgets['window'] =
 	display = function(self)
 		if (self['in lobby'] and datasource.get(currentlocation) == 'lobby')
 		or (self['not in field'] and datasource.get(currentlocation) ~= 'field')
+		or (not self['enable window'])
 		--[[or datasource.currentlocation() == 'login']]
 		then return end
 		for menu, _ in pairs(self.menustate) do
@@ -273,12 +283,16 @@ widgets['window'] =
 				imgui.SetNextWindowSize(
 					self['layout'].w, self['layout'].h, 'Always')
 			end
+			self['window option changed'] = false
 		end
 		
 		local success
 		success, self['enable window'] = imgui.Begin(self['window title']
 			.. '###' .. self['id'], true, self['window options'])
-			if not success then imgui.End() return end
+			if not success then
+				imgui.End()
+				return
+			end
 			
 			self:detectmouseresize()
 			self:detectmousemove()
@@ -288,7 +302,11 @@ widgets['window'] =
 			if bgcolor then
 				imgui.PushStyleColor('WindowBg', unpack(bgcolor)) end
 			
-			local fontscale = self['font scale'] or globaloptions['font scale']
+			imgui.SetWindowfontScale(self['font scale'] or globaloptions.fontscale)
+			
+			for _, item in ipairs(self['widget list']) do
+				item:display()
+			end
 			
 			if bgcolor then imgui.PopStyleColor() end
 		imgui.End()

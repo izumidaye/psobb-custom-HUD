@@ -1,18 +1,11 @@
-local shortname = require('customhud.shortname')
+local shortname = require('custom hud.shortname')
+local updatewindowoption = require('custom hud.utility').updatewindowoption
 
 --[[local function updatename(self, paramname)
 	local newname = self.map[paramname] or self[paramname]
 	self['long name'] = self.widgettype .. ': ' .. newname
 	self['short name'] = datasource.shortname[newname] or newname
 end -- local function updatename]]
---------------------------------------------------------------------------------
-local function updatewindowoption(self, newvalue, optionindex, flag)
-	if newvalue then
-		self['window options'][optionindex] = flag
-	else
-		self['window options'][optionindex] = ''
-	end
-end
 --------------------------------------------------------------------------------
 local function updatehidecondition(self, condition)
 	if self[condition] then
@@ -203,38 +196,38 @@ paramtype['not in field'] = {
 paramtype['in lobby'] = {
 	datatype = 'boolean',
 	staticsource = true,
-	disableif = 'not in field',
+	hideif = function(self) return self['not in field'] end,
 	}
 --------------------------------------------------------------------------------
 paramtype['any menu is open'] = {
 	datatype = 'boolean',
 	staticsource = true,
-	update = function(self)
-		updatehidecondition(self, 'any menu is open') end,
+	-- update = function(self)
+		-- updatehidecondition(self, 'any menu is open') end,
 	}
 --------------------------------------------------------------------------------
 paramtype['lower screen menu is open'] = {
 	datatype = 'boolean',
 	staticsource = true,
 	disableif = 'any menu is open',
-	update = function(self)
-		updatehidecondition(self, 'lower screen menu is open') end,
+	-- update = function(self)
+		-- updatehidecondition(self, 'lower screen menu is open') end,
 	}
 --------------------------------------------------------------------------------
 paramtype['main menu is open'] = {
 	datatype = 'boolean',
 	staticsource = true,
 	disableif = 'any menu is open',
-	update = function(self)
-		updatehidecondition(self, 'main menu is open') end,
+	-- update = function(self)
+		-- updatehidecondition(self, 'main menu is open') end,
 	}
 --------------------------------------------------------------------------------
 paramtype['full screen menu is open'] = {
 	datatype = 'boolean',
 	staticsource = true,
 	disableif = 'any menu is open'
-	update = function(self)
-		updatehidecondition(self, 'full screen menu is open') end,
+	-- update = function(self)
+		-- updatehidecondition(self, 'full screen menu is open') end,
 	}
 --------------------------------------------------------------------------------
 paramtype['show titlebar'] = {

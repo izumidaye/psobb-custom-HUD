@@ -35,7 +35,7 @@ local activegamedata = {} -- indicates which data are in use
 local sessionstartxp
 local pmtaddress = nil
 local psodata = {}
-psodata.menustates = {'main menu open', 'lower screen menu open', 'full screen menu open', 'any menu open'}
+-- psodata.menustates = {'main menu open', 'lower screen menu open', 'full screen menu open', 'any menu open'}
 local gamedata = {}
 local lasttime = os.time()
 local lastlocation
@@ -378,19 +378,32 @@ function psodata.retrievepsodata()
 	loadpmtaddress()
 	local playeraddr = getself()
 	if playeraddr ~= 0 then
-		for _, menu in ipairs(psodata.menustates) do
-			gamedata[menu] = false
-		end
+		-- for _, state in ipairs(gamedata.menustate) do
+			-- gamedata.menustate[state] = nil
+		-- end
 		if pso.read_u32(0x009ff3d4) ~= 1 then -- any menu open
-			gamedata['any menu is open'] = true
-			gamedata['lower screen menu is open'] = true -- pretty much every menu uses the lower part of the screen
+			gamedata.menustate['any menu is open'] = true
+			gamedata.menustate['lower screen menu is open'] = true -- pretty much every menu uses the lower part of the screen
 			if pso.read_u32(0x00a97f44) == 1 then
-				gamedata['main menu is open'] = true
+				gamedata.menustate['main menu is open'] = true
+				gamedata.menustate['full screen menu is open'] = nil
 			elseif (pso.read_u32(0x00a48a9c) == 1) or ((psodata.currentlocation() == 'lobby') and (pso.read_u32(0x00aab218) ~= 0))then -- shops and stuff, also lobby counter
-				gamedata['full screen menu is open'] = true
+				gamedata.menustate['full screen menu is open'] = true
+				gamedata.menustate['main menu is open'] = true
+			else
+				gamedata.menustate['full screen menu is open'] = nil
+				gamedata.menustate['main menu is open'] = nil
 			end
-		elseif pso.read_u32(0x00a97f44) == 2 then -- team chat
-			gamedata['lower screen menu is open'] = true
+		else
+			gamedata.menustate['full screen menu is open'] = nil
+			gamedata.menustate['main menu is open'] = nil
+			if pso.read_u32(0x00a97f44) == 2 then -- team chat
+				gamedata.menustate['lower screen menu is open'] = true
+				gamedata.menustate['any menu is open'] = true
+			else
+				gamedata.menustate['lower screen menu is open'] = nil
+				gamedata.menustate['any menu is open'] = nil
+			end
 		end
 	
 		-- 0x00a97f44 main menu (== 1) and team chat (== 2)
@@ -643,7 +656,8 @@ function psodata.init()
 		playeratktech=inittechdata(),
 		playertp=0,
 		playertpmax=0,
-		playerinvulnerabilitytime=0
+		playerinvulnerabilitytime=0,
+		menustate={},
 		}
 	-- gamedata.player = {hp=0, hpmax=0, tp=0, tpmax=0, ata=0, statusfrozen=false, statusconfused=false, statusparalyzed=false, invulnerabilitytime=0, deftech=inittechdata(), atktech=inittechdata()}
 	initsessiontime()

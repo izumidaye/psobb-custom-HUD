@@ -128,6 +128,14 @@ utility.iswithinrect = function(point, rect)
 	end
 end
 --------------------------------------------------------------------------------
+function utility.updatewindowoption(self, newvalue, optionindex, flag)
+	if newvalue then
+		self['window options'][optionindex] = flag
+	else
+		self['window options'][optionindex] = ''
+	end
+end
+--------------------------------------------------------------------------------
 do
 -- convert entire table into a string, so it can be written to a file. recurses for nested tables.
 	local serialize = {}

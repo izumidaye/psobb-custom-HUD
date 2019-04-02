@@ -15,28 +15,21 @@ local convert = require('custom hud.language_english')
 -- neondebug.update('this is a test', 'wow')
 neondebug.enablelogging()
 
+local lasttime = os.time()
+
 -- initialize values in init()
 local huddata
+local globaloptions
 local windownames
 
--- local usedids
-local freedids
-
-local function getuniqueid()
-	local result
-	if #freedids > 0 then
-		result = table.remove(freedids, 1)
-	else
-		result = #huddata.windowlist + 1
+local function detectgamewindowsize()
+	local neww, newh = psodata.getgamewindowsize()
+	if neww > 0 then
+		widget.setgamewindowsize(neww, newh)
+		return true
 	end
-	-- usedids[result] = true
-	return result
 end
-
-local function freeid(id)
-	table.insert(freedids, id)
-	-- usedids[id] = nil
-end
+local startuptasks = {detectgamewindowsize,}
 
 local function checkbox(list, paramname)
 	local changed, newvalue = imgui.Checkbox(paramname, list[paramname])
@@ -52,8 +45,6 @@ local function textconstant(textdata, color)
 	color = color or default('text color')
 	imgui.TextColored(color[1], color[2], color[3], color[4], convert(textdata))
 end
-
-
 
 local function presentwindow(windowname)
 --[[
@@ -358,7 +349,10 @@ local function presentwindowlist()
 			end
 			-- definitely make a pop-up to confirm delete
 			
-			if imgui.Button('save') then utility.savetable('profile', huddata) end
+			if imgui.Button('save') then
+				utility.savetable('profile', huddata)
+				utility.savetable('globaloptions', globaloptions)
+			end
 			
 			checkbox(huddata, 'show debug window')
 			
@@ -383,8 +377,22 @@ end -- local function presentwindowlist()
 local function present()
 	neondebug.log('start present()', 5)
 	
-	psodata.retrievePsoData()
-	neondebug.log('retrieved game huddata', 5)
+	local now = os.time()
+	if #startuptasks > 0
+	and os.difftime(now, lasttime) >= globaloptions.longinterval then
+		local taskindex = 1
+		repeat
+			if startuptasks[taskindex]() then
+				startuptasks[taskindex] = nil
+			else
+				taskindex = taskindex + 1
+			end
+		until taskindex > #startuptasks
+		lasttime = now
+	end
+	
+	psodata.retrievepsodata()
+	neondebug.log('retrieved game data', 5)
 	
 	if huddata['show window list'] then
 		presentwindowlist()
@@ -394,7 +402,7 @@ local function present()
 		huddata['show debug window'] = neondebug.present()
 		neondebug.log('presented debug window', 5)
 	end
-	for windowname, window in pairs(huddata.windowlist) do
+	for _, window in pairs(huddata.windowlist) do
 		if window.enabled then
 			neondebug.log('attempting to present window: ' .. windowname .. '...', 5)
 			presentwindow(windowname)
@@ -403,7 +411,7 @@ local function present()
 	end
 	
 	neondebug.log('end present()', 5)
-end
+end -- local function present
 
 local function init()
 --	local pwd = io.popen([[dir 'addons\Custom HUD\core windows' /b]])
@@ -415,22 +423,6 @@ local function init()
 	-- pwd:close()
 		
 	neondebug.log('starting init process')
-	
-	psodata.init()
-	neondebug.log('completed psodata.init()')
-	widget.setdatasource(psodata)
-	
-	psodata.setActive('player')
-	psodata.setActive('meseta')
-	psodata.setActive('monsterList')
-	psodata.setActive('xp')
-	psodata.setActive('ata')
-	psodata.setActive('party')
-	psodata.setActive('floorItems')
-	psodata.setActive('inventory')
-	psodata.setActive('bank')
-	psodata.setActive('sessionTime')
-	neondebug.log('set up game huddata access')
 	
 	huddata = utility.loadtable('profile')
 	if huddata then
@@ -445,16 +437,41 @@ local function init()
 		huddata = {}
 		huddata.windowlist = {}
 
-		huddata['global font scale'] = 1
 		huddata['show window list'] = true
 		huddata['show window options'] = false
 	end
 	
-	local function mainMenuButtonHandler()
-		huddata['show window list'] = not huddata['show window list']
+	globaloptions = utility.loadtable('globaloptions')
+	if globaloptions then neondebug.log('global options loaded')
+	else
+		globaloptions = {longinterval = 1, allowoffscreenx = 0, allowoffscreeny = 0}
 	end
+	
+	psodata.init()
+	neondebug.log('completed psodata.init()')
+	
+	psodata.setactive('player')
+	psodata.setactive('meseta')
+	psodata.setactive('monsterlist')
+	psodata.setactive('xp')
+	psodata.setactive('ata')
+	psodata.setactive('party')
+	psodata.setactive('flooritems')
+	psodata.setactive('inventory')
+	psodata.setactive('bank')
+	psodata.setactive('sessiontime')
+	neondebug.log('set up game huddata access')
+	
+	widget.init(psodata, globaloptions)
+	
+	
+	-- local function mainMenuButtonHandler()
+		-- huddata['show window list'] = not huddata['show window list']
+	-- end
 
-	core_mainmenu.add_button('Dynamic HUD', mainMenuButtonHandler)
+	core_mainmenu.add_button('Dynamic HUD', function()
+		huddata['show window list'] = not huddata['show window list']
+		end)
 	
 	neondebug.log('init finished')
 	return

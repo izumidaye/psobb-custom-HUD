@@ -3,13 +3,13 @@ local paramtype = require('custom hud.paramtype')
 
 local datasource
 
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 local function updatename(self, paramname)
 	local newname = self.map[paramname] or self[paramname]
 	self['long name'] = self.widgettype .. ': ' .. newname
 	self['short name'] = datasource.shortname[newname] or newname
 end -- local function updatename
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 local function combobox(data, key, combolist)
 	imgui.PushItemWidth(8 + (8 * combolist.longest))
 		local changed, newvalue = imgui.Combo('##' .. key, combolist[data[key]], combolist, #combolist)
@@ -17,7 +17,7 @@ local function combobox(data, key, combolist)
 	if changed then data[key] = combolist[newvalue] end
 	return changed
 end
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 local function paramsourceeditor(self, paramname)
 	
 	local typedef = paramtype[paramname]
@@ -71,9 +71,9 @@ local function paramsourceeditor(self, paramname)
 	end
 	
 end -- local function paramsourceeditor
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 local paramedit = {}
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 paramedit['string'] = function(self, paramname)
 	imgui.Text(paramname)
 	imgui.SameLine()
@@ -88,7 +88,7 @@ paramedit['string'] = function(self, paramname)
 	
 	paramsourceeditor(self, paramname)
 end -- paramedit['string'] = function
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 paramedit['number'] = function(self, paramname)
 	local typedef = paramtype[paramname]
 	local displayvalue
@@ -132,7 +132,7 @@ paramedit['number'] = function(self, paramname)
 	
 	paramsourceeditor(self, paramname)
 end -- paramedit['number'] = function
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 paramedit['slow number'] = function(self, paramname)
 	local typedef = paramtype[paramname]
 	
@@ -160,27 +160,30 @@ paramedit['slow number'] = function(self, paramname)
 	end
 	
 end -- paramedit['slow number'] = function
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 paramedit['boolean'] = function(self, paramname)
 	local typedef = paramtype[paramname]
 	if typedef.disableif and self[typedef.disableif] then
 		imgui.TextDisabled(paramname)
 	else
 		local changed, newvalue = imgui.Checkbox(paramname, self[paramname])
-		if changed then self[paramname] = newvalue end
+		if changed then
+			self[paramname] = newvalue
+			if typedef.update then typedef.update(self) end
+		end
 	end
 	
 	-- paramsourceeditor(self, paramname)
 	-- no reason to use game data for a boolean parameter?
 end -- paramedit['boolean'] = function
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 paramedit['progress'] = function(self, paramname)
 	imgui.Text(paramname)
 	imgui.SameLine()
 	
 	paramsourceeditor(self, paramname)
 end -- paramedit['progress'] = function
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 local colorlabels = {'r', 'g', 'b', 'a'}
 paramedit['color'] = function(self, paramname)
 	imgui.Text(paramname)
@@ -204,7 +207,7 @@ paramedit['color'] = function(self, paramname)
 	imgui.SameLine()
 	imgui.ColorButton(unpack(self[paramname]))
 end -- paramedit['color'] = function
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 paramedit['list'] = function(self, paramname)
 	local list = self[paramname]
 	local typedef = paramtype[paramname]
@@ -304,13 +307,19 @@ paramedit['list'] = function(self, paramname)
 	end
 	
 end -- paramedit['list'] = function
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 paramedit['color gradient'] = function(self, paramname)
 	-- paramedit['color'](self, paramname)
 end -- paramedit['color gradient'] = function
-------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 paramedit['format table'] = function(self, paramname)
 
 end -- paramedit['format table'] = function
-------------------------------------------------------------------------
-return paramedit
+--------------------------------------------------------------------------------
+paramedit['window position and size'] = function(self, param)
+	
+end
+--------------------------------------------------------------------------------
+return function(self, param)
+	paramedit[paramtype[param].datatype](self, param)
+end

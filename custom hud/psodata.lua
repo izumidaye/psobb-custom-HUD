@@ -1,81 +1,81 @@
 --[[
-Item Reader, Player Reader, and Monster Reader code copyright Soleil Rojas (Soly)
-XpBar code copyright Phil Smith (Tornupgaming)
-Kill Counter code copyright Stephen C. Wills (Staphen)
-Modifications copyright Catherine Sciuridae (NeonLuna)
+item reader, player reader, and monster reader code copyright soleil rojas (soly)
+xpbar code copyright phil smith (tornupgaming)
+kill counter code copyright stephen c. wills (staphen)
+modifications copyright catherine sciuridae (neonluna)
 ]]
 
 local utility = require('custom hud.utility')
 
-local _bankPointer = 0x00A95DE0 + 0x18
+local _bankpointer = 0x00a95de0 + 0x18
 
-local itemOffset={weapon=0x00,armor=0x04,mag=0x10,tool=0x0C,unit=0x08}
-local resultOffset={weapon=44,armor=32,mag=28,tool=24,unit=20}
-local bossHpOffset = {[45]=0x6B4, [73]=0x704}
-local bossHpMaxOffset = {[45]=0x6B0, [73]=0x700}
-local maskHpOffset = {[45]=0x6B8, [73]=0x708}
-local shellHpOffset = {[45]=0x39C, [73]=0x7AC}
+local itemoffset={weapon=0x00,armor=0x04,mag=0x10,tool=0x0c,unit=0x08}
+local resultoffset={weapon=44,armor=32,mag=28,tool=24,unit=20}
+local bosshpoffset = {[45]=0x6b4, [73]=0x704}
+local bosshpmaxoffset = {[45]=0x6b0, [73]=0x700}
+local maskhpoffset = {[45]=0x6b8, [73]=0x708}
+local shellhpoffset = {[45]=0x39c, [73]=0x7ac}
 
-local armorTypes = {"frame", "barrier", "unit"}
-local itemTypes = {"weapon", "armor", "mag", "tool", "meseta"}
-local attributeList = {"Native", "A. Beast", "Machine", "Dark", "Hit"}
-local techTypes = {[9]="S", [10]="D", [11]="J", [12]="Z"}
+local armortypes = {"frame", "barrier", "unit"}
+local itemtypes = {"weapon", "armor", "mag", "tool", "meseta"}
+local attributelist = {"native", "a. beast", "machine", "dark", "hit"}
+local techtypes = {[9]="s", [10]="d", [11]="j", [12]="z"}
 
 local _hp = 0x334
-local _itemKillcount = 0xE8
-local _monsterUnitxtId = 0x378
-local _myPlayerIndex = 0x00A9C4F4
-local _playerArray = 0x00A94254
+local _itemkillcount = 0xe8
+local _monsterunitxtid = 0x378
+local _myplayerindex = 0x00a9c4f4
+local _playerarray = 0x00a94254
 local _room = 0x28
-local _toolQuantity = 0x104
-local _weaponGrind = 0x1F5
--- local _evp = 0x2D0
+local _toolquantity = 0x104
+local _weapongrind = 0x1f5
+-- local _evp = 0x2d0
 
-local ActiveGameData = {} -- indicates which data are in use
-local sessionStartXp
-local pmtAddress = nil
+local activegamedata = {} -- indicates which data are in use
+local sessionstartxp
+local pmtaddress = nil
 local psodata = {}
-psodata.menuStates = {'main menu open', 'lower screen menu open', 'full screen menu open', 'any menu open'}
-local GameData = {}
-local lastTime = os.time()
-local lastLocation
+psodata.menustates = {'main menu open', 'lower screen menu open', 'full screen menu open', 'any menu open'}
+local gamedata = {}
+local lasttime = os.time()
+local lastlocation
 
-local function getSelf()
-	return pso.read_u32(_playerArray + pso.read_u32(_myPlayerIndex) * 4)
+local function getself()
+	return pso.read_u32(_playerarray + pso.read_u32(_myplayerindex) * 4)
 end
 
-local function loadPmtAddress()
-	pmtAddress = pso.read_u32(0x00A8DC94)
-	return pmtAddress ~= 0
+local function loadpmtaddress()
+	pmtaddress = pso.read_u32(0x00a8dc94)
+	return pmtaddress ~= 0
 end
 
-local function initTechData()
-	return {multiplier=0, name="none", level=0, timeLeft=0, totalTime=0, timeFloat=0}
-end -- local function initTechData
+local function inittechdata()
+	return {multiplier=0, name="none", level=0, timeleft=0, totaltime=0, timefloat=0}
+end -- local function inittechdata
 
-local function initSessionTime()
-	lastTime = os.time()
-	GameData.elapsedTime = 0
-	GameData.dungeonTime = 0
-	GameData.sessionXp = 0
-	GameData.sessionXpRate = 0 -- per
-	GameData.dungeonXpRate = 0 -- second
-	local player = getSelf()
+local function initsessiontime()
+	lasttime = os.time()
+	gamedata.elapsedtime = 0
+	gamedata.dungeontime = 0
+	gamedata.sessionxp = 0
+	gamedata.sessionxprate = 0 -- per
+	gamedata.dungeonxprate = 0 -- second
+	local player = getself()
 	if player ~= 0 then
-		sessionStartXp = pso.read_u32(player + 0xE48)
+		sessionstartxp = pso.read_u32(player + 0xe48)
 	end
-end -- local function initSessionTime
+end -- local function initsessiontime
 
-local function getUnitxtItemAddress(type, group, index)
-	if not pmtAddress then return nil end
-	local groupOffset = 0
+local function getunitxtitemaddress(type, group, index)
+	if not pmtaddress then return nil end
+	local groupoffset = 0
 	if type == "weapon" or type == "tool" then
-		groupOffset = group * 8
+		groupoffset = group * 8
 	elseif type == "armor" then
 		if group == 3 then
 			type = "unit"
 		else
-			groupOffset = (group - 1) * 8
+			groupoffset = (group - 1) * 8
 		end
 	elseif type == "mag" then
 		index = group
@@ -83,24 +83,24 @@ local function getUnitxtItemAddress(type, group, index)
 		return 0
 	end
 	-- print(type)
-	local itemAddr = pso.read_u32(pmtAddress + itemOffset[type])
-	-- print(itemAddr)
-	if itemAddr == 0 then return nil end
-	local groupAddr = itemAddr + groupOffset
-	-- print(groupAddr)
-	local count = pso.read_u32(groupAddr)
+	local itemaddr = pso.read_u32(pmtaddress + itemoffset[type])
+	-- print(itemaddr)
+	if itemaddr == 0 then return nil end
+	local groupaddr = itemaddr + groupoffset
+	-- print(groupaddr)
+	local count = pso.read_u32(groupaddr)
 	-- print(count)
-	itemAddr = pso.read_u32(groupAddr + 4)
-	-- print(itemAddr)
-	if index < count and itemAddr ~= 0 then
-		return itemAddr + (index * resultOffset[type])
+	itemaddr = pso.read_u32(groupaddr + 4)
+	-- print(itemaddr)
+	if index < count and itemaddr ~= 0 then
+		return itemaddr + (index * resultoffset[type])
 	else
 		return nil
 	end
-end -- getUnitxtItemAddress = function
+end -- getunitxtitemaddress = function
 
-local function readFromUnitxt(group, index)
-	local address = pso.read_u32(0x00A9CD50)
+local function readfromunitxt(group, index)
+	local address = pso.read_u32(0x00a9cd50)
 	if address == 0 then return nil end
 	address = pso.read_u32(address + group * 4)
 	if address == 0 then return nil end
@@ -109,62 +109,62 @@ local function readFromUnitxt(group, index)
 	return pso.read_wstr(address, 256)
 end
 
-local function readItemData(itemAddr, location)
+local function readitemdata(itemaddr, location)
 	item = {} -- all item types: type, name, equipped* (*inventory only)
 	local offset = 0
-	if location ~= "bank" then offset = 0xF2 end
-	item.type = itemTypes[pso.read_u8(itemAddr + offset) + 1]
-	local group = pso.read_u8(itemAddr + offset + 1)
-	local index = pso.read_u8(itemAddr + offset + 2)
+	if location ~= "bank" then offset = 0xf2 end
+	item.type = itemtypes[pso.read_u8(itemaddr + offset) + 1]
+	local group = pso.read_u8(itemaddr + offset + 1)
+	local index = pso.read_u8(itemaddr + offset + 2)
 	
 	if location == "inventory" then
-		item.equipped = bit.band(pso.read_u8(itemAddr + 0x190), 1) == 1
+		item.equipped = bit.band(pso.read_u8(itemaddr + 0x190), 1) == 1
 	end
-	local unitxtAddr = getUnitxtItemAddress(item.type, group, index)
+	local unitxtaddr = getunitxtitemaddress(item.type, group, index)
 	
 	item.name = "???"
-	if not unitxtAddr then
+	if not unitxtaddr then
 		return nil
 	elseif item.type == "meseta" then
 		item.name = "meseta"
 	else
-		local id = pso.read_i32(unitxtAddr)
-		if id ~= -1 then item.name = readFromUnitxt(1, id) end
+		local id = pso.read_i32(unitxtaddr)
+		if id ~= -1 then item.name = readfromunitxt(1, id) end
 	end
 	
 	if item.type == "weapon" then
-		-- weapon: grind, wrapped, untekked, killcount, isSrank, attributes -or- sRank name, special
-		local grindOffset, specialOffset, statsOffset
+		-- weapon: grind, wrapped, untekked, killcount, issrank, attributes -or- srank name, special
+		local grindoffset, specialoffset, statsoffset
 		if location == "bank" then
-			grindOffset, specialOffset, statsOffset = 3, 4, 6
+			grindoffset, specialoffset, statsoffset = 3, 4, 6
 		else
-			grindOffset = _weaponGrind
-			specialOffset = 0x1F6
-			statsOffset = 0x1C8
+			grindoffset = _weapongrind
+			specialoffset = 0x1f6
+			statsoffset = 0x1c8
 		end
 		
-		item.grind = pso.read_u8(itemAddr + _weaponGrind)
+		item.grind = pso.read_u8(itemaddr + _weapongrind)
 		
-		local wrappedOrUntekked = pso.read_u8(itemAddr + specialOffset)
-		if wrappedOrUntekked > 0xBF then
+		local wrappedoruntekked = pso.read_u8(itemaddr + specialoffset)
+		if wrappedoruntekked > 0xbf then
 			item.wrapped = true
 			item.untekked = true
-		elseif wrappedOrUntekked > 0x7F then
+		elseif wrappedoruntekked > 0x7f then
 			item.untekked = true
-		elseif wrappedOrUntekked > 0x3F then
+		elseif wrappedoruntekked > 0x3f then
 			item.wrapped = true
-		end -- if wrappedOrUntekked > 0xBF
+		end -- if wrappedoruntekked > 0xbf
 		
-		if group == 0x33 or group == 0xAB then
-			item.killcount = pso.read_u16(itemAddr + _itemKillcount)
+		if group == 0x33 or group == 0xab then
+			item.killcount = pso.read_u16(itemaddr + _itemkillcount)
 		end
 		
-		item.isSrank = (group >= 0x70 and group < 0x89) or (group >=0xA5 and group < 0xAA)
-		if item.isSrank then
+		item.issrank = (group >= 0x70 and group < 0x89) or (group >=0xa5 and group < 0xaa)
+		if item.issrank then
 			local result = ""
 			local temp = 0
 			for i = 0,4,2 do
-				local addr = itemAddr + statsOffset + i
+				local addr = itemaddr + statsoffset + i
 				local n = bit.lshift(pso.read_u8(addr), 8) + pso.read_u8(addr + 1) - 0x8000
 				if i ~= 0 then
 					temp = math.floor(n / 0x400) + 0x40
@@ -181,130 +181,130 @@ local function readItemData(itemAddr, location)
 					result = result .. string.char(temp)
 				end
 			end -- for i=0,4,2
-			item.SrankName = result
+			item.srankname = result
 			item.special = index
 			
-		else -- not Srank
-			item.special = pso.read_u8(itemAddr + specialOffset) % 64
+		else -- not srank
+			item.special = pso.read_u8(itemaddr + specialoffset) % 64
 			if item.special == 0 then
-				item.special = "None"
+				item.special = "none"
 			else
-				item.special = readFromUnitxt(1, pso.read_u32(0x005E4CBB) + item.special)
+				item.special = readfromunitxt(1, pso.read_u32(0x005e4cbb) + item.special)
 			end -- if item.special == 0
-			for attrName in ipairs(attributeList) do
-				item[attrName] = 0
+			for attrname in ipairs(attributelist) do
+				item[attrname] = 0
 			end
 			for i = 0,4,2 do
-				local attrAddr = itemAddr + statsOffset + i -- attributeAddress
-				local attrIndex = pso.read_u8(attrAddr) + 1
-				if attrIndex < 6 then -- maybe this 6 should be a 7
-					local attrValue = pso.read_u8(attrAddr + 1)
-					local attrName = attributeList[attrIndex]
-					if attrValue > 127 then attrValue = attrValue - 256 end
-					item[attrName] = attrValue
+				local attraddr = itemaddr + statsoffset + i -- attributeaddress
+				local attrindex = pso.read_u8(attraddr) + 1
+				if attrindex < 6 then -- maybe this 6 should be a 7
+					local attrvalue = pso.read_u8(attraddr + 1)
+					local attrname = attributelist[attrindex]
+					if attrvalue > 127 then attrvalue = attrvalue - 256 end
+					item[attrname] = attrvalue
 				end
 			end
-		end -- else -- not Srank
+		end -- else -- not srank
 	
 	elseif item.type == "armor" then
 		if group == 1 then -- frame: slots, defense/max, evade/max
 			item.type = "frame"
-			local slotsOffset, defOffset, evadeOffset
+			local slotsoffset, defoffset, evadeoffset
 			if location == "bank" then
-				slotsOffset, defOffset, evadeOffset = 5, 6, 8
+				slotsoffset, defoffset, evadeoffset = 5, 6, 8
 			else
-				slotsOffset = 0x1B8
-				defOffset = 0x1B9
-				evadeOffset = 0x1BA
+				slotsoffset = 0x1b8
+				defoffset = 0x1b9
+				evadeoffset = 0x1ba
 			end
-			item.slots = pso.read_u8(itemAddr + slotsOffset)
-			item.defense = pso.read_u8(itemAddr + defOffset)
-			item.defenseMax = pso.read_u8(unitxtAddr + 26)
-			item.evade = pso.read_u8(itemAddr + evadeOffset)
-			item.evadeMax = pso.read_u8(unitxtAddr + 27)
+			item.slots = pso.read_u8(itemaddr + slotsoffset)
+			item.defense = pso.read_u8(itemaddr + defoffset)
+			item.defensemax = pso.read_u8(unitxtaddr + 26)
+			item.evade = pso.read_u8(itemaddr + evadeoffset)
+			item.evademax = pso.read_u8(unitxtaddr + 27)
 			
 		elseif group == 2 then -- barrier: defense/max, evade/max
 			item.type = "barrier"
-			local defOffset, evadeOffset
+			local defoffset, evadeoffset
 			if location == "bank" then
-				defOffset, evadeOffset = 6, 8
+				defoffset, evadeoffset = 6, 8
 			else
-				defOffset = 0x1E4
-				evadeOffset = 0x1E5
+				defoffset = 0x1e4
+				evadeoffset = 0x1e5
 			end
-			item.defense = pso.read_u8(itemAddr + defOffset)
-			item.defenseMax = pso.read_u8(unitxtAddr + 26)
-			item.evade = pso.read_u8(itemAddr + evadeOffset)
-			item.evadeMax = pso.read_u8(unitxtAddr + 27)
+			item.defense = pso.read_u8(itemaddr + defoffset)
+			item.defensemax = pso.read_u8(unitxtaddr + 26)
+			item.evade = pso.read_u8(itemaddr + evadeoffset)
+			item.evademax = pso.read_u8(unitxtaddr + 27)
 			
 		elseif group == 3 then -- unit: mod + or -
 			item.type = "unit"
-			local modOffset
+			local modoffset
 			if location == "bank" then
-				modOffset = 6
+				modoffset = 6
 			else
-				modOffset = 0x1DC
+				modoffset = 0x1dc
 			end
-			item.unitMod = pso.read_u8(itemAddr + modOffset)
-			if item.unitMod > 127 then item.unitMod = item.unitMod - 256 end
-			if item.unitMod < -2 then
-				item.unitMod = -2
-			elseif item.unitMod > 2 then
-				item.unitMod = 2
+			item.unitmod = pso.read_u8(itemaddr + modoffset)
+			if item.unitmod > 127 then item.unitmod = item.unitmod - 256 end
+			if item.unitmod < -2 then
+				item.unitmod = -2
+			elseif item.unitmod > 2 then
+				item.unitmod = 2
 			end
-			-- item.unitMod2 = pso.read_u8(itemAddr + modOffset + 1)
-			if index == 0x4D or index == 0x4F then
-				item.killcount = pso.read_u16(itemAddr + _itemKillcount)
+			-- item.unitmod2 = pso.read_u8(itemaddr + modoffset + 1)
+			if index == 0x4d or index == 0x4f then
+				item.killcount = pso.read_u16(itemaddr + _itemkillcount)
 			end
 			
 		end -- armor subtype switch
 	elseif item.type == "mag" then
 		-- mag: def.%, pow.%, dex.%, mind.%, sync, iq, color, timer* (*inventory only), pbs
-		local statsAddr, syncOffset, iqOffset, colorOffset, pbPresenceOffset, pbListOffset
+		local statsaddr, syncoffset, iqoffset, coloroffset, pbpresenceoffset, pblistoffset
 		if location == "bank" then
 			item.timer = 210
-			statsAddr = itemAddr + 4
-			syncOffset, iqOffset, colorOffset = 16, 17, 19
-			pbPresenceOffset, pbListOffset = 18, 3
+			statsaddr = itemaddr + 4
+			syncoffset, iqoffset, coloroffset = 16, 17, 19
+			pbpresenceoffset, pblistoffset = 18, 3
 		else
-			item.timer = pso.read_f32(itemAddr + 0x1B4) / 30
-			statsAddr = itemAddr + 0x1C0
-			syncOffset = 0x1BE
-			iqOffset = 0x1BC
-			colorOffset = 0x1CA
-			pbPresenceOffset = 0x1C8
-			pbListOffset = 0x1C9
+			item.timer = pso.read_f32(itemaddr + 0x1b4) / 30
+			statsaddr = itemaddr + 0x1c0
+			syncoffset = 0x1be
+			iqoffset = 0x1bc
+			coloroffset = 0x1ca
+			pbpresenceoffset = 0x1c8
+			pblistoffset = 0x1c9
 		end
-		item.def = (bit.lshift(pso.read_u8(statsAddr + 1), 8) + pso.read_u8(statsAddr)) / 100
-		item.pow = (bit.lshift(pso.read_u8(statsAddr + 3), 8) + pso.read_u8(statsAddr + 2)) / 100
-		item.dex = (bit.lshift(pso.read_u8(statsAddr + 5), 8) + pso.read_u8(statsAddr + 4)) / 100
-		item.mind = (bit.lshift(pso.read_u8(statsAddr + 7), 8) + pso.read_u8(statsAddr + 6)) / 100
-		item.sync = pso.read_u8(itemAddr + syncOffset)
-		item.iq = pso.read_u8(itemAddr + iqOffset)
-		item.color = pso.read_u8(itemAddr + colorOffset)
-		local pbList = pso.read_u8(itemAddr + pbListOffset)
-		local pbPresence = pso.read_u8(itemAddr + pbPresenceOffset)
+		item.def = (bit.lshift(pso.read_u8(statsaddr + 1), 8) + pso.read_u8(statsaddr)) / 100
+		item.pow = (bit.lshift(pso.read_u8(statsaddr + 3), 8) + pso.read_u8(statsaddr + 2)) / 100
+		item.dex = (bit.lshift(pso.read_u8(statsaddr + 5), 8) + pso.read_u8(statsaddr + 4)) / 100
+		item.mind = (bit.lshift(pso.read_u8(statsaddr + 7), 8) + pso.read_u8(statsaddr + 6)) / 100
+		item.sync = pso.read_u8(itemaddr + syncoffset)
+		item.iq = pso.read_u8(itemaddr + iqoffset)
+		item.color = pso.read_u8(itemaddr + coloroffset)
+		local pblist = pso.read_u8(itemaddr + pblistoffset)
+		local pbpresence = pso.read_u8(itemaddr + pbpresenceoffset)
 		item.pb = {}
-		local takenPbs = {}
-		local pbIndex
-		if bit.band(pbPresence, 1) ~= 0 then
-			pbIndex = bit.band(pbList, 7)
-			item.pb[2] = readFromUnitxt(9, pbIndex)
-			takenPbs[pbIndex + 1] = true
+		local takenpbs = {}
+		local pbindex
+		if bit.band(pbpresence, 1) ~= 0 then
+			pbindex = bit.band(pblist, 7)
+			item.pb[2] = readfromunitxt(9, pbindex)
+			takenpbs[pbindex + 1] = true
 		end
-		if bit.band(pbPresence, 2) ~= 0 then
-			pbIndex = bit.rshift(bit.band(pbList, 56), 3)
-			item.pb[3] = readFromUnitxt(9, pbIndex)
-			takenPbs[pbIndex + 1] = true
+		if bit.band(pbpresence, 2) ~= 0 then
+			pbindex = bit.rshift(bit.band(pblist, 56), 3)
+			item.pb[3] = readfromunitxt(9, pbindex)
+			takenpbs[pbindex + 1] = true
 		end
-		if bit.band(pbPresence, 4) ~= 0 then
-			pbIndex = bit.rshift(bit.band(pbList, 0xC0), 6)
+		if bit.band(pbpresence, 4) ~= 0 then
+			pbindex = bit.rshift(bit.band(pblist, 0xc0), 6)
 			for i = 1,6 do
-				if not takenPbs[i] then
-					if pbIndex == 0 then
-						item.pb[1] = readFromUnitxt(9, i - 1)
+				if not takenpbs[i] then
+					if pbindex == 0 then
+						item.pb[1] = readfromunitxt(9, i - 1)
 					else
-						pbIndex = pbIndex - 1
+						pbindex = pbindex - 1
 					end
 				end
 			end
@@ -312,19 +312,19 @@ local function readItemData(itemAddr, location)
 	elseif item.type == "tool" then
 		if group == 2 then -- technique disk: tech learned, level
 			item.type = "technique disk"
-			local techNameOffset
+			local technameoffset
 			if location == "bank" then
-				techNameOffset = 4
+				technameoffset = 4
 			else
-				techNameOffset = 0x108
+				technameoffset = 0x108
 			end
-			item.name = readFromUnitxt(5, pso.read_u8(itemAddr + techNameOffset))
-			item.techniqueLevel = index + 1
+			item.name = readfromunitxt(5, pso.read_u8(itemaddr + technameoffset))
+			item.techniquelevel = index + 1
 		else -- consumable item: quantity
 			if location == "bank" then
-				item.quantity = pso.read_u8(itemAddr + 20)
+				item.quantity = pso.read_u8(itemaddr + 20)
 			else
-				item.quantity = bit.bxor(pso.read_u32(itemAddr + _toolQuantity), itemAddr + _toolQuantity)
+				item.quantity = bit.bxor(pso.read_u32(itemaddr + _toolquantity), itemaddr + _toolquantity)
 			end
 		end
 	elseif item.type == "meseta" then
@@ -332,323 +332,321 @@ local function readItemData(itemAddr, location)
 		item.name = "meseta"
 		item.quantity = 0
 		for i = 0,3 do
-			item.quantity = item.quantity + bit.lshift(pso.read_u8(itemAddr + 0x100 + i), i * 8)
+			item.quantity = item.quantity + bit.lshift(pso.read_u8(itemaddr + 0x100 + i), i * 8)
 		end
 	end -- item.type switch
 	return item
-end -- local function readItemData
+end -- local function readitemdata
 
-local function readBuffData(playerAddr, offset)
+local function readbuffdata(playeraddr, offset)
 	offset = offset or 0
 	local techdata = {}
-	local techType = pso.read_u32(playerAddr + 0x274 + offset)
-	if techType == 0 then
-		techdata = initTechData()
+	local techtype = pso.read_u32(playeraddr + 0x274 + offset)
+	if techtype == 0 then
+		techdata = inittechdata()
 	else
-		techdata.name = techTypes[techType]
-		techdata.multiplier = pso.read_f32(playerAddr + 0x278 + offset)
+		techdata.name = techtypes[techtype]
+		techdata.multiplier = pso.read_f32(playeraddr + 0x278 + offset)
 		techdata.level = (math.abs(techdata.multiplier) - 0.087) * 77
-		techdata.timeLeft = pso.read_u32(playerAddr + 0x27C + offset) / 30
-		techdata.totalTime = (techdata.level + 3) * 10
+		techdata.timeleft = pso.read_u32(playeraddr + 0x27c + offset) / 30
+		techdata.totaltime = (techdata.level + 3) * 10
 	end
 	return techdata
 end
 
-local function readPlayerMonsterData(playerAddr)
+local function readplayermonsterdata(playeraddr)
 	local player = {}
-	player.hp = pso.read_u16(playerAddr + _hp)
-	player.hpMax = pso.read_u16(playerAddr + 0x2BC)
-	local status = pso.read_u32(playerAddr + 0x268)
-	player.statusFrozen = status == 0x02
-	player.statusConfused = status == 0x12
-	player.statusParalyzed = pso.read_u32(playerAddr + 0x25C) == 0x10
-	player.defTech = readBuffData(playerAddr, 12)
-	player.atkTech = readBuffData(playerAddr)
+	player.hp = pso.read_u16(playeraddr + _hp)
+	player.hpmax = pso.read_u16(playeraddr + 0x2bc)
+	local status = pso.read_u32(playeraddr + 0x268)
+	player.statusfrozen = status == 0x02
+	player.statusconfused = status == 0x12
+	player.statusparalyzed = pso.read_u32(playeraddr + 0x25c) == 0x10
+	player.deftech = readbuffdata(playeraddr, 12)
+	player.atktech = readbuffdata(playeraddr)
 	return player
 end
 
-psodata.retrievePsoData = function()
-	if not psodata.screenWidth then
-		psodata.screenWidth = pso.read_u16(0x00A46C48)
-		psodata.screenHeight = pso.read_u16(0x00A46C4A)
+function psodata.retrievepsodata()
+	if not psodata.screenwidth then
+		-- psodata.screenwidth = pso.read_u16(0x00a46c48)
+		-- psodata.screenheight = pso.read_u16(0x00a46c4a)
 	end
-	local frameTime = os.time() - lastTime
-	GameData.totalTime = GameData.totalTime + frameTime
+	local frametime = os.time() - lasttime
+	gamedata.totaltime = gamedata.totaltime + frametime
 	
-	loadPmtAddress()
-	local playerAddr = getSelf()
-	if playerAddr ~= 0 then
-		for _, menu in ipairs(psodata.menuStates) do
-			GameData[menu] = false
+	loadpmtaddress()
+	local playeraddr = getself()
+	if playeraddr ~= 0 then
+		for _, menu in ipairs(psodata.menustates) do
+			gamedata[menu] = false
 		end
-		if pso.read_u32(0x009FF3D4) ~= 1 then -- any menu open
-			GameData['any menu open'] = true
-			GameData['lower screen menu open'] = true -- pretty much every menu uses the lower part of the screen
-			if pso.read_u32(0x00A97F44) == 1 then
-				GameData['main menu open'] = true
-			elseif (pso.read_u32(0x00A48A9C) == 1) or ((psodata.currentLocation() == 'lobby') and (pso.read_u32(0x00AAB218) ~= 0))then -- shops and stuff, also lobby counter
-				GameData['full screen menu open'] = true
+		if pso.read_u32(0x009ff3d4) ~= 1 then -- any menu open
+			gamedata['any menu is open'] = true
+			gamedata['lower screen menu is open'] = true -- pretty much every menu uses the lower part of the screen
+			if pso.read_u32(0x00a97f44) == 1 then
+				gamedata['main menu is open'] = true
+			elseif (pso.read_u32(0x00a48a9c) == 1) or ((psodata.currentlocation() == 'lobby') and (pso.read_u32(0x00aab218) ~= 0))then -- shops and stuff, also lobby counter
+				gamedata['full screen menu is open'] = true
 			end
-		elseif pso.read_u32(0x00A97F44) == 2 then -- team chat
-			GameData['lower screen menu open'] = true
+		elseif pso.read_u32(0x00a97f44) == 2 then -- team chat
+			gamedata['lower screen menu is open'] = true
 		end
 	
-		-- 0x00A97F44 main menu (== 1) and team chat (== 2)
-		-- 0x00A48A9C bank, quest counter, shops, tekker, clinic (== 1)
-		-- 0x009FF3D4 almost any menu (~= 1)
+		-- 0x00a97f44 main menu (== 1) and team chat (== 2)
+		-- 0x00a48a9c bank, quest counter, shops, tekker, clinic (== 1)
+		-- 0x009ff3d4 almost any menu (~= 1)
 		
-		-- print(GameData.menuState)
+		-- print(gamedata.menustate)
 		
-		if ActiveGameData.xp then
-			local pltAddress = pso.read_u32(0x00A94878)
-			GameData.level = pso.read_u32(playerAddr + 0xE44) + 1
-			if pltAddress ~= 0 then
-				if GameData.level < 200 then
-					local class = pso.read_u32(pso.read_u32(pltAddress) + 4 * pso.read_u8(playerAddr + 0x961))
-					local totalXp = pso.read_u32(playerAddr + 0xE48)
-					local thisLevelTotalXp = pso.read_u32(class + 0x0C * (GameData.level - 1) + 0x08)
-					local nextLevelTotalXp = pso.read_u32(class + 0x0C * GameData.level + 0x08)
-					GameData.thisLevelXp = nextLevelTotalXp - thisLevelTotalXp
+		if activegamedata.xp then
+			local pltaddress = pso.read_u32(0x00a94878)
+			gamedata.level = pso.read_u32(playeraddr + 0xe44) + 1
+			if pltaddress ~= 0 then
+				if gamedata.level < 200 then
+					local class = pso.read_u32(pso.read_u32(pltaddress) + 4 * pso.read_u8(playeraddr + 0x961))
+					local totalxp = pso.read_u32(playeraddr + 0xe48)
+					local thisleveltotalxp = pso.read_u32(class + 0x0c * (gamedata.level - 1) + 0x08)
+					local nextleveltotalxp = pso.read_u32(class + 0x0c * gamedata.level + 0x08)
+					gamedata.thislevelxp = nextleveltotalxp - thisleveltotalxp
 						-- xp to level up from beginning of current level
 						
-					GameData.levelProgress = totalXp - thisLevelTotalXp
+					gamedata.levelprogress = totalxp - thisleveltotalxp
 						-- character's xp past beginning of current level
 						
-					-- GameData.toNextLevel = GameData.thisLevelXp - GameData.levelProgress
-					-- GameData.levelProgressFloat = GameData.levelProgress / GameData.thisLevelXp
+					-- gamedata.tonextlevel = gamedata.thislevelxp - gamedata.levelprogress
+					-- gamedata.levelprogressfloat = gamedata.levelprogress / gamedata.thislevelxp
 				else -- player is level 200
-					GameData.thisLevelXp = 0
-					GameData.levelProgress = 0
-					GameData.toNextLevel = 0
-					GameData.levelProgressFloat = 1
-				end -- if GameData.level < 200
-			end -- if pltAddress ~= 0
-		end -- if ActiveGameData.xp
+					gamedata.thislevelxp = 0
+					gamedata.levelprogress = 0
+					gamedata.tonextlevel = 0
+					gamedata.levelprogressfloat = 1
+				end -- if gamedata.level < 200
+			end -- if pltaddress ~= 0
+		end -- if activegamedata.xp
 		
-		if ActiveGameData.ata then GameData.ata = pso.read_u16(playerAddr + 0x2D4) end
+		if activegamedata.ata then gamedata.ata = pso.read_u16(playeraddr + 0x2d4) end
 		
-		if ActiveGameData.player then
-			local tempPlayer = readPlayerMonsterData(playerAddr)
-			GameData.playerHP = tempPlayer.hp
-			GameData.playerHPmax = tempPlayer.hpMax
-			GameData.playerFrozen = tempPlayer.statusFrozen
-			GameData.playerConfused = tempPlayer.statusConfused
-			GameData.playerParalyzed = tempPlayer.statusParalyzed
-			GameData.playerDefTech = tempPlayer.defTech
-			GameData.playerAtkTech = tempPlayer.atkTech
-			GameData.playerTP = pso.read_u16(playerAddr + 0x336)
-			GameData.playerTPmax = pso.read_u16(playerAddr + 0x2BE)
-			GameData.playerInvulnerabilityTime = pso.read_u32(playerAddr + 0x720) / 30
-		end -- if ActiveGameData.Player
+		if activegamedata.player then
+			local tempplayer = readplayermonsterdata(playeraddr)
+			gamedata.playerhp = tempplayer.hp
+			gamedata.playerhpmax = tempplayer.hpmax
+			gamedata.playerfrozen = tempplayer.statusfrozen
+			gamedata.playerconfused = tempplayer.statusconfused
+			gamedata.playerparalyzed = tempplayer.statusparalyzed
+			gamedata.playerdeftech = tempplayer.deftech
+			gamedata.playeratktech = tempplayer.atktech
+			gamedata.playertp = pso.read_u16(playeraddr + 0x336)
+			gamedata.playertpmax = pso.read_u16(playeraddr + 0x2be)
+			gamedata.playerinvulnerabilitytime = pso.read_u32(playeraddr + 0x720) / 30
+		end -- if activegamedata.player
 		
-		if ActiveGameData.party then
-			GameData.party = {}
+		if activegamedata.party then
+			gamedata.party = {}
 			for i = 0, 11 do
-				local partyMemberAddr = pso.read_u32(_playerArray + i * 4)
-				if partyMemberAddr ~= 0 and partyMemberAddr ~= playerAddr then
-					local partyMemberData = readPlayerMonsterData(partyMemberAddr)
-					partyMemberData.tp = pso.read_u16(partyMemberAddr + 0x336)
-					partyMemberData.tpMax = pso.read_u16(partyMemberAddr + 0x2BE)
-					partyMemberData.invulnerabilityTime = pso.read_u32(partyMemberAddr + 0x720) / 30
-					local partyMemberName = pso.read_wstr(partyMemberAddr + 0x428, 12)
-					if string.sub(partyMemberName, 1, 1) == "\t" then
-						partyMemberName = string.sub(partyMemberName, 3)
-					end -- if string.sub(partyMemberName, 1, 1) == "\t"
-					partyMemberData.name = string.gsub(partyMemberName, "%%", "%%%%")
-					table.insert(GameData.party, partyMemberData)
-				end -- if partyMemberAddr ~= 0 and partyMemberAddr ~= playerAddr
+				local partymemberaddr = pso.read_u32(_playerarray + i * 4)
+				if partymemberaddr ~= 0 and partymemberaddr ~= playeraddr then
+					local partymemberdata = readplayermonsterdata(partymemberaddr)
+					partymemberdata.tp = pso.read_u16(partymemberaddr + 0x336)
+					partymemberdata.tpmax = pso.read_u16(partymemberaddr + 0x2be)
+					partymemberdata.invulnerabilitytime = pso.read_u32(partymemberaddr + 0x720) / 30
+					local partymembername = pso.read_wstr(partymemberaddr + 0x428, 12)
+					if string.sub(partymembername, 1, 1) == "\t" then
+						partymembername = string.sub(partymembername, 3)
+					end -- if string.sub(partymembername, 1, 1) == "\t"
+					partymemberdata.name = string.gsub(partymembername, "%%", "%%%%")
+					table.insert(gamedata.party, partymemberdata)
+				end -- if partymemberaddr ~= 0 and partymemberaddr ~= playeraddr
 			end -- for i = 0, 11
-		end -- if ActiveGameData.party
+		end -- if activegamedata.party
 		
-		if ActiveGameData.meseta then GameData.meseta = pso.read_u32(playerAddr + 0xE4C) end
+		if activegamedata.meseta then gamedata.meseta = pso.read_u32(playeraddr + 0xe4c) end
 		
-		local _lobby, _pioneer2 = 0xF, 0
-		if ActiveGameData.sessionTime then
-			local location = pso.read_u32(0x00AAFC9C + 0x04)
+		local _lobby, _pioneer2 = 0xf, 0
+		if activegamedata.sessiontime then
+			local location = pso.read_u32(0x00aafc9c + 0x04)
 			if location == _lobby then
-				GameData.currentLocation = 'lobby'
+				gamedata.currentlocation = 'lobby'
 			elseif location == _pioneer2 then
-				GameData.currentLocation = 'pioneer 2'
+				gamedata.currentlocation = 'pioneer 2'
 			else
-				GameData.currentLocation = 'field'
+				gamedata.currentlocation = 'field'
 			end
 			if location ~= _lobby then
-				if location == lastLocation then
-					GameData.elapsedTime = GameData.elapsedTime + frameTime
-					GameData.sessionXp = pso.read_u32(playerAddr + 0xE48) - sessionStartXp
-					-- GameData.sessionXpRate = GameData.sessionXp / GameData.elapsedTime
+				if location == lastlocation then
+					gamedata.elapsedtime = gamedata.elapsedtime + frametime
+					gamedata.sessionxp = pso.read_u32(playeraddr + 0xe48) - sessionstartxp
+					-- gamedata.sessionxprate = gamedata.sessionxp / gamedata.elapsedtime
 					if location ~= _pioneer2 then
-						GameData.dungeonTime = GameData.dungeonTime + frameTime
-						-- GameData.dungeonXpRate = GameData.sessionXp / GameData.dungeonTime
+						gamedata.dungeontime = gamedata.dungeontime + frametime
+						-- gamedata.dungeonxprate = gamedata.sessionxp / gamedata.dungeontime
 					end -- if location ~= _pioneer2
-				else -- location ~= lastLocation
-					if lastLocation == _lobby then
-						initSessionTime()
-						sessionStartXp = pso.read_u32(playerAddr + 0xE48)
-						-- lastLocation = location
-						-- lastTime = now
-					end -- if location == lastLocation
-				end -- if location == lastLocation
+				else -- location ~= lastlocation
+					if lastlocation == _lobby then
+						initsessiontime()
+						sessionstartxp = pso.read_u32(playeraddr + 0xe48)
+						-- lastlocation = location
+						-- lasttime = now
+					end -- if location == lastlocation
+				end -- if location == lastlocation
 			end -- if location ~= _lobby
-			lastLocation = location
-		end -- if ActiveGameData.sessionTime
+			lastlocation = location
+		end -- if activegamedata.sessiontime
 		
-		if ActiveGameData.floorItems or ActiveGameData.inventory then
-			if ActiveGameData.floorItems then
-				GameData.floorItems = {}
+		if activegamedata.flooritems or activegamedata.inventory then
+			if activegamedata.flooritems then
+				gamedata.flooritems = {}
 			end
-			if ActiveGameData.inventory then
-				GameData.inventory = {}
+			if activegamedata.inventory then
+				gamedata.inventory = {}
 			end
-			local playerIndex = pso.read_u32(_myPlayerIndex)
-			local itemArray = pso.read_u32(0x00A8D81C)
-			local inventoryIndex, floorIndex = 0, 0
-			local itemAddr
-			for i = 1, pso.read_u32(0x00A8D820) do
-				itemAddr = pso.read_u32(itemArray + 4 * (i - 1))
-				if itemAddr ~= 0 then
-					local owner = pso.read_i8(itemAddr + 0xE4)
-					if owner == -1 and ActiveGameData.floorItems then
-						floorIndex = floorIndex + 1
-						local item = readItemData(itemAddr, "floor")
-						item.index = floorIndex
-						table.insert(GameData.floorItems, item)
-					elseif owner == playerIndex and ActiveGameData.inventory then
-						inventoryIndex = inventoryIndex + 1
-						local item = readItemData(itemAddr, "inventory")
-						-- if GameData.elapsedTime < 2 then
+			local playerindex = pso.read_u32(_myplayerindex)
+			local itemarray = pso.read_u32(0x00a8d81c)
+			local inventoryindex, floorindex = 0, 0
+			local itemaddr
+			for i = 1, pso.read_u32(0x00a8d820) do
+				itemaddr = pso.read_u32(itemarray + 4 * (i - 1))
+				if itemaddr ~= 0 then
+					local owner = pso.read_i8(itemaddr + 0xe4)
+					if owner == -1 and activegamedata.flooritems then
+						floorindex = floorindex + 1
+						local item = readitemdata(itemaddr, "floor")
+						item.index = floorindex
+						table.insert(gamedata.flooritems, item)
+					elseif owner == playerindex and activegamedata.inventory then
+						inventoryindex = inventoryindex + 1
+						local item = readitemdata(itemaddr, "inventory")
+						-- if gamedata.elapsedtime < 2 then
 							-- print(item.name)
 						-- end
 						-- if item then
-							item.index = inventoryIndex
-							table.insert(GameData.inventory, item)
+							item.index = inventoryindex
+							table.insert(gamedata.inventory, item)
 						-- end -- if item
 					end -- check: inventory item or floor item
-				end -- if itemAddr ~= 0
+				end -- if itemaddr ~= 0
 			end -- iterate through items array
-			GameData.inventorySpaceUsed = inventoryIndex
-		end -- if ActiveGameData.floorItems or ActiveGameData.inventory
+			gamedata.inventoryspaceused = inventoryindex
+		end -- if activegamedata.flooritems or activegamedata.inventory
 		
-		if ActiveGameData.bank then
-			GameData.bank = {}
-			local bankAddress = pso.read_i32(_bankPointer)
-			if bankAddress ~= 0 then
-				bankAddress = bankAddress + 0x021C
-				GameData.bankSpaceUsed = pso.read_u8(bankAddress)
-				GameData.bankMeseta = pso.read_i32(bankAddress + 4)
-				for i = 1, GameData.bankSpaceUsed do
-					local item = readItemData(bankAddress + i * 24 - 16, "bank")
+		if activegamedata.bank then
+			gamedata.bank = {}
+			local bankaddress = pso.read_i32(_bankpointer)
+			if bankaddress ~= 0 then
+				bankaddress = bankaddress + 0x021c
+				gamedata.bankspaceused = pso.read_u8(bankaddress)
+				gamedata.bankmeseta = pso.read_i32(bankaddress + 4)
+				for i = 1, gamedata.bankspaceused do
+					local item = readitemdata(bankaddress + i * 24 - 16, "bank")
 					if item then
-						item.bankIndex = i
-						table.insert(GameData.bank, item)
+						item.bankindex = i
+						table.insert(gamedata.bank, item)
 					end -- if item
 				end -- iterate through bank items
-			end -- if bankAddress ~= 0
-		end -- if ActiveGameData.bank
+			end -- if bankaddress ~= 0
+		end -- if activegamedata.bank
 		
-		if ActiveGameData.monsterList then
-			GameData.monsterList = {}
-			-- local monsterAddrList = {}
-			local nameGroup = 2
-			if pso.read_u32(0x00A9CD68) == 3 then
-				nameGroup = 4
+		if activegamedata.monsterlist then
+			gamedata.monsterlist = {}
+			-- local monsteraddrlist = {}
+			local namegroup = 2
+			if pso.read_u32(0x00a9cd68) == 3 then
+				namegroup = 4
 			end
-			local playerRoom1 = pso.read_u16(playerAddr + _room)
-			local playerRoom2 = pso.read_u16(playerAddr + 0x2E)
-			-- local playerX = pso.read_f32(playerAddr + 0x38)
-			-- local playerY = pso.read_f32(playerAddr + 0x3C)
-			local playerCount = pso.read_u32(0x00AAE168)
-			local entityCount = pso.read_u32(0x00AAE164) - 1
-			for i = 0, entityCount do
-				local thisMonster = {}
-				local monsterAddr = pso.read_u32(0x00AAD720 + 4 * (playerCount + i))
-				-- thisMonster.hp = pso.read_u16(monsterAddr + _hp)
-				if monsterAddr ~= 0 then
-					local monsterId = pso.read_u32(monsterAddr + _monsterUnitxtId)
-					if monsterId == 45 or monsterId == 73 then
-						thisMonster.name = readFromUnitxt(nameGroup, pso.read_u32(monsterAddr + _monsterUnitxtId))
-						thisMonster.hp = pso.read_u32(monsterAddr + bossHpOffset[monsterId])
-						thisMonster.hpMax = pso.read_u32(monsterAddr + bossHpMaxOffset[monsterId])
-						local maxDataPtr = pso.read_u32(0x00A43CC8)
-						if maxDataPtr ~= 0 then -- still has armor layer
+			local playerroom1 = pso.read_u16(playeraddr + _room)
+			local playerroom2 = pso.read_u16(playeraddr + 0x2e)
+			-- local playerx = pso.read_f32(playeraddr + 0x38)
+			-- local playery = pso.read_f32(playeraddr + 0x3c)
+			local playercount = pso.read_u32(0x00aae168)
+			local entitycount = pso.read_u32(0x00aae164) - 1
+			for i = 0, entitycount do
+				local thismonster = {}
+				local monsteraddr = pso.read_u32(0x00aad720 + 4 * (playercount + i))
+				-- thismonster.hp = pso.read_u16(monsteraddr + _hp)
+				if monsteraddr ~= 0 then
+					local monsterid = pso.read_u32(monsteraddr + _monsterunitxtid)
+					if monsterid == 45 or monsterid == 73 then
+						thismonster.name = readfromunitxt(namegroup, pso.read_u32(monsteraddr + _monsterunitxtid))
+						thismonster.hp = pso.read_u32(monsteraddr + bosshpoffset[monsterid])
+						thismonster.hpmax = pso.read_u32(monsteraddr + bosshpmaxoffset[monsterid])
+						local maxdataptr = pso.read_u32(0x00a43cc8)
+						if maxdataptr ~= 0 then -- still has armor layer
 							if i == 0 then -- this is the head
-								thisMonster.ap = pso.read_u32(monsterAddr + maskHpOffset[monsterId])
-								thisMonster.apMax = pso.read_u32(monsterAddr + 0x20)
+								thismonster.ap = pso.read_u32(monsteraddr + maskhpoffset[monsterid])
+								thismonster.apmax = pso.read_u32(monsteraddr + 0x20)
 							else -- this is a body segment
-								thisMonster.ap = pso.read_u32(monsterAddr + shellHpOffset[monsterId])
-								thisMonster.apMax = pso.read_u32(monsterAddr + 0x1C)
+								thismonster.ap = pso.read_u32(monsteraddr + shellhpoffset[monsterid])
+								thismonster.apmax = pso.read_u32(monsteraddr + 0x1c)
 							end -- if i == 0
-						end -- maxDataPtr ~= 0
+						end -- maxdataptr ~= 0
 					else
-						-- table.insert(monsterAddrList, monsterAddr)
-						local monsterRoom = pso.read_u16(monsterAddr + _room)
-						-- print(pso.read_u16(monsterAddr + _hp))
-						-- print(monsterRoom .. " == " .. playerRoom1 .. " or " .. playerRoom2)
-						-- print((monsterRoom == playerRoom1 or monsterRoom == playerRoom2) and pso.read_u16(monsterAddr + _hp) > 0)
-						if (monsterRoom == playerRoom1 or monsterRoom == playerRoom2) and pso.read_u16(monsterAddr + _hp) > 0 then
+						-- table.insert(monsteraddrlist, monsteraddr)
+						local monsterroom = pso.read_u16(monsteraddr + _room)
+						-- print(pso.read_u16(monsteraddr + _hp))
+						-- print(monsterroom .. " == " .. playerroom1 .. " or " .. playerroom2)
+						-- print((monsterroom == playerroom1 or monsterroom == playerroom2) and pso.read_u16(monsteraddr + _hp) > 0)
+						if (monsterroom == playerroom1 or monsterroom == playerroom2) and pso.read_u16(monsteraddr + _hp) > 0 then
 							-- print("live monster!")
-							thisMonster = readPlayerMonsterData(monsterAddr)
-							thisMonster.name = readFromUnitxt(nameGroup, pso.read_u32(monsterAddr + _monsterUnitxtId))
-							table.insert(GameData.monsterList, thisMonster)
+							thismonster = readplayermonsterdata(monsteraddr)
+							thismonster.name = readfromunitxt(namegroup, pso.read_u32(monsteraddr + _monsterunitxtid))
+							table.insert(gamedata.monsterlist, thismonster)
 						end -- if monster in same room and alive
-					end -- if monsterId == 45 or monsterId == 73
-				end -- if monsterAddr ~= 0
+					end -- if monsterid == 45 or monsterid == 73
+				end -- if monsteraddr ~= 0
 			end -- iterate through monster list
 		-- print("my addon monster addresses:")
-		-- for i, ma in ipairs(monsterAddrList) do print(i .. " " .. ma) end
-		end -- if ActiveGameData.monsterList
+		-- for i, ma in ipairs(monsteraddrlist) do print(i .. " " .. ma) end
+		end -- if activegamedata.monsterlist
 		
 	else
-		GameData.currentLocation = 'login'
+		gamedata.currentlocation = 'login'
 	end -- check: player data present or not
-	lastTime = os.time()
-end -- local function retrievePsoData
+	lasttime = os.time()
+end -- local function retrievepsodata
 
--- psodata.get = function(key) return GameData[key] end
+-- psodata.get = function(key) return gamedata[key] end
 
-psodata.currentLocation = function() return GameData.currentLocation end
+function psodata.setactive(datagroup) activegamedata[datagroup] = true end
 
-psodata.setActive = function(dataGroup) ActiveGameData[dataGroup] = true end
+function psodata.activedatareset() activegamedata = {} end
 
-psodata.activeDataReset = function() ActiveGameData = {} end
-
-psodata.init = function()
-	GameData =
+function psodata.init()
+	gamedata =
 		{
-		currentLocation='',
+		currentlocation='',
 		level=0,
-		thisLevelXp=0,
-		toNextLevel=0,
-		levelProgress=0,
-		levelProgressFloat=0,
+		thislevelxp=0,
+		tonextlevel=0,
+		levelprogress=0,
+		levelprogressfloat=0,
 		meseta=0,
-		totalTime=0,
-		sessionTime=0,
-		elapsedTime=0,
-		sessionXp=0,
-		sessionXpRate=0,
-		dungeonTime=0,
-		dungeonXpRate=0,
-		inventorySpaceUsed=0,
-		bankSpaceUsed=0,
-		floorItems={},
+		totaltime=0,
+		sessiontime=0,
+		elapsedtime=0,
+		sessionxp=0,
+		sessionxprate=0,
+		dungeontime=0,
+		dungeonxprate=0,
+		inventoryspaceused=0,
+		bankspaceused=0,
+		flooritems={},
 		inventory={},
 		bank={},
 		party={},
-		monsterList={},
-		playerHP=0,
-		playerHPmax=0,
-		playerFrozen=false,
-		playerConfused=false,
-		playerParalyzed=false,
-		playerDefTech=initTechData(),
-		playerAtkTech=initTechData(),
-		playerTP=0,
-		playerTPmax=0,
-		playerInvulnerabilityTime=0
+		monsterlist={},
+		playerhp=0,
+		playerhpmax=0,
+		playerfrozen=false,
+		playerconfused=false,
+		playerparalyzed=false,
+		playerdeftech=inittechdata(),
+		playeratktech=inittechdata(),
+		playertp=0,
+		playertpmax=0,
+		playerinvulnerabilitytime=0
 		}
-	-- GameData.player = {hp=0, hpMax=0, tp=0, tpMax=0, ata=0, statusFrozen=false, statusConfused=false, statusParalyzed=false, invulnerabilityTime=0, defTech=initTechData(), atkTech=initTechData()}
-	initSessionTime()
+	-- gamedata.player = {hp=0, hpmax=0, tp=0, tpmax=0, ata=0, statusfrozen=false, statusconfused=false, statusparalyzed=false, invulnerabilitytime=0, deftech=inittechdata(), atktech=inittechdata()}
+	initsessiontime()
 end
 
 do -- define psodata getter functions
@@ -659,71 +657,71 @@ do -- define psodata getter functions
 	local bf = {} -- boolean functions
 	local pf = {} -- progress functions
 
-	sf['player current hp'] = function() return GameData.playerHP end
-	sf['player maximum hp'] = function() return GameData.playerHPmax end
-	sf['player current tp'] = function() return GameData.playerTP end
-	sf['player maximum tp'] = function() return GameData.playerTPmax end
-	sf['invulnerability time'] = function() return GameData.playerInvulnerabilityTime end
-	sf['player level'] = function() return GameData.level end
-	sf['level base xp'] = function() return GameData.thisLevelXp end
-	sf['xp this level'] = function() return GameData.levelProgress end
-	sf['player ata'] = function() return GameData.ata end
-	sf['pack meseta'] = function() return GameData.meseta end
-	sf['session time elapsed'] = function() return GameData.elapsedTime end
-	sf['session xp accumulated'] = function() return GameData.sessionXp end
-	sf['session time in dungeon'] = function() return GameData.dungeonTime end
-	sf['pack slots used'] = function() return GameData.inventorySpaceUsed end
-	sf['pack slots free'] = function() return 30 - GameData.inventorySpaceUsed end
-	sf['bank slots used'] = function() return GameData.bankSpaceUsed end
-	sf['bank slots free'] = function() return 200 - GameData.bankSpaceUsed end
-	sf['bank meseta'] = function() return GameData.bankMeseta end
-	sf['hp: current/maximum'] = function() return GameData.playerHP .. '/' .. GameData.playerHPmax end
-	sf['tp: current/maximum'] = function() return GameData.playerTP .. '/' .. GameData.playerTPmax end
-	sf['xp progress/needed'] = function() return GameData.levelProgress .. '/' .. GameData.thisLevelXp end
-	sf['xp to next level'] = function() return GameData.thisLevelXp - GameData.levelProgress end
-	sf['xp/second this session'] = function() return GameData.sessionXp / GameData.elapsedTime end
-	sf['kxp/hour this session'] = function() return GameData.sessionXp / GameData.elapsedTime * 3.6 end
-	sf['xp/second in dungeon'] = function() return GameData.sessionXp / GameData.dungeonTime end
-	sf['kxp/hour in dungeon'] = function() return GameData.sessionXp / GameData.dungeonTime * 3.6 end
-	sf['pack space: used/total'] = function() return GameData.inventorySpaceUsed .. '/30' end
-	sf['bank space: used/total'] = function() return GameData.bankSpaceUsed .. '/200' end
+	function sf['player current hp']() return gamedata.playerhp end
+	function sf['player maximum hp']() return gamedata.playerhpmax end
+	function sf['player current tp']() return gamedata.playertp end
+	function sf['player maximum tp']() return gamedata.playertpmax end
+	function sf['invulnerability time']() return gamedata.playerinvulnerabilitytime end
+	function sf['player level']() return gamedata.level end
+	function sf['level base xp']() return gamedata.thislevelxp end
+	function sf['xp this level']() return gamedata.levelprogress end
+	function sf['player ata']() return gamedata.ata end
+	function sf['pack meseta']() return gamedata.meseta end
+	function sf['session time elapsed']() return gamedata.elapsedtime end
+	function sf['session xp accumulated']() return gamedata.sessionxp end
+	function sf['session time in dungeon']() return gamedata.dungeontime end
+	function sf['pack slots used']() return gamedata.inventoryspaceused end
+	function sf['pack slots free']() return 30 - gamedata.inventoryspaceused end
+	function sf['bank slots used']() return gamedata.bankspaceused end
+	function sf['bank slots free']() return 200 - gamedata.bankspaceused end
+	function sf['bank meseta']() return gamedata.bankmeseta end
+	function sf['hp: current/maximum']() return gamedata.playerhp .. '/' .. gamedata.playerhpmax end
+	function sf['tp: current/maximum']() return gamedata.playertp .. '/' .. gamedata.playertpmax end
+	function sf['xp progress/needed']() return gamedata.levelprogress .. '/' .. gamedata.thislevelxp end
+	function sf['xp to next level']() return gamedata.thislevelxp - gamedata.levelprogress end
+	function sf['xp/second this session']() return gamedata.sessionxp / gamedata.elapsedtime end
+	function sf['kxp/hour this session']() return gamedata.sessionxp / gamedata.elapsedtime * 3.6 end
+	function sf['xp/second in dungeon']() return gamedata.sessionxp / gamedata.dungeontime end
+	function sf['kxp/hour in dungeon']() return gamedata.sessionxp / gamedata.dungeontime * 3.6 end
+	function sf['pack space: used/total']() return gamedata.inventoryspaceused .. '/30' end
+	function sf['bank space: used/total']() return gamedata.bankspaceused .. '/200' end
 
-	sf['inventory items'] = function() return GameData.inventory end
-	sf['floor items'] = function() return GameData.floorItems end
-	sf['bank items'] = function() return GameData.bank end
-	sf['party members'] = function() return GameData.party end
-	sf['monsters in current room'] = function() return GameData.monsterList end
+	function sf['inventory items']() return gamedata.inventory end
+	function sf['floor items']() return gamedata.flooritems end
+	function sf['bank items']() return gamedata.bank end
+	function sf['party members']() return gamedata.party end
+	function sf['monsters in current room']() return gamedata.monsterlist end
 
-	-- bf['Player Status: Frozen'] = function() return GameData.playerFrozen end
-	-- bf['Player Status: Confused'] = function() return GameData.playerConfused end
-	-- bf['Player Status: Paralyzed'] = function() return GameData.playerParalyzed end
+	-- bf['player status: frozen']() return gamedata.playerfrozen end
+	-- bf['player status: confused']() return gamedata.playerconfused end
+	-- bf['player status: paralyzed']() return gamedata.playerparalyzed end
 
-	sf['player hp'] = function() return
-		{GameData.playerHP, GameData.playerHPmax} end
-	sf['player tp'] = function() return
-		{GameData.playerTP, GameData.playerTPmax} end
-	sf['xp progress'] = function() return
-		{GameData.levelProgress, GameData.thisLevelXp} end
-	sf['pack space'] = function() return
-		{GameData.inventorySpaceUsed, 30} end
-	sf['bank space'] = function() return
-		{GameData.bankSpaceUsed, 200} end
-	sf['player deband/zalure timer'] = function() return
-		{GameData.playerDefTech.timeLeft,
-		GameData.playerDefTech.totalTime} end
-	sf['player shifta/jellen timer'] = function() return
-		{GameData.playerAtkTech.timeLeft,
-		GameData.playerAtkTech.totalTime} end
+	function sf['player hp']() return
+		{gamedata.playerhp, gamedata.playerhpmax} end
+	function sf['player tp']() return
+		{gamedata.playertp, gamedata.playertpmax} end
+	function sf['xp progress']() return
+		{gamedata.levelprogress, gamedata.thislevelxp} end
+	function sf['pack space']() return
+		{gamedata.inventoryspaceused, 30} end
+	function sf['bank space']() return
+		{gamedata.bankspaceused, 200} end
+	function sf['player deband/zalure timer']() return
+		{gamedata.playerdeftech.timeleft,
+		gamedata.playerdeftech.totaltime} end
+	function sf['player shifta/jellen timer']() return
+		{gamedata.playeratktech.timeleft,
+		gamedata.playeratktech.totaltime} end
 
-	sf['player s/d/j/z timer'] = function()
-		defFloat = GameData.playerDefTech.timeLeft / GameData.playerDefTech.totalTime
-		atkFloat = GameData.playerAtkTech.timeLeft / GameData.playerAtkTech.totalTime
-		if (defFloat == 0) or (defFloat > atkFloat) then
-			return {GameData.playerAtkTech.timeLeft,
-				GameData.playerAtkTech.totalTime}
+	function sf['player s/d/j/z timer']()
+		deffloat = gamedata.playerdeftech.timeleft / gamedata.playerdeftech.totaltime
+		atkfloat = gamedata.playeratktech.timeleft / gamedata.playeratktech.totaltime
+		if (deffloat == 0) or (deffloat > atkfloat) then
+			return {gamedata.playeratktech.timeleft,
+				gamedata.playeratktech.totaltime}
 		else
-			return {GameData.playerDefTech.timeLeft, 
-				GameData.playerDefTech.totalTime}
+			return {gamedata.playerdeftech.timeleft, 
+				gamedata.playerdeftech.totaltime}
 		end
 	end
 	
@@ -735,16 +733,16 @@ do -- define psodata getter functions
 		-- end
 	-- end
 	
-	-- sf['s/d/j/z time left'] = function()
+	-- function sf['s/d/j/z time left']()
 		-- return timeuntilchange
-			-- { GameData.playerDefTech.timeLeft,
-			-- GameData.playerAtkTech.timeLeft }
+			-- { gamedata.playerdeftech.timeleft,
+			-- gamedata.playeratktech.timeleft }
 	-- end
 	
-	-- sf['s/d/j/z starting time'] = function()
+	-- function sf['s/d/j/z starting time']()
 		-- return timeuntilchange
-			-- { GameData.playerDefTech.totalTime,
-			-- GameData.playerAtkTech.totalTime }
+			-- { gamedata.playerdeftech.totaltime,
+			-- gamedata.playeratktech.totaltime }
 	-- end
 	
 	psodata.combolist =
@@ -827,43 +825,43 @@ do -- define psodata getter functions
 	
 	psodata.get = sf
 	
-	psodata.listFields = {}
-	psodata.listSubFields = {}
-	psodata.listSubFields['Inventory Items'] =
+	psodata.listfields = {}
+	psodata.listsubfields = {}
+	psodata.listsubfields['inventory items'] =
 		{
-		['weapon'] = {'index', 'type', 'equipped', 'name', 'grind', 'wrapped', 'killcount', 'untekked', 'isSrank', 'SrankName', 'special', 'Native', 'A. Beast', 'Machine', 'Dark', 'Hit'},
-		['frame'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'slots', 'defense', 'defenseMax', 'evade', 'evadeMax'},
-		['barrier'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'defense', 'defenseMax', 'evade', 'evadeMax'},
-		['unit'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'killcount', 'unitMod'},
+		['weapon'] = {'index', 'type', 'equipped', 'name', 'grind', 'wrapped', 'killcount', 'untekked', 'issrank', 'srankname', 'special', 'native', 'a. beast', 'machine', 'dark', 'hit'},
+		['frame'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'slots', 'defense', 'defensemax', 'evade', 'evademax'},
+		['barrier'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'defense', 'defensemax', 'evade', 'evademax'},
+		['unit'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'killcount', 'unitmod'},
 		['mag'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'def', 'pow', 'dex', 'mind', 'sync', 'iq', 'color', 'pb', 'timer'},
-		['technique disk'] = {'index', 'type', 'name', 'wrapped', 'techniqueLevel'},
+		['technique disk'] = {'index', 'type', 'name', 'wrapped', 'techniquelevel'},
 		['tool'] = {'index', 'type', 'name', 'wrapped', 'quantity'},
 		['meseta'] = {'index', 'type', 'name', 'wrapped', 'quantity'}
 		}
-	psodata.listSubFields['Floor Items'] =
+	psodata.listsubfields['floor items'] =
 		{
-		['weapon'] = {'index', 'type', 'name', 'grind', 'wrapped', 'killcount', 'untekked', 'isSrank', 'SrankName', 'special', 'Native', 'A. Beast', 'Machine', 'Dark', 'Hit'},
-		['frame'] = {'index', 'type', 'name', 'wrapped', 'slots', 'defense', 'defenseMax', 'evade', 'evadeMax'},
-		['barrier'] = {'index', 'type', 'name', 'wrapped', 'defense', 'defenseMax', 'evade', 'evadeMax'},
-		['unit'] = {'index', 'type', 'name', 'wrapped', 'killcount', 'unitMod'},
+		['weapon'] = {'index', 'type', 'name', 'grind', 'wrapped', 'killcount', 'untekked', 'issrank', 'srankname', 'special', 'native', 'a. beast', 'machine', 'dark', 'hit'},
+		['frame'] = {'index', 'type', 'name', 'wrapped', 'slots', 'defense', 'defensemax', 'evade', 'evademax'},
+		['barrier'] = {'index', 'type', 'name', 'wrapped', 'defense', 'defensemax', 'evade', 'evademax'},
+		['unit'] = {'index', 'type', 'name', 'wrapped', 'killcount', 'unitmod'},
 		['mag'] = {'index', 'type', 'name', 'wrapped', 'def', 'pow', 'dex', 'mind', 'sync', 'iq', 'color', 'pb'},
-		['technique disk'] = {'index', 'type', 'name', 'wrapped', 'techniqueLevel'},
+		['technique disk'] = {'index', 'type', 'name', 'wrapped', 'techniquelevel'},
 		['tool'] = {'index', 'type', 'name', 'wrapped', 'quantity'},
 		['meseta'] = {'index', 'type', 'name', 'wrapped', 'quantity'}
 		}
-	psodata.listFields['Party Members'] = {'hp', 'hpMax', 'statusFrozen', 'statusConfused', 'statusParalyzed', 'defTech', 'atkTech', 'tp', 'tpMax', 'invulnerabilityTime', 'name'}
-	psodata.listFields['Monsters in Current Room'] = {'hp', 'hpMax', 'statusFrozen', 'statusConfused', 'statusParalyzed', 'defTech', 'atkTech', 'name'}
+	psodata.listfields['party members'] = {'hp', 'hpmax', 'statusfrozen', 'statusconfused', 'statusparalyzed', 'deftech', 'atktech', 'tp', 'tpmax', 'invulnerabilitytime', 'name'}
+	psodata.listfields['monsters in current room'] = {'hp', 'hpmax', 'statusfrozen', 'statusconfused', 'statusparalyzed', 'deftech', 'atktech', 'name'}
 
-	for _, list in pairs(psodata.listSubFields) do
+	for _, list in pairs(psodata.listsubfields) do
 		for _, sublist in pairs(list) do
 			for index, value in pairs(sublist) do
 				sublist[value] = index
 			end
 		end
 	end
-	psodata.listSubFields['Bank Items'] = psodata.listSubFields['Floor Items']
+	psodata.listsubfields['bank items'] = psodata.listsubfields['floor items']
 
-	for _, list in pairs(psodata.listFields) do
+	for _, list in pairs(psodata.listfields) do
 		for index, value in pairs(list) do
 			list[value] = index
 		end
@@ -872,6 +870,8 @@ do -- define psodata getter functions
 
 end
 
--- psodata.getGameData = function(fieldName) return df[fieldName]() end
+function psodata.getgamewindowsize()
+	return pso.read_u16(0x00a46c48), pso.read_u16(0x00a46c4a)
+end
 
 return psodata

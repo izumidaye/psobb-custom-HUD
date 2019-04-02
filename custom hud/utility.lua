@@ -1,3 +1,4 @@
+local neondebug = require('custom hud.neondebug')
 local utility = {}
 
 --------------------------------------------------------------------------------
@@ -27,7 +28,8 @@ utility.scale = function(value, range, offset)
 	else
 		offset = 1
 	end
-	return round((value / 100) * range * offset)
+	neondebug.log('utility.scale(' .. value .. ', ' .. range .. ', ' .. offset .. ')', 5, 'widget')
+	return utility.round((value / 100) * range * offset)
 end
 --------------------------------------------------------------------------------
 utility.unscale = function(value, range, offset)
@@ -106,6 +108,7 @@ end -- utility.listmove = function
 utility.addcombolist = function(sourcearray)
 -- sort array and add reverse lookup
 	table.sort(sourcearray, function(string1, string2) return string.lower(string1) < string.lower(string2) end)
+	if not sourcearray.longest then sourcearray.longest = 0 end
 	for index, value in ipairs(sourcearray) do
 		sourcearray[value] = index
 		sourcearray.longest = math.max(sourcearray.longest, string.len(value))

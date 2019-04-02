@@ -3,8 +3,9 @@ local debuglist = {}
 local loggingenabled = false
 local timeout = {}
 
-local function writetolog(text)
-	local file = io.open('addons/Custom HUD/log' .. os.date('%F') .. '.txt', 'a')
+local function writetolog(text, debugtype)
+	debugtype = debugtype or ''
+	local file = io.open('addons/Custom HUD/' .. debugtype .. 'log' .. os.date('%F') .. '.txt', 'a')
 	if file then
 		io.output(file)
 		io.write(text)
@@ -14,22 +15,32 @@ end
 
 local function timestamp() return os.date('%T> ') end
 
-neondebug.enablelogging = function()
+neondebug.enablelogging = function(debugtype)
 	loggingenabled = true
-	writetolog('\n\n'.. timestamp() .. 'session log start\n')
+	debugtype = debugtype or ''
+	local file = io.open('addons/Custom HUD/' .. debugtype .. 'log' .. os.date('%F') .. '.txt', 'w')
+	if file then
+		io.output(file)
+		io.write(timestamp() .. 'session log start\n')
+		io.close(file)
+	end
+	-- writetolog('\n\n'.. timestamp() .. 'session log start\n')
 end
 
-neondebug.log = function(message, timeoutlength)
-	if timeoutlength then
-		if timeout[message] and os.time() < timeout[message] then
-			-- too soon to log another message
-			return
-		else -- timeout expired; restart timeout
-			timeout[message] = os.time() + timeoutlength
+neondebug.log = function(message, timeoutlength, debugtype)
+	if loggingenabled then
+		if timeoutlength then
+			if timeout[message] and os.time() < timeout[message] then
+				-- too soon to log another message
+				return
+			else -- timeout expired; restart timeout
+				writetolog(timestamp() .. message .. '\n', debugtype)
+				timeout[message] = os.time() + timeoutlength
+			end
+		else
+			writetolog(timestamp() .. message .. '\n', debugtype)
 		end
 	end
-	
-	if loggingenabled then writetolog(timestamp() .. message .. '\n') end
 end
 
 neondebug.update = function(key, value)

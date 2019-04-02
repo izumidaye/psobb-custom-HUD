@@ -1,5 +1,6 @@
 local utility = require('custom hud.utility')
 local paramtype = require('custom hud.paramtype')
+local datatype = paramtype.datatype
 
 local datasource
 
@@ -321,5 +322,5 @@ paramedit['window position and size'] = function(self, param)
 end
 --------------------------------------------------------------------------------
 return function(self, param)
-	paramedit[paramtype[param].datatype](self, param)
+	paramedit[datatype(param)](self, param)
 end

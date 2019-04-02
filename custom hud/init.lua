@@ -12,8 +12,12 @@ local widget = require('custom hud.widget')
 local paramedit = require('custom hud.paramedit')
 local default = require('custom hud.default')
 local convert = require('custom hud.language_english')
+
 -- neondebug.update('this is a test', 'wow')
-neondebug.enablelogging()
+
+-- neondebug.enablelogging('general')
+neondebug.enablelogging('presentwindowlist')
+neondebug.enablelogging('widget')
 
 local lasttime = os.time()
 
@@ -23,17 +27,18 @@ local globaloptions
 local windownames
 
 local function updatewindownames()
-	windownames = {}
-	for index, window in ipairs(huddata.windowlist) do
-		windownames[index] = window['window title']
-		windownames.longest = math.max(windownames.longest, #window['window title'])
-	end
+	-- windownames = {}
+	-- for index, window in ipairs(huddata.windowlist) do
+		-- windownames[index] = window['window title']
+		-- windownames.longest = math.max(windownames.longest, #window['window title'])
+	-- end
 end
 
 local function detectgamewindowsize()
 	local neww, newh = psodata.getgamewindowsize()
 	if neww > 0 then
 		widget.setgamewindowsize(neww, newh)
+		neondebug.log('game window size: ' .. neww .. 'x' .. newh, 5, 'widget')
 		return true
 	end
 end
@@ -79,29 +84,43 @@ local function addwindow(newtitle)
 end
 
 local function presentwindowlist()
-
+	neondebug.log('start presentwindowlist()', 5)
+	
 	imgui.SetNextWindowSize(600,300,'FirstUseEver')
 	local success
 	success, huddata['show window list'] = imgui.Begin('custom hud window list', true)
 		if not success then
 			imgui.End()
 			return
+			neondebug.log('imgui.Begin() failed.', 5)
 		end
+		
+		neondebug.log('imgui.Begin() succeeded.', 5)
 		
 		imgui.BeginGroup()
 		
-			imgui.PushItemWidth(windownames.longest * 8 * gfs)
-				local changed, newvalue = imgui.ListBox('##window list box', huddata['selected window'] or 0, windownames, #windownames)
-			imgui.PopItemWidth()
-			if changed then huddata['selected window'] = newvalue end
+			-- imgui.PushItemWidth(windownames.longest * 8 * gfs)
+				-- local changed, newvalue = imgui.ListBox('##window list box', huddata['selected window'] or 0, windownames, #windownames)
+			-- imgui.PopItemWidth()
+			-- if changed then huddata['selected window'] = newvalue end
+			
+			for i = 1, #huddata.windowlist do
+				if imgui.Button(huddata.windowlist[i]['window title']) then
+					huddata['selected window'] = i
+				end
+			end
+			-- neondebug.log('displayed window list box', 5)
 			
 			if imgui.Button('window options') then
 				huddata['show window options'] = not huddata['show window options']
 			end
 			
 			if imgui.Button('add new window') then
-				-- huddata.windowlist['new window'] = newwindow()
-				-- windownames = utility.buildcombolist(huddata.windowlist)
+				neondebug.log('attempting to add new window.', 5, 'presentwindowlist')
+				table.insert(huddata.windowlist, widget.new('window'))
+				neondebug.log('successfully added new window.', 5, 'presentwindowlist')
+				updatewindownames()
+				neondebug.log('updated window list.', 5, 'presentwindowlist')
 			end -- if imgui.Button('add new window')
 			-- maybe make a pop-up dialog to enter title before adding window
 			
@@ -139,7 +158,7 @@ local function presentwindowlist()
 end -- local function presentwindowlist()
 
 local function present()
-	neondebug.log('start present()', 5)
+	-- neondebug.log('start present()', 5)
 	
 	local now = os.time()
 	if #startuptasks > 0
@@ -156,23 +175,23 @@ local function present()
 	end
 	
 	psodata.retrievepsodata()
-	neondebug.log('retrieved game data', 5)
+	-- neondebug.log('retrieved game data', 5)
 	
 	if huddata['show window list'] then
 		presentwindowlist()
-		neondebug.log('presented window list', 5)
+		-- neondebug.log('presented window list', 5)
 	end
 	if huddata['show debug window'] then
 		huddata['show debug window'] = neondebug.present()
-		neondebug.log('presented debug window', 5)
+		-- neondebug.log('presented debug window', 5)
 	end
 	for _, window in ipairs(huddata.windowlist) do
-		neondebug.log('attempting to present window: ' .. window['window title'] .. '...', 5)
+		-- neondebug.log('attempting to present window: ' .. window['window title'] .. '...', 5)
 		window:display()
-		neondebug.log('...succeeded', 5)
+		-- neondebug.log('...succeeded', 5)
 	end
 	
-	neondebug.log('end present()', 5)
+	-- neondebug.log('end present()', 5)
 end -- local function present
 
 local function init()

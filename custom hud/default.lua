@@ -1,13 +1,14 @@
 local paramtype = require('custom hud.paramtype')
 local typedef = paramtype.typedef
 local datatype = paramtype.datatype
+local neondebug = require('custom hud.neondebug')
 
 local defaultvalue =
 	{
 	['string'] = 'taco cat backwards is taco cat',
 	['short name'] = '',
 	['long name'] = '',
-	['window title'] = '',
+	['window title'] = 'moo',
 
 
 	['widget width'] = -1,
@@ -50,17 +51,23 @@ defaultvalue['list'] =
 	}
 
 return function(param)
+	neondebug.log('generating default value for: ' .. param, 5)
 	local result
 	if defaultvalue[param] then result = defaultvalue[param]
 	else
+		neondebug.log(param .. ' not found. attempting to lookup by datatype.', 5)
 		local thistype = typedef(param)
-		if defaultvalue[thistype.datatype] then
+		neondebug.log('datatype: ' .. thistype.datatype, 5)
+		if defaultvalue[thistype.datatype] ~= nil then
+			neondebug.log(thistype.datatype .. ' default found.', 5)
 			result = defaultvalue[thistype.datatype]
 			if thistype.subtype then result = result[thistype.subtype] end
-		else return
+		else
+			neondebug.log('default value for ' .. thistype.datatype .. ' not found.', 5)
+			return
 		end
 	end
-	if result then
+	if result ~= nil then
 		if type(result) == 'function' then return result() else return result end
 	end -- if result
 end -- return function(param, subtype)

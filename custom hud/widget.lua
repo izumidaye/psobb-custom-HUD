@@ -6,6 +6,7 @@ local datatype = paramtype.datatype
 local paramedit = require('custom hud.paramedit')
 local default = require('custom hud.default')
 local id = require('custom hud.id')
+local neondebug = require('custom hud.neondebug')
 
 local datasource = {}
 local globaloptions
@@ -53,7 +54,7 @@ widgets['text'] =
 	parameters =
 		{
 		'general', 'color',
-		['general'] = {'display value', 'show range', 'same line',--[[ 'font scale',]]},
+		['general'] = {'display value', 'show range', 'same line',},
 		['color'] = {'text gradient',},
 		-- ['hidden'] ={'long name', 'short name',},
 		}, -- parameters = {...}
@@ -117,7 +118,7 @@ widgets['progress bar'] =
 		['general'] = {'bar value', 'show value', 'show range', 'overlay text',
 			'scale progress bar',},
 		['layout'] = {'same line', 'widget width', 'widget height',},
-		['bar color'] = {'dynamic bar color', 'bar color', 'bar gradient',}
+		['bar color'] = {'dynamic bar color', 'bar color', 'bar gradient',},
 		['text color'] = {'dynamic text color', 'text color', 'text gradient',},
 		}, -- parameters = {...}
 	
@@ -197,29 +198,39 @@ widgets['window'] =
 			'main menu is open', 'full screen menu is open',},
 		['style'] = {'font scale', 'text color', 'background color',
 			'show titlebar', 'show scrollbar',},
-		['content'] = {'widget list',},
-		['hidden'] =
-			{'id', 'window options', 'layout',},
 		}, -- parameters = {...}
 	
 	init = function(self)
-		self.id = id.new()
+		neondebug.log('begin window:init().', 5)
 		
+		self.id = id.new()
+		neondebug.log('generated and assigned window id.', 5)
+		
+		self['window options'] = {}
 		updatewindowoption(self, not self['show titlebar'], 1, 'NoTitleBar')
 		updatewindowoption(self, not self['resize with mouse'], 2, 'NoResize')
 		updatewindowoption(self, not self['move with mouse'], 3, 'NoMove')
 		updatewindowoption(self, not self['show scrollbar'], 4, 'NoScrollBar')
 		updatewindowoption(self, self['auto resize'], 5, 'AlwaysAutoResize')
+		neondebug.log('initialized window[\'window options\'].', 5, 'widget')
 		
+		self.layout = {}
 		self.layout.w = utility.scale(self['position and size'].w, gamewindowwidth)
 		self.layout.h = utility.scale(self['position and size'].h, gamewindowheight)
-		updatelayoutx(self)
-		updatelayouty(self)
+		neondebug.log('initialized window.layout (size).', 5, 'widget')
+		
+		self:updatelayoutx()
+		self:updatelayouty()
+		neondebug.log('initialized window.layout (position).', 5, 'widget')
+		
+		-- initialize widget list
+		self['widget list'] = {}
 		
 		self.dontserialize['id'] = true
 		self.dontserialize['window options'] = true
 		self.dontserialize['layout'] = true
-	end
+		neondebug.log('initialized window.dontserialize.', 5, 'widget')
+	end,
 	
 	menustate = {},
 --------------------------------------------------------------------------------
@@ -266,8 +277,8 @@ widgets['window'] =
 	end,
 --------------------------------------------------------------------------------
 	display = function(self)
-		if (self['in lobby'] and datasource.get(currentlocation) == 'lobby')
-		or (self['not in field'] and datasource.get(currentlocation) ~= 'field')
+		if (self['in lobby'] and datasource.currentlocation() == 'lobby')
+		or (self['not in field'] and datasource.currentlocation() ~= 'field')
 		or (not self['enable window'])
 		--[[or datasource.currentlocation() == 'login']]
 		then return end
@@ -302,7 +313,7 @@ widgets['window'] =
 			if bgcolor then
 				imgui.PushStyleColor('WindowBg', unpack(bgcolor)) end
 			
-			imgui.SetWindowfontScale(self['font scale'] or globaloptions.fontscale)
+			imgui.SetWindowFontScale(self['font scale'] or globaloptions.fontscale)
 			
 			for _, item in ipairs(self['widget list']) do
 				item:display()
@@ -328,10 +339,15 @@ widgets['window'] =
 widget.combolist = utility.tablecombolist(widgets)
 --------------------------------------------------------------------------------
 local function editparamgroup(self, group, label)
-	for _, param in ipairs(self.parameters[group]) do
-		if imgui.TreeNode(label or group) then
-			paramedit(self, param) imgui.TreePop()
+	if imgui.TreeNode(label or group) then
+		neondebug.log('displaying parameter group: ' .. group, 5, 'widget')
+		for _, param in ipairs(self.parameters[group]) do
+			neondebug.log('displaying editor for ' .. group .. '.' .. param, 5, 'widget')
+			paramedit(self, param)
+			neondebug.log('displayed ' .. group .. '.' .. param, 5, 'widget')
 		end
+		neondebug.log('done displaying parameter group: ' .. group, 5, 'widget')
+		imgui.TreePop()
 	end
 end
 --------------------------------------------------------------------------------
@@ -344,41 +360,49 @@ local function edit(self)
 end -- local function edit
 --------------------------------------------------------------------------------
 widget.new = function(typename, fieldcombolist)
+	-- neondebug.log('creating widget of type: ' .. typename, 5)
 	
 	local newwidget = {}
 	setmetatable(newwidget, {__index = widgets[typename]})
+	-- neondebug.log('new widget metatable set.', 5)
 	
 	newwidget.widgettype = typename
-	
 	newwidget.edit = edit
-	
-	if newwidget.dontserialize then
-		local extra = newwidget.dontserialize
-		newwidget.dontserialize = default('dontserialize')
-		for param, _ in pairs(extra) do
-			newwidget.dontserialize[param] = true
-		end
-	else
-		newwidget.dontserialize = default('dontserialize')
-	end
-	
+	newwidget.dontserialize = default('dontserialize')
 	newwidget.fieldcombolist = fieldcombolist
 	newwidget.map = {}
+	-- neondebug.log('widgettype, edit, dontserialize, fieldcombolist, and map set.', 5)
 	
-	for _, param in ipairs(newwidget.parameters) do
-		local thistype = typedef(param)
-		if not thistype.optional then
-			newwidget[param] = default(param)
+	-- neondebug.log('beginning generic parameter initialization loop.', 5)
+	for _, groupname in ipairs(newwidget.parameters) do
+		for _, param in ipairs(newwidget.parameters[groupname]) do
 			
-			if not thistype.staticsource then
-				if fieldcombolist then
-					newwidget.map[param] = fieldcombolist[1]
-				else
-					newwidget.map[param] = datasource.combolist[thistype.datatype][1]
-				end -- if fieldcombolist
-			end
-		end -- if not thistype.optional
-	end -- for _, param in ipairs(newwidget.parameters)
+			-- neondebug.log('next parameter: ' .. param, 5)
+			
+			local thistype = typedef(param)
+			if not thistype.optional then
+				newwidget[param] = default(param)
+				
+				if not thistype.staticsource then
+					if fieldcombolist then
+						newwidget.map[param] = fieldcombolist[1]
+					else
+						newwidget.map[param] = datasource.combolist[thistype.datatype][1]
+					end -- if fieldcombolist
+				end
+				
+				-- neondebug.log(param .. ' initialized to default: ' .. utility.serialize(newwidget[param]), 5, 'widget')
+				
+			end -- if not thistype.optional
+		end -- for _, param in ipairs(newwidget.parameters[groupname])
+	end -- for _, groupname in ipairs(newwidget.parameters)
+	-- neondebug.log('completed generic parameter initialization loop.', 5)
+	
+	if newwidget.init then
+		-- neondebug.log('starting ' .. typename .. ' specific init.', 5)
+		newwidget:init()
+		-- neondebug.log(typename .. ' specific init complete.', 5, 'widget')
+	end
 	
 	return newwidget
 	
@@ -392,6 +416,7 @@ end
 function widget.init(newdatasource, newglobaloptions)
 	datasource = newdatasource
 	globaloptions = newglobaloptions
+	boundary = {}
 	boundary.left = 0 - globaloptions.allowoffscreenx
 	boundary.right = 100 + globaloptions.allowoffscreenx
 	boundary.top = 0 - globaloptions.allowoffscreeny

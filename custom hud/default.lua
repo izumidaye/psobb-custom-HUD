@@ -9,12 +9,15 @@ local defaultvalue =
 	['short name'] = '',
 	['long name'] = '',
 	['window title'] = 'moo',
-
-
+	
+	['number'] = 0,
 	['widget width'] = -1,
 	['widget height'] = -1,
 	-- ['text padding'] = 0,
 	['inputtext buffer size'] = 72,
+	
+	['slow number'] = 0,
+	['font scale'] = 1,
 	
 	['boolean'] = false,
 	-- ['same line'] = false,
@@ -34,6 +37,14 @@ local defaultvalue =
 	['widget color'] = function() return {.9, .2, .2, 1} end,
 	['text color'] = function() return {.8, .8, .8, 1} end,
 	['background color'] = function() return {.1, .1, .1, .5} end,
+	
+	['list'] = function() return
+		{
+		dragtarget = {},
+		buttonedges = {5,},
+		buttoncenters = {},
+		}
+	end,
 	
 	['window position and size'] = function() return {x=0, y=0, w=5, h=5,} end,
 	['window options'] = function() return {'', '', '', '', ''} end,

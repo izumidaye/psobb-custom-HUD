@@ -1,6 +1,10 @@
 local neondebug = require('custom hud.neondebug')
 local utility = {}
 
+local debugsave = function(message)
+	neondebug.log(message, 'save serialize')
+end
+
 --------------------------------------------------------------------------------
 utility.round = function(number, places)
 -- rounds up if decimal >= .5 else rounds down
@@ -83,6 +87,15 @@ utility.tablecombolist = function(sourcetable)
 	return resultlist
 end -- local function buildcombolist(sourcetable)
 --------------------------------------------------------------------------------
+function utility.listadd(list, newitem, dest, selected)
+	table.insert(list, dest, newitem)
+	if selected and dest <= selected then
+		return selected + 1
+	else
+		return selected
+	end
+end -- function utility.listadd
+--------------------------------------------------------------------------------
 utility.listmove = function(list, source, dest, selected)
 	if source ~= dest and source + 1 ~= dest then
 		table.insert(list, dest, list[source])
@@ -143,7 +156,11 @@ do
 -- convert entire table into a string, so it can be written to a file. recurses for nested tables.
 	local serialize = {}
 	utility.serialize = function(sourcedata, offset, excludekeys)
-		return serialize[type(sourcedata)](sourcedata, offset)
+		debugsave 'begin serialize...'
+		local result = serialize[type(sourcedata)](sourcedata, offset)
+		debugsave 'serialize completed.'
+		debugsave(result)
+		return result
 	end
 --------------------------------------------------------------------------------
 	serialize['number'] = tostring
@@ -177,9 +194,10 @@ do
 		-- if sourcedata contains any tables, then put each element of sourcedata on a separate line, with proper indentation; if sourcedata contains no tables, then put all its elements on one line.
 		
 		for key, value in pairs(sourcedata) do
-			if not (excludekeys and excludekeys[key]) then
-				result = result .. optionallinebreak
+			if not ((sourcedata.dontserialize and sourcedata.dontserialize[key])
+			or type(value) == 'function' ) then
 				if type(key) ~= 'number' then
+					-- result = result .. optionallinebreak
 					result = result .. string.format('[%s]=', utility.serialize(key))
 				end -- if type(key) == 'number'
 				result = result .. utility.serialize(value, currentoffset + 2) .. ','
@@ -208,8 +226,15 @@ end -- utility.loadstring = function
 --------------------------------------------------------------------------------
 utility.savetable = function(filename, tabletosave)
 -- saves current HUD configuration to disk as a runnable lua script.
-	local outputstring = 'return\n' .. utility.serialize(tabletosave)
+	debugsave 'savetable: begin...'
+	local serializeddata = utility.serialize(tabletosave)
+	if type(serializeddata) ~= 'string' then
+		debugsave 'savetable: serialize() did not return a string.'
+	end
+	local outputstring = 'return\n' .. serializeddata
+	debugsave 'savetable: serialize complete.'
 	utility.savestring(filename, outputstring)
+	debugsave 'savetable: complete.'
 end -- utility.savetable = function
 --------------------------------------------------------------------------------
 utility.loadtable = function(filename)

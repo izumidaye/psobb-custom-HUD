@@ -182,7 +182,7 @@ paramtype['move with mouse'] = {
 paramtype['resize with mouse'] = {
 	datatype = 'boolean',
 	staticsource = true,
-	disableif = 'auto resize',
+	hideif = function(self) return self['auto resize'] end,
 	update = function(self)
 		updatewindowoption(self, not self['resize with mouse'], 2, 'NoResize')
 	end,
@@ -209,7 +209,7 @@ paramtype['any menu is open'] = {
 paramtype['lower screen menu is open'] = {
 	datatype = 'boolean',
 	staticsource = true,
-	disableif = 'any menu is open',
+	hideif = function(self) return self['any menu is open'] end,
 	-- update = function(self)
 		-- updatehidecondition(self, 'lower screen menu is open') end,
 	}
@@ -217,7 +217,7 @@ paramtype['lower screen menu is open'] = {
 paramtype['main menu is open'] = {
 	datatype = 'boolean',
 	staticsource = true,
-	disableif = 'any menu is open',
+	hideif = function(self) return self['any menu is open'] end,
 	-- update = function(self)
 		-- updatehidecondition(self, 'main menu is open') end,
 	}
@@ -225,7 +225,7 @@ paramtype['main menu is open'] = {
 paramtype['full screen menu is open'] = {
 	datatype = 'boolean',
 	staticsource = true,
-	disableif = 'any menu is open'
+	hideif = function(self) return self['any menu is open'] end,
 	-- update = function(self)
 		-- updatehidecondition(self, 'full screen menu is open') end,
 	}

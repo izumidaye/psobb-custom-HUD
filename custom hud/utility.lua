@@ -118,6 +118,30 @@ utility.listmove = function(list, source, dest, selected)
 	end -- making sure the destination is different from the source
 end -- utility.listmove = function
 --------------------------------------------------------------------------------
+function utility.listcopy(source)
+	local result = {}
+	
+	for key, value in pairs(source) do
+		if type(value) == 'table' then
+			result[key] = utility.listcopy(value)
+		else
+			result[key] = value
+		end
+	end
+	
+	return result
+end
+--------------------------------------------------------------------------------
+function utility.listcopyinto(dest, source)
+	for key, value in pairs(source) do
+		if type(value) == 'table' then
+			dest[key] = utility.listcopy(value)
+		else
+			dest[key] = value
+		end
+	end
+end
+--------------------------------------------------------------------------------
 utility.addcombolist = function(sourcearray)
 -- sort array and add reverse lookup
 	table.sort(sourcearray, function(string1, string2) return string.lower(string1) < string.lower(string2) end)

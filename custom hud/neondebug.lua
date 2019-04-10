@@ -35,6 +35,12 @@ neondebug.enablelogging = function(debugtype, newtimeoutlength)
 	-- writetolog('\n\n'.. timestamp() .. 'session log start\n')
 end
 
+neondebug.alwayslog = function(message, debugtype)
+	if loggingenabled and enabledtypes[debugtype] then
+		writetolog(timestamp() .. message .. '\n', debugtype)
+	end
+end
+
 neondebug.log = function(message, debugtype)
 	if loggingenabled and enabledtypes[debugtype] then
 		if timeout[message] and os.time() < timeout[message] then

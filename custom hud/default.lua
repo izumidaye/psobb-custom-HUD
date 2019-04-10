@@ -37,6 +37,7 @@ local defaultvalue =
 	['widget color'] = function() return {.9, .2, .2, 1} end,
 	['text color'] = function() return {.8, .8, .8, 1} end,
 	['background color'] = function() return {.1, .1, .1, .5} end,
+	['default window background color'] = function() return {.1, .1, .1, .5} end,
 	
 	['list'] = function() return
 		{

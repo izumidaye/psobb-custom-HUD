@@ -1,5 +1,6 @@
 local shortname = require('custom hud.shortname')
 local updatewindowoption = require('custom hud.utility').updatewindowoption
+local neondebug = require('custom hud.neondebug')
 
 --[[local function updatename(self, paramname)
 	local newname = self.map[paramname] or self[paramname]
@@ -67,6 +68,16 @@ paramtype['window title'] = {
 	staticsource = true,
 }
 --------------------------------------------------------------------------------
+paramtype['task wait interval'] = {
+	datatype = 'slow number',
+	optional = true,
+	staticsource = true,
+	step = 1,
+	minimum = 1,
+	maximum = 60,
+	displayformat = '%f',
+	}
+--------------------------------------------------------------------------------
 paramtype['font scale'] = {
 	datatype = 'slow number',
 	optional = true,
@@ -77,26 +88,6 @@ paramtype['font scale'] = {
 	displayformat = '%.1f',
 	}
 --------------------------------------------------------------------------------
---[[paramtype['display number'] = {
-	datatype = 'number',
-	optional = false,
-	functionsource = true,
-	fieldsource = true,
-	default = 0,
-	-- update = function(self)
-		-- updatename(self, 'display number')
-	-- end,
-	updatename = true
-	}]]
---------------------------------------------------------------------------------
---[[paramtype['display number range'] = {
-	datatype = 'number',
-	optional = true,
-	functionsource = true,
-	fieldsource = true,
-	default = 0,
-	}]]
---------------------------------------------------------------------------------
 paramtype['widget width'] = {
 	datatype = 'number',
 	staticsource = true,
@@ -104,7 +95,6 @@ paramtype['widget width'] = {
 	smallstep = .0001,
 	minimum = 0,
 	maximum = 1,
-	scale = 640,
 	}
 --------------------------------------------------------------------------------
 paramtype['widget height'] = {
@@ -114,7 +104,6 @@ paramtype['widget height'] = {
 	smallstep = .0001,
 	minimum = 0,
 	maximum = 1,
-	scale = 480,
 	}
 --------------------------------------------------------------------------------
 paramtype['text padding'] = {
@@ -168,6 +157,7 @@ paramtype['auto resize'] = {
 	update = function(self)
 		updatewindowoption(self, self['auto resize'], 5, 'AlwaysAutoResize')
 		self['window option changed'] = true
+		neondebug.alwayslog('changed auto resize', 'add new widget to window')
 	end,
 	}
 --------------------------------------------------------------------------------
@@ -313,11 +303,14 @@ paramtype['widget list'] = {
 	subtype = 'widget',
 	staticsource = true,
 	dragtargetmargin = 48,
+	orientation = 'horizontal',
 	
 	listitem = function(self, id, active)
+		-- neondebug.log('begin widget list.listitem', 'add new widget to window')
 		local clicked = false
 		
 		if active then
+			-- neondebug.log('showing active-style button', 'add new widget to window')
 			imgui.PushStyleColor('Button', .2, .5, 1, 1)
 			imgui.PushStyleColor('ButtonHovered', .3, .7, 1, 1)
 			imgui.PushStyleColor('ButtonActive', .5, .9, 1, 1)
@@ -326,15 +319,19 @@ paramtype['widget list'] = {
 			imgui.PopStyleColor()
 			imgui.PopStyleColor()
 		else
+			-- neondebug.log('showing regular-style button', 'add new widget to window')
 			imgui.PushStyleColor('Button', .5, .5, .5, .3)
 			clicked = imgui.Button(self['short name'] .. '##' .. id)
 			imgui.PopStyleColor()
 		end -- if active
+		-- neondebug.log('successfully displayed button.', 'add new widget to window')
 		
 		if imgui.IsItemHovered() and (not imgui.IsMouseDown(0)) then
+			-- neondebug.log('showing tooltip', 'add new widget to window')
 			imgui.SetTooltip(self['long name'])
 		end
 		
+		-- neondebug.log('end widget list.listitem', 'add new widget to window')
 		return clicked
 	end, -- listitem = function
 	

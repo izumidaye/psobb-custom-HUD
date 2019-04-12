@@ -7,6 +7,7 @@ local default = require('custom hud.default')
 local id = require('custom hud.id')
 local neondebug = require('custom hud.neondebug')
 local shortname = require('custom hud.shortname')
+local textconstant = require('custom hud.language_english')
 
 local datasource = {}
 local globaloptions
@@ -26,6 +27,35 @@ local function combobox(data, key, combolist)
 	imgui.PopItemWidth()
 	if changed then data[key] = combolist[newvalue] end
 	return changed
+end
+--------------------------------------------------------------------------------
+local function optionalparamtoggle(self, param)
+	if self[param] == nil  then
+		if imgui.Button(textconstant('enable parameter') .. '##' .. param) then
+			return true
+		end
+	else
+		imgui.SameLine()
+		if imgui.Button(textconstant('disable parameter') .. '##' .. param) then
+			self[param] = nil
+			self.map[param] = nil
+		end
+	end
+end
+--------------------------------------------------------------------------------
+local function fieldsourcechooser(self, param, fieldlist)
+	if self.map[param] then combobox(self.map, param, fieldlist)
+	elseif imgui.Button('use list field##' .. param) then
+		self.map[param] = fieldlist[1]
+	end
+end
+--------------------------------------------------------------------------------
+local function functionsourcechooser(self, param, datatype)
+	if self.map[param] then
+		combobox(self.map, param, datasource.combolist[datatype])
+	elseif imgui.Button('use game data##' .. param) then
+			self.map[param] = datasource.combolist[typedef.datatype][1]
+	end
 end
 --------------------------------------------------------------------------------
 local function paramsourceeditor(self, param)
@@ -102,6 +132,29 @@ local function paramsourceeditor(self, param)
 	
 	-- neondebug.log('edit ' .. param .. ': paramsourceeditor end.', 5, 'paramedit')
 end -- local function paramsourceeditor
+--------------------------------------------------------------------------------
+local function editboolean(self, param, label)
+	local changed, newvalue = imgui.Checkbox(label, self[param])
+	if changed then self[param] = newvalue end
+end
+--------------------------------------------------------------------------------
+local colorlabels = {'r', 'g', 'b', 'a'}
+local function editcolor(self, param, label)
+	imgui.Text(label)
+	
+	imgui.PushItemWidth(globaloptions.fontscale * 40)
+		for i = 1, 4 do
+			imgui.SameLine()
+			local changed, newvalue = imgui.DragFloat(
+				'##' .. param .. colorlabels[i], self[param][i] * 255, 1, 0,
+				255, colorlabels[i] .. ':%.0f')
+			if changed then self[param][i] = newvalue / 255 end
+		end
+	imgui.PopItemWidth()
+	
+	imgui.SameLine()
+	imgui.ColorButton(unpack(self[param]))
+end -- local function editcolor
 --------------------------------------------------------------------------------
 local parameditor = {}
 --------------------------------------------------------------------------------
@@ -391,6 +444,35 @@ local function paramedit(self, param)
 	paramsourceeditor(self, param)
 end
 --------------------------------------------------------------------------------
+local editparam =
+	{
+	fontscale = function(self)
+		if self.fontscale then
+			imgui.text(textconstant'font scale')
+			imgui.SameLine()
+			imgui.PushItemWidth(globaloptions.fontscale * 96)
+				local changed, newvalue = imgui.InputFloat('##fontscale',
+					self.fontscale, .1, 1, 1, '%.1f')
+			imgui.PopItemWidth()
+			if changed then
+				if newvalue < .5 then newvalue = .5
+				elseif newvalue > 5 then newvalue = 5
+				end
+				self.fontscale = newvalue
+			end
+		end
+		if optionalparamtoggle(self, 'fontscale') then self.fontscale = 1 end
+	end, -- fontscale = function
+	
+	textcolor = function(self)
+		editcolor(self, 'textcolor', textconstant'text color')
+	end,
+	
+	bgcolor = function(self)
+		editcolor(self, 'bgcolor', textconstant'background color')
+	end,
+	}
+--------------------------------------------------------------------------------
 local function evaluategradient(gradient, value)
 	local barvalue = value[1] / value[2]
 	for index = #gradient, 1, -1 do -- change gradient data structure to be highest level -> lowest level (instead of the other way around, as it is now) so i can use 'for _, colorlevel in ipairs(gradient) do ... end'
@@ -569,15 +651,96 @@ widgets['window'] =
 	parameters =
 		{
 		'general', 'layout', 'hide window when:', 'style',
-		['general'] = {'window title', 'enable window',},
-		['layout'] = {'position and size', 'auto resize', 'move with mouse',
-			'resize with mouse',},
-		['hide window when:'] = {'not in field', 'in lobby',
-			'any menu is open', 'lower screen menu is open',
-			'main menu is open', 'full screen menu is open',},
-		['style'] = {'font scale', 'text color', 'background color',
-			'show titlebar', 'show scrollbar',},
+		
+		['general'] = {'title', 'enable'},
+		['layout'] = {'layoutoptions'},
+		['hide window when:'] = {'hideoptions'},
+		['style'] = {'fontscale', 'textcolor', 'bgcolor', 'showtitlebar',
+			'showscrollbar'},
 		}, -- parameters = {...}
+	
+	title = 'moo',
+	enable = 'true',
+	autoresize = true,
+	allowmousemove = true,
+	hideoptions = {inlobby=true},
+	showtitlebar = true,
+	showscrollbar = true,
+	
+	editparam =
+		{
+		title = function(self)
+			imgui.Text('window title:')
+			imgui.SameLine()
+			imgui.PushItemWidth(globaloptions.textinputwidth)
+				local changed, newvalue =
+					imgui.InputText('##' .. self.id .. 'window title', self.title, 72)
+			imgui.PopItemWidth()
+			if changed then self.title = newvalue end
+		end,
+		
+		enable = function(self)
+			editboolean(self, 'enable', 'enable window')
+		end,
+		
+		showtitlebar = function(self)
+			editboolean(self, 'showtitlebar', 'show titlebar')
+		end,
+		
+		showscrollbar = function(self)
+			editboolean(self, 'showscrollbar', 'show scrollbar')
+		end,
+		
+		layoutoptions = function(self)
+--[['position and size', 'auto resize', 'move with mouse', 'resize with mouse',]]
+			--edit position and size
+			
+			local changed, newvalue
+			
+			changed, newvalue =
+				imgui.Checkbox('auto resize window to fit contents', self.autoresize)
+			if changed then
+				self.autoresize = newvalue
+				updatewindowoption(self, self.autoresize, 5, 'AlwaysAutoResize')
+			end
+			
+			changed, newvalue =
+				imgui.Checkbox('move window with mouse', self.allowmousemove)
+			if changed then
+				self.allowmousemove = newvalue
+				updatewindowoption(self, not self.allowmousemove, 3, 'nomove')
+			end
+			
+			if not self.autoresize then
+				changed, newvalue =
+					imgui.Checkbox('resize window with mouse', self.allowmouseresize)
+				if changed then
+					self.allowmouseresize = newvalue
+					updatewindowoption(self, not self.allowmouseresize, 2, 'noresize')
+				end
+			end
+		end, -- layoutoptions = function
+		
+		hideoptions = function(self)
+			editboolean(self.hideoptions, 'notinfield', 'not in field')
+			
+			if not self.hideoptions.notinfield then
+				editboolean(self.hideoptions, 'inlobby', 'in lobby')
+			end
+			
+			editboolean(self.hideoptions, 'anymenu', 'any menu is open')
+			
+			if not self.hideoptions.anymenu then
+				editboolean(self.hideoptions, 'lowermenu', 'lower screen menu is open')
+				
+				if not self.hideoptions.lowermenu then
+					editboolean(self.hideoptions, 'mainmenu', 'main menu is open')
+					editboolean(self.hideoptions, 'fullmenu', 'full screen menu is open')
+				end
+			end
+		end, -- hideoptions = function
+		
+		},
 	
 	firsttimeinit = function(self)
 		-- still need to actually initialize widget list (i think? this might be it)
@@ -631,8 +794,6 @@ widgets['window'] =
 			end -- if self['show options']
 		end -- self.edit = function(self)
 	end, -- restore = function(self)
-	
-	menustate = {},
 --------------------------------------------------------------------------------
 	updatelayoutx = function(self)
 		self.layout.x = utility.scale(self['position and size'].x, gamewindowwidth, self['position and size'].w)
@@ -728,6 +889,7 @@ widgets['window'] =
 		if bgcolor then imgui.PopStyleColor() end
 	end,
 	} -- widgets['window'] = {...}
+setmetatable(widgets.window.editparam, {__index = editparam})
 --------------------------------------------------------------------------------
 --[[widgets['formatted table'] = {
 	widgettype = 'text',
@@ -811,17 +973,26 @@ widget.globaloptions =
 	parameters =
 		{
 		['general'] = {'task wait interval', 'allow windows offscreen', 'offscreen space - horizontal', 'offscreen space - vertical',},
-		['default values'] = {'background color', 'text color', 'font scale',},
+		['default values'] = {'background color', 'text color', 'font scale', 'auto resize new windows',},
 		['parameter editing'] = {'text entry widget width', 'number entry method',},
 		}, -- need to add these to paramtypes
 	
 	edit = edit,
 	
-	firsttimeinit = function(self)
-		for _, param in ipairs(self.parameters) do
-			self[param] = default(param)
-		end
-	end,
+	taskinterval = 1,
+	allowoffscreen = false,
+	offscreenx = 0,
+	offscreeny = 0,
+	autoresizedefault = true,
+	textinputwidth = 144,
+	numberinputmethod = 'dragint',
+	
+	-- firsttimeinit = function(self)
+		
+		-- for _, param in ipairs(self.parameters) do
+			-- self[param] = default(param)
+		-- end
+	-- end,
 	
 	init = function(self, savedoptions)
 		if savedoptions then
@@ -847,7 +1018,7 @@ widget.new = function(typename, fieldcombolist)
 	
 	newwidget.widgettype = typename
 	newwidget.edit = edit
-	newwidget.dontserialize = default('dontserialize')
+	newwidget.dontserialize={dontserialize=true,parameters=true,editparam=true,}
 	newwidget.fieldcombolist = fieldcombolist
 	newwidget.map = {}
 	-- neondebug.log('widgettype, edit, dontserialize, fieldcombolist, and map set.', 5)

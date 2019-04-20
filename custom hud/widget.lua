@@ -1,5 +1,4 @@
 local utility = require('custom hud.utility')
-local updatewindowoption = utility.updatewindowoption
 local paramtype = require('custom hud.paramtype')
 local typedef = paramtype.typedef
 local datatype = paramtype.datatype
@@ -15,132 +14,73 @@ local widget = {}
 local gamewindowwidth, gamewindowheight
 local boundary
 --------------------------------------------------------------------------------
-local function updatename(self, paramname)
-	local newname = self.map[paramname] or self[paramname]
-	self['long name'] = self.widgettype .. ': ' .. newname
-	self['short name'] = shortname[newname] or newname
-end -- local function updatename
---------------------------------------------------------------------------------
 local function combobox(data, key, combolist)
+	local changed = false
+	local newvalue
 	imgui.PushItemWidth(8 + (8 * combolist.longest))
-		local changed, newvalue = imgui.Combo('##' .. key, combolist[data[key]], combolist, #combolist)
+		changed, newvalue = imgui.Combo('##' .. key, combolist[data[key]], combolist, #combolist)
 	imgui.PopItemWidth()
 	if changed then data[key] = combolist[newvalue] end
 	return changed
 end
 --------------------------------------------------------------------------------
-local function optionalparamtoggle(self, param)
+local function optionalparamtoggle(self, param, label)
+	local enabled
+	local changed = false
 	if self[param] == nil  then
-		if imgui.Button(textconstant('enable parameter') .. '##' .. param) then
-			return true
+		if imgui.Button(textconstant('enable ') .. textconstant(label)) then
+			changed, enabled = true, true
 		end
 	else
 		imgui.SameLine()
-		if imgui.Button(textconstant('disable parameter') .. '##' .. param) then
-			self[param] = nil
-			self.map[param] = nil
+		if imgui.Button(textconstant('disable ') .. textconstant(label)) then
+			changed, enabled = true, false
 		end
 	end
+	return changed, enabled
 end
 --------------------------------------------------------------------------------
 local function fieldsourcechooser(self, param, fieldlist)
-	if self.map[param] then combobox(self.map, param, fieldlist)
+	local changed = false
+	imgui.SameLine()
+	if self.map[param] then
+		changed = combobox(self.map, param, fieldlist)
 	elseif imgui.Button('use list field##' .. param) then
+		changed = true
 		self.map[param] = fieldlist[1]
 	end
+	return changed
 end
 --------------------------------------------------------------------------------
 local function functionsourcechooser(self, param, datatype)
+	local changed = false
+	imgui.SameLine()
 	if self.map[param] then
-		combobox(self.map, param, datasource.combolist[datatype])
+		changed = combobox(self.map, param, datasource.combolist[datatype])
 	elseif imgui.Button('use game data##' .. param) then
-			self.map[param] = datasource.combolist[typedef.datatype][1]
+		changed = true
+		self.map[param] = datasource.combolist[datatype][1]
+	end
+	return changed
+end
+--------------------------------------------------------------------------------
+local function updatewindowoption(self, newvalue, optionindex, flag)
+	if newvalue then
+		self['window options'][optionindex] = flag
+	else
+		self['window options'][optionindex] = ''
 	end
 end
 --------------------------------------------------------------------------------
-local function paramsourceeditor(self, param)
-	-- neondebug.log('begin paramsourceditor for: ' .. param, 5, 'paramedit')
-	
-	local typedef = typedef(param)
-	
-	if typedef.optional then
-		-- neondebug.log('edit ' .. param .. ': clear optional value button', 5, 'paramedit')
-		if self[param] ~= nil  then
-			imgui.SameLine()
-			if imgui.Button('clear##' .. param) then
-				self[param] = nil
-				self.map[param] = nil
-			end
-		elseif not (typedef.fieldsource or typedef.functionsource) then
-			imgui.SameLine()
-			if imgui.Button('edit##' .. param) then self[param] = default(param) end
-			return
-		end
-	else
-		-- neondebug.log('edit ' .. param .. ': not optional.', 5, 'paramedit')
-	end
-	
-	if self.fieldcombolist then
-		if typedef.fieldsource then
-			-- neondebug.log('edit ' .. param .. ': field source', 5, 'paramedit')
-			imgui.SameLine()
-			imgui.Text('source:')
-			imgui.SameLine()
-			if self.map[param] then
-				-- neondebug.log('edit ' .. param .. ': field combo box', 5, 'paramedit')
-				if combobox(self.map, param, self.fieldcombolist)
-				and typedef.updatename then
-					updatename(self, param)
-				end
-			else
-				-- neondebug.log('edit ' .. param .. ': \'use list field\' button', 5, 'paramedit')
-				if imgui.Button('use list field##' .. param) then
-					self.map[param] = self.fieldcombolist[1]
-					if typedef.updatename then updatename(self, param) end
-				end
-			end -- if self.map[param]
-		else
-			-- neondebug.log('edit ' .. param .. ': no field source.', 5, 'paramedit')
-		end -- if typedef.fieldsource
-		
-	elseif typedef.functionsource then
-		-- neondebug.log('edit ' .. param .. ': function source editor', 5, 'paramedit')
-		imgui.SameLine()
-		if self.map[param] then
-			if combobox(self.map, param, datasource.combolist[typedef.datatype]) and typedef.updatename then
-				updatename(self, param)
-			end
-		else
-			if imgui.Button('use game data##' .. param) then
-				self.map[param] = datasource.combolist[typedef.datatype][1]
-				if typedef.updatename then updatename(self, param) end
-			end
-		end -- if self.map[param]
-	else
-		-- neondebug.log('edit ' .. param .. ': no function source.', 5, 'paramedit')
-	end -- if self.fieldcombolist
-	
-	if typedef.staticsource and self.map[param] then
-		imgui.SameLine()
-		-- neondebug.log('edit ' .. param .. ': \'use static value\' button', 5, 'paramedit')
-		if imgui.Button('use static value##' .. param) then
-			self.map[param] = nil
-			self[param] = default(param)
-			if typedef.updatename then updatename(self, param) end
-		end
-	end
-	
-	-- neondebug.log('edit ' .. param .. ': paramsourceeditor end.', 5, 'paramedit')
-end -- local function paramsourceeditor
---------------------------------------------------------------------------------
-local function editboolean(self, param, label)
-	local changed, newvalue = imgui.Checkbox(label, self[param])
-	if changed then self[param] = newvalue end
-end
+local function updatename(self, param)
+	local newname = self.map[param] or self[param]
+	self.longname = self.widgettype .. ': ' .. newname
+	self.shortname = shortname[newname] or newname
+end -- local function updatename
 --------------------------------------------------------------------------------
 local colorlabels = {'r', 'g', 'b', 'a'}
 local function editcolor(self, param, label)
-	imgui.Text(label)
+	imgui.Text(textconstant(label))
 	
 	imgui.PushItemWidth(globaloptions.fontscale * 40)
 		for i = 1, 4 do
@@ -156,299 +96,33 @@ local function editcolor(self, param, label)
 	imgui.ColorButton(unpack(self[param]))
 end -- local function editcolor
 --------------------------------------------------------------------------------
-local parameditor = {}
+local function editboolean(self, param, label)
+	local changed, newvalue = imgui.Checkbox(label, self[param])
+	if changed then self[param] = newvalue end
+end
 --------------------------------------------------------------------------------
-parameditor['string'] = function(self, param)
-	-- neondebug.log('begin string edit: ' .. param, 5, 'paramedit')
-	imgui.Text(param .. ':')
-	
-	if not self.map[param] then
-		imgui.SameLine()
-		imgui.PushItemWidth(-144)
-		local changed, newvalue =
+local function editstring(self, param, label)
+	local changed = false
+	local newvalue
+	imgui.Text(label)
+	imgui.SameLine()
+	imgui.PushItemWidth(globaloptions.textinputwidth)
+		changed, newvalue =
 			imgui.InputText('##' .. param, self[param], 72)
-		imgui.PopItemWidth()
-		if changed then
-			self[param] = newvalue
-			if typedef(param).updatename then
-				updatename(self, param)
-			end
-		end
-	end
-	
-	-- paramsourceeditor(self, param)
-	
-	-- neondebug.log('edit string ' .. param .. ': end', 5, 'paramedit')
-end -- parameditor['string'] = function
---------------------------------------------------------------------------------
-parameditor['number'] = function(self, paramname)
-	local thistype = typedef(paramname)
-	local displayvalue
-	if thistype.scale then
-		displayvalue = utility.round(self[paramname] * thistype.scale)
-		-- displayvalue = string.format
-			-- {'%s', utility.round(self[paramname] * thistype.scale)}
-			-- not sure if i need to convert to string
-	else
-		displayvalue = self[paramname]
-	end -- if thistype.scale
-	
-	imgui.Text(paramname .. ':')
-	imgui.SameLine()
-	imgui.PushItemWidth(72)
-		
-		local changed, newvalue = imgui.DragFloat('##' .. paramname,
-			self[paramname], thistype.largestep, thistype.minimum, thistype.maximum,
-			displayvalue)
-		if changed then self[paramname] = newvalue end
-		imgui.SameLine()
-		
-		changed, newvalue = imgui.DragFloat('##finetune' .. paramname,
-			self[paramname], thistype.smallstep, thistype.minimum, thistype.maximum,
-			'fine tune')
-		if changed then self[paramname] = newvalue end
-		
 	imgui.PopItemWidth()
-	
-	-- paramsourceeditor(self, paramname)
-end -- parameditor['number'] = function
---------------------------------------------------------------------------------
-parameditor['slow number'] = function(self, paramname)
-	neondebug.log('edit ' .. paramname .. ': begin slow number editor', 5, 'paramedit')
-	
-	local thistype = typedef(paramname)
-	if thistype then
-		neondebug.log('edit ' .. paramname .. ': typedef found.', 5, 'paramedit')
-	else
-		neondebug.log('edit ' .. paramname .. ': typedef not found.', 5, 'paramedit')
-	end
-	
-	imgui.Text(paramname)
-	neondebug.log('edit ' .. paramname .. ': displayed label.', 5, 'paramedit')
-	imgui.SameLine()
-	
-	imgui.PushItemWidth(96)
-		local changed, newvalue = imgui.InputFloat('##' .. paramname,
-			self[paramname], thistype.step, 1, 1, thistype.displayformat)
-	imgui.PopItemWidth()
-	neondebug.log('edit ' .. paramname .. ': displayed imgui.InputFloat(...)', 5, 'paramedit')
-	if changed then
-		if newvalue < thistype.minimum then
-			newvalue = thistype.minimum
-		elseif newvalue > thistype.maximum then
-			newvalue = thistype.maximum
-		end
-		self[paramname] = newvalue
-	end
-	
-	neondebug.log('edit ' .. paramname .. ': end slow number editor', 5, 'paramedit')
-end -- parameditor['slow number'] = function
---------------------------------------------------------------------------------
-parameditor['boolean'] = function(self, paramname)
-	local thistype = typedef(paramname)
-	-- if thistype.disableif and self[thistype.disableif] then
-		-- imgui.TextDisabled(paramname)
-	-- else
-		local changed, newvalue = imgui.Checkbox(paramname, self[paramname])
-		if changed then
-			self[paramname] = newvalue
-			if thistype.update then thistype.update(self) end
-		end
-	-- end
-	
-	-- paramsourceeditor(self, paramname)
-	-- no reason to use game data for a boolean parameter?
-end -- parameditor['boolean'] = function
---------------------------------------------------------------------------------
-parameditor['progress'] = function(self, paramname)
-	imgui.Text(paramname)
-	imgui.SameLine()
-	
-	-- paramsourceeditor(self, paramname)
-end -- parameditor['progress'] = function
---------------------------------------------------------------------------------
-local colorlabels = {'r', 'g', 'b', 'a'}
-parameditor['color'] = function(self, paramname)
-	imgui.Text(paramname)
-	
-	imgui.PushItemWidth(40)
-		for i = 1, 4 do
-			imgui.SameLine()
-			local changed, newvalue = imgui.DragFloat(
-				'##' .. paramname .. colorlabels[i], self[paramname][i] * 255, 1, 0,
-				255, colorlabels[i] .. ':%.0f')
-			if changed then self[paramname][i] = newvalue / 255 end
-		end
-	imgui.PopItemWidth()
-	
-	imgui.SameLine()
-	imgui.ColorButton(unpack(self[paramname]))
-end -- parameditor['color'] = function
---------------------------------------------------------------------------------
-local function calcdragdest(targetlist, targetvalue)
-	for index = 1, #targetlist do
-		if targetvalue < targetlist[index] then return index end
-	end
-	return #targetlist + 1
-end
-
-parameditor['list'] = function(self, paramname)
-	-- neondebug.alwayslog('begin list param editor', 'add new widget to window')
-	
-	local list = self[paramname]
-	local thistype = typedef(paramname)
-	-- local dragthisframe = false
-	local lastitempos
-	
-	if list.changed then
-		list.dragtarget.top, list.dragtarget.left =
-			imgui.GetCursorScreenPos()
-			
-		lastitempos = list.dragtarget.left + 5
-		
-		local default = default(paramname)
-		list.buttonedges = {}
-		list.buttonedges[1] = list.dragtarget.left + default.buttonedges[1]
-		list.buttoncenters = default.buttoncenters
-		
-		list.dragtarget.top =
-			list.dragtarget.top - thistype.dragtargetmargin
-			
-		list.dragtarget.left =
-			list.dragtarget.left - thistype.dragtargetmargin
-	end -- if list.changed
-	
-	-- neondebug.alwayslog('begin show item list', 'add new widget to window')
-	if imgui.BeginChild('item list##' .. self.id, -1, imgui.GetTextLineHeightWithSpacing() * 2, true) then
-		if list.orientation == 'horizontal' then imgui.Dummy(0, 0) end
-		for index, item in ipairs(list) do
-			if list.orientation == 'horizontal' then imgui.SameLine() end
-			
-			-- neondebug.alwayslog('showing list item ' .. index, 'add new widget to window')
-			if thistype.listitem(item, index, list.selected == index) then
-				if list.selected == index then
-					list.selected = nil
-				else
-					list.selected = index
-				end -- if list.selected == index
-			end -- if thistype.listitem
-			-- neondebug.alwayslog('successfully displayed list item', 'add new widget to window')
-			
-			-- if imgui.IsItemHovered() and not imgui.IsMouseDown(0) then
-				-- imgui.SetTooltip(thistype.tooltip(self))
-			-- end
-			
-			if list.changed then
-				if list.orientation == 'horizontal' then
-					local itemwidth
-					itemwidth, list.height = imgui.GetItemRectSize()
-					table.insert(list.buttoncenters, lastitempos + 8 + itemwidth / 2)
-					lastitempos = lastitempos + itemwidth + 8
-					table.insert(list.buttonedges, lastitempos + 3)
-				else -- assume list.orientation == 'vertical'
-					-- figure this out once everything else is working
-				end -- if list.orientation == 'horizontal'
-			end -- if list.changed
-			
-			if imgui.IsItemActive() and not list.dragsource then
-				list.dragsource = index
-			end
-			
-		end -- for index, item in ipairs(list)
-	end imgui.EndChild()
-	-- neondebug.alwayslog('end show item list', 'add new widget to window')
-	
-	if list.changed then
-		_, list.dragtarget.bottom = imgui.GetCursorScreenPos()
-		list.dragtarget.bottom =
-			list.dragtarget.bottom + thistype.dragtargetmargin
-		list.changed = false
-		if list.orientation == 'horizontal' then
-			list.dragtarget.right =
-				list.buttonedges[#list.buttonedges] + thistype.dragtargetmargin
-		else -- assume list.orientation == 'vertical'
-			-- figure this out once everything else is working
-		end -- if list.orientation == 'horizontal'
-		neondebug.log('dragtarget:\n\tleft: ' .. list.dragtarget.left .. '\n\tright: ' .. list.dragtarget.right .. '\n\ttop: ' .. list.dragtarget.top .. '\n\tbottom: ' .. list.dragtarget.bottom, 'add new widget to window')
-	end -- if list.changed
-	
-	imgui.NewLine()
-	for index, itemname in ipairs(self.additemlist) do
-		imgui.SameLine()
-		if imgui.Button(itemname .. '##' .. self.id) then
-			table.insert(list, widget.new(itemname))
-			neondebug.log('added new widget: ' .. itemname, 'add new widget to window')
-			list.changed = true
-		-- elseif imgui.IsItemActive() and not list.dragsource then
-			-- list.dragsource = itemname
-			-- list.newitem = true
-			-- neondebug.log('started dragging new widget: ' .. itemname, 'add new widget to window')
-		end
-	end
-	
-	if list.dragsource then
-		if imgui.IsMouseDown(0) then
-			local mousex, mousey = imgui.GetMousePos()
-			
-			if utility.iswithinrect({x=mousex, y=mousey}, list.dragtarget) then
-				if list.orientation == 'horizontal' then
-					list.dragdest = calcdragdest(list.buttoncenters, mousex)
-					neondebug.log('dragdest: ' .. list.dragdest, 'add new widget to window')
-				else
-					-- figure this out once everything else is working
-				end -- if list.orientation == 'horizontal'
-			else
-				list.dragdest = nil
-			end -- if mouse position is within list.dragtarget
-		else
-			if list.dragdest then
-				if list.newitem then
-					neondebug.log('adding ' .. list.dragsource .. ' at list index ' .. list.dragdest, 'add new widget to window')
-					list.selected = utility.listadd(list, widget.new(list.dragsource),
-						list.dragdest, list.selected)
-					list.newitem = false
-				else
-				list.selected = utility.listmove(list, list.dragsource, list.dragdest,
-					list.selected)
-				end
-				list.changed = true
-			end
-			list.dragdest = nil
-			list.dragsource = nil
-		end -- if imgui.IsMouseDown(0)
-	end -- if list.dragsource
-	
-	if list.selected then
-		if imgui.BeginChild('item editor##' .. self.id, -1, -1, true) then
-			list[list.selected]:edit()
-		end imgui.EndChild()
-	end
-	
-	-- neondebug.alwayslog('end list param editor', 'add new widget to window')
-end -- parameditor['list'] = function
---------------------------------------------------------------------------------
-parameditor['color gradient'] = function(self, paramname)
-	-- parameditor['color'](self, paramname)
-end -- parameditor['color gradient'] = function
---------------------------------------------------------------------------------
-parameditor['format table'] = function(self, paramname)
-
-end -- parameditor['format table'] = function
---------------------------------------------------------------------------------
-parameditor['window position and size'] = function(self, param)
-	
+	if changed then self[param] = newvalue end
+	return changed
 end
 --------------------------------------------------------------------------------
-local function paramedit(self, param)
-	parameditor[datatype(param)](self, param)
-	paramsourceeditor(self, param)
+local function editgradient(self, param, label)
+
 end
 --------------------------------------------------------------------------------
 local editparam =
 	{
 	fontscale = function(self)
 		if self.fontscale then
-			imgui.text(textconstant'font scale')
+			imgui.Text(textconstant'font scale')
 			imgui.SameLine()
 			imgui.PushItemWidth(globaloptions.fontscale * 96)
 				local changed, newvalue = imgui.InputFloat('##fontscale',
@@ -461,15 +135,45 @@ local editparam =
 				self.fontscale = newvalue
 			end
 		end
-		if optionalparamtoggle(self, 'fontscale') then self.fontscale = 1 end
+		local changed, enabled = optionalparamtoggle(self, 'fontscale', 'font scale')
+		if changed then
+			if enabled then self.fontscale = 1
+			else self.fontscale = nil
+			end
+		end
 	end, -- fontscale = function
 	
 	textcolor = function(self)
-		editcolor(self, 'textcolor', textconstant'text color')
+		if self.textcolor then editcolor(self, 'textcolor', 'text color') end
+		local changed, enabled = optionalparamtoggle(self, 'textcolor', 'text color')
+		if changed then
+			if enabled then self.textcolor = {.8, .8, .8, 1}
+			else self.textcolor = nil
+			end
+		end
 	end,
 	
 	bgcolor = function(self)
-		editcolor(self, 'bgcolor', textconstant'background color')
+		if self.bgcolor then editcolor(self, 'bgcolor', 'background color') end
+		local changed, enabled = optionalparamtoggle(self, 'bgcolor', 'background color')
+		if changed then
+			if enabled then self.bgcolor = {.1, .1, .1, .5}
+			else self.bgcolor = nil
+			end
+		end
+	end,
+	
+	sameline = function(self)
+		editboolean(self, 'sameline', textconstant'same line')
+	end,
+	
+	textgradient = function(self)
+		editboolean(self, 'dynamictextcolor', textconstant'dynamic text color')
+		if self.dynamictextcolor then
+			editgradient(self, 'textgradient', textconstant'text gradient')
+		else
+			self.editparam.textcolor(self)
+		end
 	end,
 	}
 --------------------------------------------------------------------------------
@@ -481,13 +185,13 @@ local function evaluategradient(gradient, value)
 end
 --------------------------------------------------------------------------------
 local function display(self, fieldlist)
-	if self['same line'] then imgui.SameLine() end
+	if self.sameline then imgui.SameLine() end
 	
 	if self.fieldcombolist and fieldlist then
 		for param, field in pairs(self.map) do self[param] = fieldlist[field] end
 	elseif self.map then
 		for param, datafunction in pairs(self.map) do
-			self[param] = datasource.get[datafunction]() or default(param)
+			self[param] = datasource.get[datafunction]()
 		end
 	end -- if self.fieldcombolist and fieldlist
 end -- local function display(self)
@@ -497,20 +201,48 @@ local widgets = {}
 widgets['text'] =
 	{
 	parameters =
-		{['all'] = {'display text', 'text color', 'same line',},},
+		{['all'] = {'displaytext', 'textcolor', 'sameline',},},
+	
+	displaytext = '',
+	
+	init = function(self)
+		updatename(self, 'displaytext')
+	end,
+	
+	editparam =
+		{
+		displaytext = function(self)
+			local changed
+			if not self.map.displaytext then
+				changed = changed
+					or editstring(self, 'displaytext', textconstant'display text')
+			end
+			if self.fieldcombolist then
+				changed = changed
+					or fieldsourcechooser(self, 'displaytext', self.fieldcombolist)
+			else
+				changed = changed
+					or functionsourcechooser(self, 'displaytext', 'string')
+			end
+			if changed then
+				updatename(self, 'displaytext')
+			end
+		end
+		},
 	
 	display = function(self, fieldlist)
 		display(self, fieldlist)
 		
-		if self['text color'] then
-			imgui.PushStyleColor('text', unpack(self['text color']))
+		if self.textcolor then
+			imgui.PushStyleColor('text', unpack(self.textcolor))
 		end
 		
-		imgui.Text(self['display text'])
+		imgui.Text(self['displaytext'])
 		
-		if self['text color'] then imgui.PopStyleColor() end
+		if self.textcolor then imgui.PopStyleColor() end
 	end, -- display = function
 	} -- widgets['text'] = {...}
+setmetatable(widgets['text'].editparam, {__index = editparam})
 --------------------------------------------------------------------------------
 --[[widgets['color change text'] =
 	{
@@ -525,14 +257,14 @@ widgets['text'] =
 	display = function(self, fieldlist)
 		-- if not display(self, fieldlist) then return end
 		display(self, fieldlist)
-		self['text color'] =
+		self.textcolor =
 			evaluategradient(self['text gradient'], self['display value'])
 		local text
 		if self['show range'] then
 			text = self['display value'][1] .. '/' .. self['display value'][2]
 		else text = self['display value'][1]
 		end
-		imgui.TextColored(unpack(self['text color']), text)
+		imgui.TextColored(unpack(self.textcolor), text)
 	end, -- display = function
 	} -- widgets['color change text'] = {...}]]
 --------------------------------------------------------------------------------
@@ -556,11 +288,11 @@ widgets['text'] =
 				imgui.Text(self['label text'])
 		end -- if self['label text']
 		
-		if self['text color'] then
-			imgui.TextColored(unpack(self['text color']), self['display text'])
+		if self.textcolor then
+			imgui.TextColored(unpack(self.textcolor), self['display text'])
 		else
 			imgui.Text(self['display text'])
-		end -- if self['text color']
+		end -- if self.textcolor
 		
 		if self['label text'] then
 			imgui.EndGroup()
@@ -578,56 +310,118 @@ widgets['progress bar'] =
 	parameters =
 		{
 		'general', 'layout', 'bar color', 'text color',
-		['general'] = {'bar value', 'show value', 'show range', 'overlay text',
-			'scale progress bar',},
-		['layout'] = {'same line', 'widget width', 'widget height',},
-		['bar color'] = {'dynamic bar color', 'bar color', 'bar gradient',},
-		['text color'] = {'dynamic text color', 'text color', 'text gradient',},
+		['general'] = {'barvalue', 'showvalue', 'showrange', 'overlaytext',
+			'scalebar',},
+		['layout'] = {'sameline', 'size'},
+		['bar color'] = {'bargradient'},
+		['text color'] = {'textgradient'},
 		}, -- parameters = {...}
 	
+	w = -1,
+	h = -1,
+	showvalue = true,
+	showrange = true,
+	overlaytext = '',
+	
+	init = function(self)
+		self.map = {barvalue = 'player hp'}
+		updatename(self, 'barvalue')
+	end,
+	
+	editparam =
+		{
+		barvalue = function(self)
+			if self.fieldcombolist then
+				fieldsourcechooser(self, 'barvalue', self.fieldcombolist)
+			else
+				functionsourcechooser(self, 'barvalue', 'progress')
+			end
+		end,
+		
+		showvalue = function(self) editboolean(self, 'showvalue', 'show value') end,
+		
+		showrange = function(self)
+			if self.showvalue then editboolean(self, 'showrange', 'show range') end
+		end,
+		
+		overlaytext = function(self)
+			if not self.showvalue then
+				editstring(self, 'overlaytext', 'overlay text')
+			end
+		end,
+		
+		scalebar = function(self)
+			editboolean(self, 'scalebar', 'scale progress bar')
+		end,
+		
+		barcolor = function(self)
+			if self.barcolor then editcolor(self, 'barcolor', 'bar color') end
+			local changed, enabled = optionalparamtoggle(self, 'barcolor', 'bar color')
+			if changed then
+				if enabled then self.barcolor = {0, .9, .3, 1}
+				else self.barcolor = nil
+				end
+			end
+		end,
+		
+		bargradient = function(self)
+			editboolean(self, 'dynamicbarcolor', 'dynamic bar color')
+			if self.dynamicbarcolor then
+				editgradient(self, 'bargradient', 'bar gradient')
+			else
+				self.editparam.barcolor(self)
+			end
+		end,
+		
+		size = function(self)
+		
+		end,
+		},
+	
 	display = function(self)
+		neondebug.log('begin progress bar.display...', 'add new widget to window')
 		display(self, fieldlist)
-		if self['dynamic bar color'] then self['bar color'] =
-				evaluategradient(self['bar gradient'], self['bar value'])
+		if self['dynamic bar color'] then self.barcolor =
+				evaluategradient(self['bar gradient'], self.barvalue)
 		end
-		if self['dynamic text color'] then self['text color'] =
-				evaluategradient(self['text gradient'], self['bar value'])
+		if self['dynamic text color'] then self.textcolor =
+				evaluategradient(self['text gradient'], self.barvalue)
 		end
-		if self['bar color'] then
-			imgui.PushStyleColor('PlotHistogram', unpack(self['bar color']))
+		if self.barcolor then
+			imgui.PushStyleColor('PlotHistogram', unpack(self.barcolor))
 		end
-		if self['text color'] then
-			imgui.PushStyleColor('Text', unpack(self['text color']))
+		if self.textcolor then
+			imgui.PushStyleColor('Text', unpack(self.textcolor))
 		end
 		
 		local progress
-		if self['scale progress bar'] then
-			progress = self['bar value'][1] / self['bar value'][2]
+		if self.scalebar then
+			progress = self.barvalue[1] / self.barvalue[2]
 			if progress ~= progress then progress = 0 end
 		else progress = 1
 		end
 		
 		local text
-		if self['show value'] then
-			if self['show range'] then
-				text = self['bar value'][1] .. '/' .. self['bar value'][2]
-			else text = self['bar value'][1]
+		if self.showvalue then
+			if self.showrange then
+				text = self.barvalue[1] .. '/' .. self.barvalue[2]
+			else text = self.barvalue[1]
 			end
-		elseif self['overlay text'] then text = self['overlay text']
-		else text = ''
+		else text = self.overlaytext or ''
 		end
 		
-		neondebug.log('progress bar: progress: ' .. progress .. ' width: ' .. self['widget width'] .. ' height: ' .. self['widget height'] .. ' text: ' .. text, 'add new widget to window')
-		imgui.ProgressBar(progress, self['widget width'], self['widget height'],
-			text)
+		-- neondebug.log('progress bar: progress: ' .. progress .. ' width: ' .. self['widget width'] .. ' height: ' .. self['widget height'] .. ' text: ' .. text, 'add new widget to window')
+		imgui.ProgressBar(progress, self.w, self.h, text)
 		
-		if self['text color'] then imgui.PopStyleColor() end
-		if self['bar color'] then imgui.PopStyleColor() end
+		if self.textcolor then imgui.PopStyleColor() end
+		if self.barcolor then imgui.PopStyleColor() end
 		
+		neondebug.log('end progress bar.display.', 'add new widget to window')
 	end, -- display = function(self)
 	} -- widgets['progress bar'] = {...}
+setmetatable(widgets['progress bar'].editparam, {__index = editparam})
 --------------------------------------------------------------------------------
---[[widgets['widget list'] =
+widgets['widget list'] =
 	{
 	-- widgettype = 'widget list',
 	parameters =
@@ -640,7 +434,7 @@ widgets['progress bar'] =
 			childwidget:display()
 		end
 	end, -- display = function
-	} -- widgets['widget list'] = {...}]]
+	} -- widgets['widget list'] = {...}
 --------------------------------------------------------------------------------
 widget.combolist = utility.tablecombolist(widgets)
 --------------------------------------------------------------------------------
@@ -651,7 +445,6 @@ widgets['window'] =
 	parameters =
 		{
 		'general', 'layout', 'hide window when:', 'style',
-		
 		['general'] = {'title', 'enable'},
 		['layout'] = {'layoutoptions'},
 		['hide window when:'] = {'hideoptions'},
@@ -666,46 +459,43 @@ widgets['window'] =
 	hideoptions = {inlobby=true},
 	showtitlebar = true,
 	showscrollbar = true,
+	w = 10,
+	h = 10,
+	hideoptions = {},
+	['window option changed'] = true,
 	
 	editparam =
 		{
 		title = function(self)
-			imgui.Text('window title:')
-			imgui.SameLine()
-			imgui.PushItemWidth(globaloptions.textinputwidth)
-				local changed, newvalue =
-					imgui.InputText('##' .. self.id .. 'window title', self.title, 72)
-			imgui.PopItemWidth()
-			if changed then self.title = newvalue end
+			editstring(self, 'title', textconstant'window title')
 		end,
 		
 		enable = function(self)
-			editboolean(self, 'enable', 'enable window')
+			editboolean(self, 'enable', textconstant'enable window')
 		end,
 		
 		showtitlebar = function(self)
-			editboolean(self, 'showtitlebar', 'show titlebar')
+			editboolean(self, 'showtitlebar', textconstant'show titlebar')
 		end,
 		
 		showscrollbar = function(self)
-			editboolean(self, 'showscrollbar', 'show scrollbar')
+			editboolean(self, 'showscrollbar', textconstant'show scrollbar')
 		end,
 		
 		layoutoptions = function(self)
---[['position and size', 'auto resize', 'move with mouse', 'resize with mouse',]]
 			--edit position and size
 			
 			local changed, newvalue
 			
 			changed, newvalue =
-				imgui.Checkbox('auto resize window to fit contents', self.autoresize)
+				imgui.Checkbox(textconstant'auto resize window to fit contents', self.autoresize)
 			if changed then
 				self.autoresize = newvalue
 				updatewindowoption(self, self.autoresize, 5, 'AlwaysAutoResize')
 			end
 			
 			changed, newvalue =
-				imgui.Checkbox('move window with mouse', self.allowmousemove)
+				imgui.Checkbox(textconstant'move window with mouse', self.allowmousemove)
 			if changed then
 				self.allowmousemove = newvalue
 				updatewindowoption(self, not self.allowmousemove, 3, 'nomove')
@@ -713,7 +503,7 @@ widgets['window'] =
 			
 			if not self.autoresize then
 				changed, newvalue =
-					imgui.Checkbox('resize window with mouse', self.allowmouseresize)
+					imgui.Checkbox(textconstant'resize window with mouse', self.allowmouseresize)
 				if changed then
 					self.allowmouseresize = newvalue
 					updatewindowoption(self, not self.allowmouseresize, 2, 'noresize')
@@ -722,24 +512,23 @@ widgets['window'] =
 		end, -- layoutoptions = function
 		
 		hideoptions = function(self)
-			editboolean(self.hideoptions, 'notinfield', 'not in field')
+			editboolean(self.hideoptions, 'notinfield', textconstant'not in field')
 			
 			if not self.hideoptions.notinfield then
-				editboolean(self.hideoptions, 'inlobby', 'in lobby')
+				editboolean(self.hideoptions, 'inlobby', textconstant'in lobby')
 			end
 			
-			editboolean(self.hideoptions, 'anymenu', 'any menu is open')
+			editboolean(self.hideoptions, 'anymenu', textconstant'any menu is open')
 			
 			if not self.hideoptions.anymenu then
-				editboolean(self.hideoptions, 'lowermenu', 'lower screen menu is open')
+				editboolean(self.hideoptions, 'lowermenu', textconstant'lower screen menu is open')
 				
 				if not self.hideoptions.lowermenu then
-					editboolean(self.hideoptions, 'mainmenu', 'main menu is open')
-					editboolean(self.hideoptions, 'fullmenu', 'full screen menu is open')
+					editboolean(self.hideoptions, 'mainmenu', textconstant'main menu is open')
+					editboolean(self.hideoptions, 'fullmenu', textconstant'full screen menu is open')
 				end
 			end
 		end, -- hideoptions = function
-		
 		},
 	
 	firsttimeinit = function(self)
@@ -751,32 +540,70 @@ widgets['window'] =
 	
 	additemlist = widget.combolist,
 	
+	listitem = function(self, id, active)
+		-- neondebug.log('begin widget list.listitem', 'add new widget to window')
+		local clicked = false
+		
+		if active then
+			-- neondebug.log('showing active-style button', 'add new widget to window')
+			imgui.PushStyleColor('Button', .2, .5, 1, 1)
+			imgui.PushStyleColor('ButtonHovered', .3, .7, 1, 1)
+			imgui.PushStyleColor('ButtonActive', .5, .9, 1, 1)
+			clicked = imgui.Button(self.shortname .. '##' .. id)
+			imgui.PopStyleColor()
+			imgui.PopStyleColor()
+			imgui.PopStyleColor()
+		else
+			-- neondebug.log('showing regular-style button', 'add new widget to window')
+			imgui.PushStyleColor('Button', .5, .5, .5, .3)
+			clicked = imgui.Button(self.shortname .. '##' .. id)
+			imgui.PopStyleColor()
+		end -- if active
+		-- neondebug.log('successfully displayed button.', 'add new widget to window')
+		
+		if imgui.IsItemHovered() and (not imgui.IsMouseDown(0)) then
+			-- neondebug.log('showing tooltip', 'add new widget to window')
+			imgui.SetTooltip(self.longname)
+		end
+		
+		-- neondebug.log('end widget list.listitem', 'add new widget to window')
+		return clicked
+	end, -- listitem = function
+	
 	init = function(self)
+		neondebug.log('init window: initializing widget list', 'new window')
 		self['widget list'].changed = true
 		for _, item in ipairs(self['widget list']) do
 			widget.restore(item)
 		end
 		
+		neondebug.log('init window: generating window id', 'new window')
 		self.id = id.new()
+		self.x = self.id * 5
+		self.y = self.id * 5
 		
+		neondebug.log('init window: initializing window options', 'new window')
 		self['window options'] = {}
-		updatewindowoption(self, not self['show titlebar'], 1, 'NoTitleBar')
-		updatewindowoption(self, not self['resize with mouse'], 2, 'NoResize')
-		updatewindowoption(self, not self['move with mouse'], 3, 'NoMove')
-		updatewindowoption(self, not self['show scrollbar'], 4, 'NoScrollBar')
-		updatewindowoption(self, self['auto resize'], 5, 'AlwaysAutoResize')
+		updatewindowoption(self, not self.showtitlebar, 1, 'NoTitleBar')
+		updatewindowoption(self, not self.allowmouseresize, 2, 'NoResize')
+		updatewindowoption(self, not self.allowmousemove, 3, 'NoMove')
+		updatewindowoption(self, not self.showscrollbar, 4, 'NoScrollBar')
+		updatewindowoption(self, self.autoresize, 5, 'AlwaysAutoResize')
 		
+		neondebug.log('init window: initializing layout', 'new window')
 		self.layout = {}
-		self.layout.w = utility.scale(self['position and size'].w, gamewindowwidth)
-		self.layout.h = utility.scale(self['position and size'].h, gamewindowheight)
+		self.layout.w = utility.scale(self.w, gamewindowwidth)
+		self.layout.h = utility.scale(self.h, gamewindowheight)
 		self:updatelayoutx()
 		self:updatelayouty()
 		
+		neondebug.log('init window: adding to dontserialize', 'new window')
 		self.dontserialize['id'] = true
 		self.dontserialize['window options'] = true
 		self.dontserialize['layout'] = true
 		self.dontserialize['show options'] = true
 		
+		neondebug.log('init window: setting up edit function', 'new window')
 		local basicedit = self.edit
 		self.edit = function(self)
 			if self['show options'] then
@@ -790,17 +617,17 @@ widgets['window'] =
 					self['show options'] = true
 				end
 				imgui.Separator()
-				paramedit(self, 'widget list')
+				editlist(self, 'widget list')
 			end -- if self['show options']
 		end -- self.edit = function(self)
 	end, -- restore = function(self)
 --------------------------------------------------------------------------------
 	updatelayoutx = function(self)
-		self.layout.x = utility.scale(self['position and size'].x, gamewindowwidth, self['position and size'].w)
+		self.layout.x = utility.scale(self.x, gamewindowwidth, self.w)
 	end,
 --------------------------------------------------------------------------------
 	updatelayouty = function(self)
-		self.layout.y = utility.scale(self['position and size'].y, gamewindowheight, self['position and size'].h)
+		self.layout.y = utility.scale(self.y, gamewindowheight, self.h)
 	end,
 --------------------------------------------------------------------------------
 	detectmouseresize = function(self)
@@ -808,14 +635,14 @@ widgets['window'] =
 		and self['window options'][5] ~= 'AlwaysAutoResize' then
 			-- neondebug.alwayslog('updating window size', 'add new widget to window')
 			local neww, newh = imgui.GetWindowSize()
-			if neww ~= self['layout'].w then
-				self['position and size'].w = utility.unscale(neww, gamewindowwidth)
-				self['layout'].w = neww
+			if neww ~= self.layout.w then
+				self.w = utility.unscale(neww, gamewindowwidth)
+				self.layout.w = neww
 				self:updatelayoutx()
 			end
-			if newh ~= self['layout'] then
-				self['position and size'].h = utility.unscale(newh, gamewindowheight)
-				self['layout'].h = newh
+			if newh ~= self.layout then
+				self.h = utility.unscale(newh, gamewindowheight)
+				self.layout.h = newh
 				self:updatelayouty()
 			end
 		end
@@ -824,38 +651,38 @@ widgets['window'] =
 	detectmousemove = function(self)
 		if self['window options'][3] ~= 'NoMove' then
 			local newx, newy = imgui.GetWindowPos()
-			if newx ~= self['layout'].x then
-				self['position and size'].x = utility.bindnumber(
-					utility.unscale(newx, gamewindowwidth, self['position and size'].w),
-					boundary.left, boundary.right - self['position and size'].w)
+			if newx ~= self.layout.x then
+				self.x = utility.bindnumber(
+					utility.unscale(newx, gamewindowwidth, self.w),
+					boundary.left, boundary.right - self.w)
 				self:updatelayoutx()
-			end -- if newx ~= self['layout'].x
-			if newy ~= self['layout'].y then
-				self['position and size'].y = utility.bindnumber(
-					utility.unscale(newy, gamewindowheight, self['position and size'].h),
-					boundary.top, boundary.bottom - self['position and size'].h)
+			end -- if newx ~= self.layout.x
+			if newy ~= self.layout.y then
+				self.y = utility.bindnumber(
+					utility.unscale(newy, gamewindowheight, self.h),
+					boundary.top, boundary.bottom - self.h)
 				self:updatelayouty()
-			end -- if newy ~= self['layout'].y
+			end -- if newy ~= self.layout.y
 		end -- if self['window options'][3] ~= 'NoMove'
 	end,
 --------------------------------------------------------------------------------
 	display = function(self)
 		if (self['in lobby'] and datasource.currentlocation() == 'lobby')
 		or (self['not in field'] and datasource.currentlocation() ~= 'field')
-		or (not self['enable window'])
+		or (not self.enable)
 		--[[or datasource.currentlocation() == 'login']]
 		then return end
-		for menu, _ in pairs(self.menustate) do
+		for menu, _ in pairs(self.hideoptions) do
 			if datasource.get(menu) then return end
 		end
 		
-		if self['window option changed'] and datasource.screenwidth then
+		if self['window option changed'] then
 			imgui.SetNextWindowPos(
-				self['layout'].x, self['layout'].y, 'Always')
+				self.layout.x, self.layout.y, 'Always')
 			
 			if self['window options'][5] ~= 'AlwaysAutoResize' then
 				imgui.SetNextWindowSize(
-					self['layout'].w, self['layout'].h, 'Always')
+					self.layout.w, self.layout.h, 'Always')
 			end
 			self['window option changed'] = false
 		end
@@ -869,8 +696,8 @@ widgets['window'] =
 		end
 		
 		local success
-		success, self['enable window'] = imgui.Begin(self['window title']
-			.. '###' .. self['id'], true, self['window options'])
+		success, self.enable = imgui.Begin(self.title .. '###' .. self.id, true,
+			self['window options'])
 			if not success then
 				imgui.End()
 				return
@@ -903,48 +730,11 @@ setmetatable(widgets.window.editparam, {__index = editparam})
 	end,
 	} -- widgets['formatted table'] = {...}]]
 --------------------------------------------------------------------------------
---[[local function editparamgroup(self, group, label)
-	if imgui.TreeNode((label or group) .. '##' .. self.id) then
-		neondebug.log('displaying parameter group: ' .. group, 5, 'widget')
-		for _, param in ipairs(self.parameters[group]) do
-			neondebug.log('displaying editor for ' .. group .. '.' .. param, 5, 'widget')
-			if not (typedef(param).hideif and typedef(param).hideif(self)) then
-				if self[param] ~= nil then
-					paramedit(self, param)
-				else
-					if imgui.Button('edit ' .. param) then
-						self[param] = default(param)
-					end
-				end
-			end
-			neondebug.log('displayed ' .. group .. '.' .. param, 5, 'widget')
-		end
-		neondebug.log('done displaying parameter group: ' .. group, 5, 'widget')
-		imgui.TreePop()
-	end
-end]]
---------------------------------------------------------------------------------
---[[local function edit(self)
-	if self.parameters['all'] then editparamgroup(self, 'all', self['long name'])
-	end -- if self.parameters['all']
-	for _, group in ipairs(self.parameters) do
-		if group ~= 'all' then editparamgroup(self, group) end
-	end
-end -- local function edit]]
---------------------------------------------------------------------------------
 local function editparamgroup(self, group)
 	-- neondebug.log('displaying parameter group: ' .. group, 5, 'widget')
 	for _, param in ipairs(self.parameters[group]) do
 		-- neondebug.log('displaying editor for ' .. group .. '.' .. param, 5, 'widget')
-		if not (typedef(param).hideif and typedef(param).hideif(self)) then
-			if self[param] ~= nil then
-				paramedit(self, param)
-			else
-				if imgui.Button('edit ' .. param) then
-					self[param] = default(param)
-				end
-			end
-		end
+			self.editparam[param](self)
 		-- neondebug.log('displayed ' .. group .. '.' .. param, 5, 'widget')
 	end
 	-- neondebug.log('done displaying parameter group: ' .. group, 5, 'widget')
@@ -956,15 +746,15 @@ local function edit(self)
 		imgui.NewLine()
 		for _, group in ipairs(self.parameters) do
 			imgui.SameLine()
-			if imgui.Button(group .. '##' .. (self['long name'] or self.id)) then
-				if self['active param group'] == group then
-					self['active param group'] = nil
+			if imgui.Button(group .. '##' .. (self.longname or self.id)) then
+				if self.selectedgroup == group then
+					self.selectedgroup = nil
 				else
-					self['active param group'] = group
+					self.selectedgroup = group
 				end
 			end
 		end -- for _, group in ipairs(self.parameters)
-		if self['active param group'] then editparamgroup(self, self['active param group']) end
+		if self.selectedgroup then editparamgroup(self, self.selectedgroup) end
 	end -- if self.parameters.all
 end -- local function edit
 --------------------------------------------------------------------------------
@@ -972,9 +762,9 @@ widget.globaloptions =
 	{
 	parameters =
 		{
-		['general'] = {'task wait interval', 'allow windows offscreen', 'offscreen space - horizontal', 'offscreen space - vertical',},
-		['default values'] = {'background color', 'text color', 'font scale', 'auto resize new windows',},
-		['parameter editing'] = {'text entry widget width', 'number entry method',},
+		['general'] = {'taskinterval', 'offscreenspace',},
+		['default values'] = {'bgcolor', 'textcolor', 'fontscale', 'defaultautoresize',},
+		['parameter editing'] = {'textinputwidth', 'numberwidgettype',},
 		}, -- need to add these to paramtypes
 	
 	edit = edit,
@@ -1010,50 +800,24 @@ function widget.restore(self)
 end
 --------------------------------------------------------------------------------
 widget.new = function(typename, fieldcombolist)
-	-- neondebug.log('creating widget of type: ' .. typename, 5)
+	neondebug.log('creating widget of type: ' .. typename, 'new window')
 	
 	local newwidget = {}
 	setmetatable(newwidget, {__index = widgets[typename]})
-	-- neondebug.log('new widget metatable set.', 5)
+	neondebug.log('new widget metatable set.', 'new window')
 	
 	newwidget.widgettype = typename
 	newwidget.edit = edit
 	newwidget.dontserialize={dontserialize=true,parameters=true,editparam=true,}
 	newwidget.fieldcombolist = fieldcombolist
 	newwidget.map = {}
-	-- neondebug.log('widgettype, edit, dontserialize, fieldcombolist, and map set.', 5)
-	
-	-- neondebug.log('beginning generic parameter initialization loop.', 5)
-	for _, groupname in ipairs(newwidget.parameters) do
-		for _, param in ipairs(newwidget.parameters[groupname]) do
-			
-			-- neondebug.log('next parameter: ' .. param, 5)
-			
-			local thistype = typedef(param)
-			if not thistype.optional then
-				newwidget[param] = default(param)
-				
-				if not thistype.staticsource then
-					if fieldcombolist then
-						newwidget.map[param] = fieldcombolist[1]
-					else
-						newwidget.map[param] = datasource.combolist[thistype.datatype][1]
-					end -- if fieldcombolist
-				end
-				
-				if thistype.updatename then updatename(newwidget, param) end
-				
-				-- neondebug.log(param .. ' initialized to default: ' .. utility.serialize(newwidget[param]), 5, 'widget')
-				
-			end -- if not thistype.optional
-		end -- for _, param in ipairs(newwidget.parameters[groupname])
-	end -- for _, groupname in ipairs(newwidget.parameters)
-	-- neondebug.log('completed generic parameter initialization loop.', 5)
+	neondebug.log('widgettype, edit, dontserialize, fieldcombolist, and map set.', 'new window')
 	
 	if newwidget.firsttimeinit then
-		-- neondebug.log('starting ' .. typename .. ' specific init.', 5)
+		neondebug.log('starting ' .. typename .. ' specific init.', 'new window')
 		newwidget:firsttimeinit()
-		-- neondebug.log(typename .. ' specific init complete.', 5, 'widget')
+		neondebug.log(typename .. ' specific init complete.', 'new window')
+	elseif newwidget.init then newwidget:init()
 	end
 	
 	return newwidget
@@ -1065,7 +829,7 @@ local function addwidgettype(newwidgetname, newwidgetdef)
 	widget.combolist = utility.buildcombolist(widgets)
 end
 --------------------------------------------------------------------------------
-function widget.init(newdatasource, newglobaloptions)
+function widget.init(newdatasource, newglobaloptions, neww, newh)
 	datasource = newdatasource
 	globaloptions = newglobaloptions
 	boundary = {}
@@ -1073,9 +837,6 @@ function widget.init(newdatasource, newglobaloptions)
 	boundary.right = 100 + globaloptions.allowoffscreenx
 	boundary.top = 0 - globaloptions.allowoffscreeny
 	boundary.bottom = 100 + globaloptions.allowoffscreeny
-end
---------------------------------------------------------------------------------
-function widget.setgamewindowsize(neww, newh)
 	gamewindowwidth, gamewindowheight = neww, newh
 end
 --------------------------------------------------------------------------------

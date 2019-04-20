@@ -382,27 +382,27 @@ function psodata.retrievepsodata()
 			-- gamedata.menustate[state] = nil
 		-- end
 		if pso.read_u32(0x009ff3d4) ~= 1 then -- any menu open
-			gamedata.menustate['any menu is open'] = true
-			gamedata.menustate['lower screen menu is open'] = true -- pretty much every menu uses the lower part of the screen
+			gamedata.menustate['anymenu'] = true
+			gamedata.menustate['lowermenu'] = true -- pretty much every menu uses the lower part of the screen
 			if pso.read_u32(0x00a97f44) == 1 then
-				gamedata.menustate['main menu is open'] = true
-				gamedata.menustate['full screen menu is open'] = nil
+				gamedata.menustate['mainmenu'] = true
+				gamedata.menustate['fullmenu'] = nil
 			elseif (pso.read_u32(0x00a48a9c) == 1) or ((psodata.currentlocation() == 'lobby') and (pso.read_u32(0x00aab218) ~= 0))then -- shops and stuff, also lobby counter
-				gamedata.menustate['full screen menu is open'] = true
-				gamedata.menustate['main menu is open'] = true
+				gamedata.menustate['fullmenu'] = true
+				gamedata.menustate['mainmenu'] = true
 			else
-				gamedata.menustate['full screen menu is open'] = nil
-				gamedata.menustate['main menu is open'] = nil
+				gamedata.menustate['fullmenu'] = nil
+				gamedata.menustate['mainmenu'] = nil
 			end
 		else
-			gamedata.menustate['full screen menu is open'] = nil
-			gamedata.menustate['main menu is open'] = nil
+			gamedata.menustate['fullmenu'] = nil
+			gamedata.menustate['mainmenu'] = nil
 			if pso.read_u32(0x00a97f44) == 2 then -- team chat
-				gamedata.menustate['lower screen menu is open'] = true
-				gamedata.menustate['any menu is open'] = true
+				gamedata.menustate['lowermenu'] = true
+				gamedata.menustate['anymenu'] = true
 			else
-				gamedata.menustate['lower screen menu is open'] = nil
-				gamedata.menustate['any menu is open'] = nil
+				gamedata.menustate['lowermenu'] = nil
+				gamedata.menustate['anymenu'] = nil
 			end
 		end
 	

@@ -98,13 +98,16 @@ end -- function utility.listadd
 --------------------------------------------------------------------------------
 utility.listmove = function(list, source, dest, selected)
 	if source ~= dest and source + 1 ~= dest then
+		print('insert ' .. dest)
 		table.insert(list, dest, list[source])
 		if source < dest then
+			print('remove ' .. source)
 			table.remove(list, source)
 			if selected and source < selected and selected < dest then
 				return selected - 1
 			end
 		else
+			print('remove ' .. source + 1)
 			table.remove(list, source + 1)
 			if selected and dest < selected and selected < source then
 				return selected + 1
@@ -116,6 +119,7 @@ utility.listmove = function(list, source, dest, selected)
 			return selected
 		end -- if selected and selected == source
 	end -- making sure the destination is different from the source
+	return selected
 end -- utility.listmove = function
 --------------------------------------------------------------------------------
 function utility.listcopy(source)
@@ -165,14 +169,6 @@ utility.iswithinrect = function(point, rect)
 		return true
 	else
 		return false
-	end
-end
---------------------------------------------------------------------------------
-function utility.updatewindowoption(self, newvalue, optionindex, flag)
-	if newvalue then
-		self['window options'][optionindex] = flag
-	else
-		self['window options'][optionindex] = ''
 	end
 end
 --------------------------------------------------------------------------------

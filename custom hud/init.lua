@@ -13,11 +13,13 @@ local default = require('custom hud.default')
 local convert = require('custom hud.language_english')
 
 -- neondebug.enablelogging('general')
+-- neondebug.enablelogging('init.lua')
+-- neondebug.enablelogging('new window')
 -- neondebug.enablelogging('presentwindowlist')
 -- neondebug.enablelogging('widget')
 -- neondebug.enablelogging('save serialize')
 -- neondebug.enablelogging('paramedit')
-neondebug.enablelogging('add new widget to window')
+-- neondebug.enablelogging('add new widget to window')
 
 local lasttime = os.time()
 
@@ -26,20 +28,23 @@ local huddata
 local globaloptions
 local windownames
 local ready
+local statusheight
+local status = ''
 
 local function loaddata()
 	local neww, newh = psodata.getgamewindowsize()
 	if neww > 0 then
-		widget.setgamewindowsize(neww, newh)
+		-- widget.setgamewindowsize(neww, newh)
 		neondebug.log('game window size: ' .. neww .. 'x' .. newh, 5, 'widget')
 	
 		globaloptions = utility.loadtable('globaloptions')
 		if globaloptions then neondebug.log('global options loaded')
 		else
-			globaloptions = {longinterval = 1, allowoffscreenx = 0, allowoffscreeny = 0, fontscale = 1,}
+			globaloptions = {longinterval = 1, allowoffscreenx = 0, allowoffscreeny = 0, fontscale = 1, textinputwidth = 96, dragtargetmargin = 48, dragthreshold = 24,}
 		end
+		statusheight = imgui.GetTextLineHeightWithSpacing() * 2
 		
-		widget.init(psodata, globaloptions)
+		widget.init(psodata, globaloptions, neww, newh)
 	
 		huddata = utility.loadtable('profile')
 		if huddata then
@@ -61,7 +66,7 @@ local function loaddata()
 	end -- if neww > 0
 end -- local function loaddata
 
-local startuptasks = {loaddata,}
+local tasks = {loaddata,}
 
 local function checkbox(list, paramname)
 	local changed, newvalue = imgui.Checkbox(paramname, list[paramname])
@@ -76,30 +81,6 @@ end
 local function textconstant(textdata, color)
 	color = color or default('text color')
 	imgui.TextColored(color[1], color[2], color[3], color[4], convert(textdata))
-end
-
-local function addwindow(newtitle)
-	local newid = getuniqueid()
-	local offset = newid * 5
-	huddata.windowlist[newid] =
-		{
-		-- ['general'] = {['title']
-		title = newtitle,
-		x=offset,
-		y=offset,
-		w=20,
-		h=20,
-		enabled=true,
-		optionchanged=true,
-		transparent=false,
-		options={'', '', '', '', ''},
-		hideLobby=true,
-		hideField=true,
-		hideMenuStates = {['full screen menu open']=true},
-		widget = widget.new('widget list'),
-		fontScale=1,
-		[stringconstant['parameter - text color']] = default('text color'),
-		}
 end
 
 local function presentmainwindow()
@@ -125,7 +106,7 @@ local function presentmainwindow()
 			
 			for i = 1, #huddata.windowlist do
 				local window = huddata.windowlist[i]
-				if imgui.Button(window['window title'] .. '##' .. i) then
+				if imgui.Button(window.title .. '##' .. i) then
 					if huddata['selected window'] == i then
 						huddata['selected window'] = nil
 					else
@@ -142,7 +123,7 @@ local function presentmainwindow()
 			end -- if imgui.Button('add new window')
 			-- maybe make a pop-up dialog to enter title before adding window
 			
-			if imgui.Button('delete window') then
+			if huddata['selected window'] and imgui.Button('delete window') then
 				huddata.windowlist[huddata['selected window']] = nil
 				huddata['selected window'] = nil
 			end
@@ -151,6 +132,14 @@ local function presentmainwindow()
 			if imgui.Button('save') then
 				utility.savetable('profile', huddata)
 				utility.savetable('globaloptions', globaloptions)
+				status = os.date('%F | %T: profile and options saved')
+				local delayfinished = os.time() + 10
+				table.insert(tasks, function()
+					if os.time() >= delayfinished then
+						status = ''
+						return true
+					end
+				end)
 			end
 			
 			checkbox(huddata, 'show debug window')
@@ -160,10 +149,14 @@ local function presentmainwindow()
 		imgui.EndGroup()
 		
 		imgui.SameLine()
-		imgui.BeginChild('window editor', -1, -1, true)
+		imgui.BeginChild('window editor', -1, -statusheight, true)
 			if huddata['selected window'] then
 				huddata.windowlist[huddata['selected window']]:edit()
 			end -- if huddata['selected window']
+		imgui.EndChild()
+		
+		imgui.BeginChild('status bar', -1, statusheight, true)
+			imgui.Text(status)
 		imgui.EndChild()
 		
 	imgui.End()
@@ -179,16 +172,16 @@ local function present()
 	else
 		interval = 1
 	end
-	if #startuptasks > 0
+	if #tasks > 0
 	and os.difftime(now, lasttime) >= interval then
 		local taskindex = 1
 		repeat
-			if startuptasks[taskindex]() then
-				startuptasks[taskindex] = nil
+			if tasks[taskindex]() then
+				tasks[taskindex] = nil
 			else
 				taskindex = taskindex + 1
 			end
-		until taskindex > #startuptasks
+		until taskindex > #tasks
 		lasttime = now
 	end
 	
@@ -206,7 +199,7 @@ local function present()
 		neondebug.log('presented debug window', 'init.lua')
 	end
 	for _, window in ipairs(huddata.windowlist) do
-		neondebug.log('attempting to present window: ' .. window['window title'] .. '...', 'init.lua')
+		neondebug.log('attempting to present window: ' .. window.title .. '...', 'init.lua')
 		window:display()
 		neondebug.log('...succeeded', 'init.lua')
 	end

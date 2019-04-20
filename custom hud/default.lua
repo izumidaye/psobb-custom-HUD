@@ -44,6 +44,7 @@ local defaultvalue =
 		dragtarget = {},
 		buttonedges = {5,},
 		buttoncenters = {},
+		orientation = 'horizontal',
 		}
 	end,
 	

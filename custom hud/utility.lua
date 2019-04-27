@@ -156,19 +156,10 @@ utility.addcombolist = function(sourcearray)
 	end
 end
 --------------------------------------------------------------------------------
-utility.iswithinrect = function(point, rect)
-	if
-		point.x > rect.left
-		and
-		point.x < rect.right
-		and
-		point.y > rect.top
-		and
-		point.y < rect.bottom
-	then
+utility.iswithinrect = function(x, y, rect)
+	if x > rect.left and x < rect.right and y > rect.top and y < rect.bottom then
 		return true
-	else
-		return false
+	else return false
 	end
 end
 --------------------------------------------------------------------------------

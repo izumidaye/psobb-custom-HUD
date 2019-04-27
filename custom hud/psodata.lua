@@ -817,14 +817,6 @@ do -- define psodata getter functions
 			'xp/second this session',
 			'xp/second in dungeon',
 			},
-		['list'] =
-			{
-			'inventory items',
-			'floor items',
-			'bank items',
-			'party members',
-			'monsters in current room',
-			},
 		['progress'] =
 			{
 			'player hp',
@@ -833,6 +825,14 @@ do -- define psodata getter functions
 			'player shifta/jellen timer',
 			'player s/d/j/z timer',
 			'xp progress',
+			},
+		['list'] =
+			{
+			'inventory items',
+			'floor items',
+			'bank items',
+			'party members',
+			'monsters in current room',
 			},
 		}
 	
@@ -846,28 +846,116 @@ do -- define psodata getter functions
 	psodata.listsubfields = {}
 	psodata.listsubfields['inventory items'] =
 		{
-		['weapon'] = {'index', 'type', 'equipped', 'name', 'grind', 'wrapped', 'killcount', 'untekked', 'issrank', 'srankname', 'special', 'native', 'a. beast', 'machine', 'dark', 'hit'},
-		['frame'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'slots', 'defense', 'defensemax', 'evade', 'evademax'},
-		['barrier'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'defense', 'defensemax', 'evade', 'evademax'},
-		['unit'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'killcount', 'unitmod'},
-		['mag'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'def', 'pow', 'dex', 'mind', 'sync', 'iq', 'color', 'pb', 'timer'},
-		['technique disk'] = {'index', 'type', 'name', 'wrapped', 'techniquelevel'},
-		['tool'] = {'index', 'type', 'name', 'wrapped', 'quantity'},
-		['meseta'] = {'index', 'type', 'name', 'wrapped', 'quantity'}
-		}
+		['weapon'] =
+			{
+			['string'] = {'index', 'type', 'equipped', 'name', 'grind', 'wrapped', 'killcount', 'untekked', 'issrank', 'srankname', 'special', 'native', 'a. beast', 'machine', 'dark', 'hit'},
+			['number'] = {'index', 'grind', 'killcount', 'native', 'a. beast', 'machine', 'dark', 'hit'},
+			['progress'] = {},
+			},
+		['frame'] =
+			{
+			['string'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'slots', 'defense', 'defensemax', 'evade', 'evademax'},
+			['number'] = {'index', 'slots', 'defense', 'defensemax', 'evade', 'evademax'},
+			['progress'] = {},
+			},
+		['barrier'] =
+			{
+			['string'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'defense', 'defensemax', 'evade', 'evademax'},
+			['number'] = {'index', 'defense', 'defensemax', 'evade', 'evademax'},
+			['progress'] = {},
+			},
+		['unit'] =
+			{
+			['string']= {'index', 'type', 'equipped', 'name', 'wrapped', 'killcount', 'unitmod'},
+			['number'] = {'index', 'killcount', 'unitmod'},
+			['progress'] = {},
+			},
+		['mag'] =
+			{
+			['string'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'def', 'pow', 'dex', 'mind', 'sync', 'iq', 'color', 'pb', 'timer'},
+			['number']= {'index', 'def', 'pow', 'dex', 'mind', 'sync', 'iq', 'timer'},
+			['progress'] = {},
+			},
+		['technique disk'] =
+			{
+			['string'] = {'index', 'type', 'name', 'wrapped', 'techniquelevel'},
+			['number'] = {'index', 'techniquelevel'},
+			['progress'] = {},
+			},
+		['tool'] =
+			{
+			['string'] = {'index', 'type', 'name', 'wrapped', 'quantity'},
+			['number'] = {'index', 'quantity'},
+			['progress'] = {},
+			},
+		['meseta'] =
+			{
+			['string'] = {'index', 'type', 'name', 'wrapped', 'quantity'},
+			['number'] = {'index', 'quantity'},
+			['progress'] = {},
+			},
+		} -- psodata.listsubfields['inventory items'] = {...}
 	psodata.listsubfields['floor items'] =
 		{
-		['weapon'] = {'index', 'type', 'name', 'grind', 'wrapped', 'killcount', 'untekked', 'issrank', 'srankname', 'special', 'native', 'a. beast', 'machine', 'dark', 'hit'},
-		['frame'] = {'index', 'type', 'name', 'wrapped', 'slots', 'defense', 'defensemax', 'evade', 'evademax'},
-		['barrier'] = {'index', 'type', 'name', 'wrapped', 'defense', 'defensemax', 'evade', 'evademax'},
-		['unit'] = {'index', 'type', 'name', 'wrapped', 'killcount', 'unitmod'},
-		['mag'] = {'index', 'type', 'name', 'wrapped', 'def', 'pow', 'dex', 'mind', 'sync', 'iq', 'color', 'pb'},
-		['technique disk'] = {'index', 'type', 'name', 'wrapped', 'techniquelevel'},
-		['tool'] = {'index', 'type', 'name', 'wrapped', 'quantity'},
-		['meseta'] = {'index', 'type', 'name', 'wrapped', 'quantity'}
+		['weapon'] =
+			{
+			['string'] = {'index', 'type', 'name', 'grind', 'wrapped', 'killcount', 'untekked', 'issrank', 'srankname', 'special', 'native', 'a. beast', 'machine', 'dark', 'hit'},
+			['number'] = {'index', 'grind', 'killcount', 'native', 'a. beast', 'machine', 'dark', 'hit'},
+			['progress'] = {},
+			},
+		['frame'] =
+			{
+			['string'] = {'index', 'type', 'name', 'wrapped', 'slots', 'defense', 'defensemax', 'evade', 'evademax'},
+			['number'] = {'index', 'slots', 'defense', 'defensemax', 'evade', 'evademax'},
+			['progress'] = {},
+			},
+		['barrier'] =
+			{
+			['string'] = {'index', 'type', 'name', 'wrapped', 'defense', 'defensemax', 'evade', 'evademax'},
+			['number'] = {'index', 'defense', 'defensemax', 'evade', 'evademax'},
+			['progress'] = {},
+			},
+		['unit'] =
+			{
+			['string'] = {'index', 'type', 'name', 'wrapped', 'killcount', 'unitmod'},
+			['number'] = {'index', 'killcount', 'unitmod'},
+			['progress'] = {},
+			},
+		['mag'] =
+			{
+			['string'] = {'index', 'type', 'name', 'wrapped', 'def', 'pow', 'dex', 'mind', 'sync', 'iq', 'color', 'pb', 'timer'},
+			['number']= {'index', 'def', 'pow', 'dex', 'mind', 'sync', 'iq', 'timer'},
+			['progress'] = {},
+			},
+		['technique disk'] =
+			{
+			['string'] = {'index', 'type', 'name', 'wrapped', 'techniquelevel'},
+			['number'] = {'index', 'techniquelevel'},
+			['progress'] = {},
+			},
+		['tool'] =
+			{
+			['string'] = {'index', 'type', 'name', 'wrapped', 'quantity'},
+			['number'] = {'index', 'quantity'},
+			['progress'] = {},
+			},
+		['meseta'] =
+			{
+			['string'] = {'index', 'type', 'name', 'wrapped', 'quantity'},
+			['number'] = {'index', 'quantity'},
+			['progress'] = {},
+			},
 		}
-	psodata.listfields['party members'] = {'hp', 'hpmax', 'statusfrozen', 'statusconfused', 'statusparalyzed', 'deftech', 'atktech', 'tp', 'tpmax', 'invulnerabilitytime', 'name'}
-	psodata.listfields['monsters in current room'] = {'hp', 'hpmax', 'statusfrozen', 'statusconfused', 'statusparalyzed', 'deftech', 'atktech', 'name'}
+	psodata.listfields['party members'] =
+		{
+		['string'] = {'hp', 'hpmax', 'statusfrozen', 'statusconfused', 'statusparalyzed', 'deftech', 'atktech', 'tp', 'tpmax', 'invulnerabilitytime', 'name'},
+		['number'] = {'hp', 'hpmax', 'tp', 'tpmax', 'invulnerabilitytime'},
+		}
+	psodata.listfields['monsters in current room'] =
+		{
+		['string'] = {'hp', 'hpmax', 'statusfrozen', 'statusconfused', 'statusparalyzed', 'deftech', 'atktech', 'name'},
+		['number'] = {'hp', 'hpmax'},
+		}
 
 	for _, list in pairs(psodata.listsubfields) do
 		for _, sublist in pairs(list) do

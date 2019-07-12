@@ -1,12 +1,11 @@
 local neondebug = require('custom hud.neondebug')
-local utility = {}
 
 local debugsave = function(message)
 	neondebug.log(message, 'save serialize')
 end
 
---------------------------------------------------------------------------------
-utility.round = function(number, places)
+local utility = {}
+function utility.round(number, places)
 -- rounds up if decimal >= .5 else rounds down
 	if places then
 		local mult = math.pow(10, places)
@@ -14,9 +13,8 @@ utility.round = function(number, places)
 	else
 		return math.floor(number + 0.5)
 	end
-end -- utility.round = function
---------------------------------------------------------------------------------
-utility.rounddown = function(number, places)
+end -- function utility.round
+function utility.rounddown(number, places)
 -- rounds down if decimal <= .5 else rounds up
 	if places then
 		local mult = math.pow(10, places)
@@ -24,9 +22,8 @@ utility.rounddown = function(number, places)
 	else
 		return math.ceil(number - 0.5)
 	end
-end -- utility.rounddown = function
---------------------------------------------------------------------------------
-utility.scale = function(value, range, offset)
+end -- function utility.rounddown
+function utility.scale(value, range, offset)
 	if offset then
 		offset = 1 - offset / 100
 	else
@@ -34,22 +31,19 @@ utility.scale = function(value, range, offset)
 	end
 	neondebug.log('utility.scale(' .. value .. ', ' .. range .. ', ' .. offset .. ')', 5, 'widget')
 	return utility.round((value / 100) * range * offset)
-end
---------------------------------------------------------------------------------
-utility.unscale = function(value, range, offset)
+end -- function utility.scale
+function utility.unscale(value, range, offset)
 	if offset then
 		offset = 1 - offset / 100
 	else
 		offset = 1
 	end
 	return value / range * 100 / offset
-end
---------------------------------------------------------------------------------
-utility.bindnumber = function(value, minimum, maximum)
+end -- function utility.unscale
+function utility.bindnumber(value, minimum, maximum)
 	return math.min(math.max(minimum, value), maximum)
-end
---------------------------------------------------------------------------------
-utility.binarysearch = function(target, arrayfunc)
+end -- function utility.bindnumber
+function utility.binarysearch(target, arrayfunc)
 	local result
 	local rangestart, rangeend = 1, #array
 	repeat
@@ -61,9 +55,8 @@ utility.binarysearch = function(target, arrayfunc)
 		end -- if mousex < list.buttoncenters[dragdest]
 	until rangestart + 1 == rangeend
 	return rangestart
-end -- utility.binarysearch = function
---------------------------------------------------------------------------------
-utility.tablecombolist = function(sourcetable)
+end -- function utility.binarysearch
+function utility.tablecombolist(sourcetable)
 -- takes a string-indexed table, and returns an alphabetized index array with built-in reverse lookup.
 	
 	local resultlist = {}
@@ -85,8 +78,7 @@ utility.tablecombolist = function(sourcetable)
 	end
 	
 	return resultlist
-end -- local function buildcombolist(sourcetable)
---------------------------------------------------------------------------------
+end -- function utility.tablecombolist
 function utility.listadd(list, newitem, dest, selected)
 	table.insert(list, dest, newitem)
 	if selected and dest <= selected then
@@ -95,8 +87,7 @@ function utility.listadd(list, newitem, dest, selected)
 		return selected
 	end
 end -- function utility.listadd
---------------------------------------------------------------------------------
-utility.listmove = function(list, source, dest, selected)
+function utility.listmove(list, source, dest, selected)
 	if source ~= dest and source + 1 ~= dest then
 		print('insert ' .. dest)
 		table.insert(list, dest, list[source])
@@ -120,8 +111,7 @@ utility.listmove = function(list, source, dest, selected)
 		end -- if selected and selected == source
 	end -- making sure the destination is different from the source
 	return selected
-end -- utility.listmove = function
---------------------------------------------------------------------------------
+end -- function utility.listmove
 function utility.listcopy(source)
 	local result = {}
 	
@@ -134,8 +124,7 @@ function utility.listcopy(source)
 	end
 	
 	return result
-end
---------------------------------------------------------------------------------
+end -- function utility.listcopy
 function utility.listcopyinto(dest, source)
 	for key, value in pairs(source) do
 		if type(value) == 'table' then
@@ -144,9 +133,8 @@ function utility.listcopyinto(dest, source)
 			dest[key] = value
 		end
 	end
-end
---------------------------------------------------------------------------------
-utility.addcombolist = function(sourcearray)
+end -- function utility.listcopyinto
+function utility.addcombolist(sourcearray)
 -- sort array and add reverse lookup
 	table.sort(sourcearray, function(string1, string2) return string.lower(string1) < string.lower(string2) end)
 	if not sourcearray.longest then sourcearray.longest = 0 end
@@ -154,33 +142,29 @@ utility.addcombolist = function(sourcearray)
 		sourcearray[value] = index
 		sourcearray.longest = math.max(sourcearray.longest, string.len(value))
 	end
-end
---------------------------------------------------------------------------------
-utility.iswithinrect = function(x, y, rect)
+end -- function utility.addcombolist
+function utility.iswithinrect(x, y, rect)
 	if x > rect.left and x < rect.right and y > rect.top and y < rect.bottom then
 		return true
 	else return false
 	end
-end
---------------------------------------------------------------------------------
-do
+end -- function utility.iswithinrect
+do -- serialize functions
 -- convert entire table into a string, so it can be written to a file. recurses for nested tables.
 	local serialize = {}
-	utility.serialize = function(sourcedata, offset, excludekeys)
+	function utility.serialize(sourcedata, offset, excludekeys)
 		debugsave 'begin serialize...'
 		local result = serialize[type(sourcedata)](sourcedata, offset)
 		debugsave 'serialize completed.'
 		debugsave(result)
 		return result
-	end
---------------------------------------------------------------------------------
-	serialize['number'] = tostring
-	serialize['boolean'] = tostring
-	serialize['string'] = function(sourcedata)
+	end -- function utility.serialize
+	serialize.number = tostring
+	serialize.boolean = tostring
+	function serialize.string(sourcedata)
 		return string.format('\'%s\'', sourcedata)
-	end
---------------------------------------------------------------------------------
-	serialize['table'] = function(sourcedata, currentoffset)
+	end -- function serialize.string
+	function serialize.table(sourcedata, currentoffset)
 		
 		-- if sourcedata.serialize then return sourcedata:serialize(currentoffset) end
 		
@@ -217,10 +201,9 @@ do
 		end -- for key, value in pairs(sourcedata)
 			
 		return result .. tableending
-	end -- serialize['table'] = function
-end
---------------------------------------------------------------------------------
-utility.savestring = function(filename, stringtosave)
+	end -- function serialize.table
+end -- serialize functions
+function utility.savestring(filename, stringtosave)
 	local file = io.open('addons/custom hud/' .. filename .. '.lua', 'w')
 	if file then
 		file:write(stringtosave)
@@ -229,13 +212,11 @@ utility.savestring = function(filename, stringtosave)
 		-- io.write(stringtosave)
 		-- io.close(file)
 	end
-end -- utility.savestring = function
---------------------------------------------------------------------------------
-utility.loadstring = function(filename)
+end -- function utility.savestring
+function utility.loadstring(filename)
 	
-end -- utility.loadstring = function
---------------------------------------------------------------------------------
-utility.savetable = function(filename, tabletosave)
+end -- function utility.loadstring
+function utility.savetable(filename, tabletosave)
 -- saves current HUD configuration to disk as a runnable lua script.
 	debugsave 'savetable: begin...'
 	local serializeddata = utility.serialize(tabletosave)
@@ -246,12 +227,11 @@ utility.savetable = function(filename, tabletosave)
 	debugsave 'savetable: serialize complete.'
 	utility.savestring(filename, outputstring)
 	debugsave 'savetable: complete.'
-end -- utility.savetable = function
---------------------------------------------------------------------------------
-utility.loadtable = function(filename)
+end -- function utility.savetable
+function utility.loadtable(filename)
 -- loads table from a lua file if the file returns a table when run
 	local success, tabledata = pcall(require, 'custom hud.' .. filename)
 	if success then return tabledata end
-end -- utility.loadtable = function
---------------------------------------------------------------------------------
+end -- function utility.loadtable
+
 return utility

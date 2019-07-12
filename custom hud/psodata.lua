@@ -36,7 +36,47 @@ local sessionstartxp
 local pmtaddress = nil
 local psodata = {}
 -- psodata.menustates = {'main menu open', 'lower screen menu open', 'full screen menu open', 'any menu open'}
-local gamedata = {}
+
+local function inittechdata()
+	return {multiplier=0, name="none", level=0, timeleft=0, totaltime=0, timefloat=0}
+end -- local function inittechdata
+
+local gamedata = {
+	currentlocation='',
+	level=0,
+	thislevelxp=0,
+	tonextlevel=0,
+	levelprogress=0,
+	levelprogressfloat=0,
+	meseta=0,
+	totaltime=0,
+	sessiontime=0,
+	elapsedtime=0,
+	sessionxp=0,
+	sessionxprate=0,
+	dungeontime=0,
+	dungeonxprate=0,
+	inventoryspaceused=0,
+	bankspaceused=0,
+	flooritems={},
+	inventory={},
+	bank={},
+	bankmeseta = 0,
+	party={},
+	monsterlist={},
+	playerhp=0,
+	playerhpmax=0,
+	playerfrozen=false,
+	playerconfused=false,
+	playerparalyzed=false,
+	playerdeftech=inittechdata(),
+	playeratktech=inittechdata(),
+	playertp=0,
+	playertpmax=0,
+	playerinvulnerabilitytime=0,
+	menustate={},
+}
+
 local lasttime = os.time()
 local lastlocation
 
@@ -48,10 +88,6 @@ local function loadpmtaddress()
 	pmtaddress = pso.read_u32(0x00a8dc94)
 	return pmtaddress ~= 0
 end
-
-local function inittechdata()
-	return {multiplier=0, name="none", level=0, timeleft=0, totaltime=0, timefloat=0}
-end -- local function inittechdata
 
 local function initsessiontime()
 	lasttime = os.time()
@@ -65,6 +101,7 @@ local function initsessiontime()
 		sessionstartxp = pso.read_u32(player + 0xe48)
 	end
 end -- local function initsessiontime
+initsessiontime()
 
 local function getunitxtitemaddress(type, group, index)
 	if not pmtaddress then return nil end
@@ -368,9 +405,9 @@ local function readplayermonsterdata(playeraddr)
 end
 
 function psodata.retrievepsodata()
-	if not psodata.screenwidth then
-		-- psodata.screenwidth = pso.read_u16(0x00a46c48)
-		-- psodata.screenheight = pso.read_u16(0x00a46c4a)
+	if not psodata.screenwidth or psodata.screenwidth == 0 then
+		psodata.screenwidth = pso.read_u16(0x00a46c48)
+		psodata.screenheight = pso.read_u16(0x00a46c4a)
 	end
 	local frametime = os.time() - lasttime
 	gamedata.totaltime = gamedata.totaltime + frametime
@@ -625,46 +662,6 @@ end
 function psodata.setactive(datagroup) activegamedata[datagroup] = true end
 
 function psodata.activedatareset() activegamedata = {} end
-
-function psodata.init()
-	gamedata =
-		{
-		currentlocation='',
-		level=0,
-		thislevelxp=0,
-		tonextlevel=0,
-		levelprogress=0,
-		levelprogressfloat=0,
-		meseta=0,
-		totaltime=0,
-		sessiontime=0,
-		elapsedtime=0,
-		sessionxp=0,
-		sessionxprate=0,
-		dungeontime=0,
-		dungeonxprate=0,
-		inventoryspaceused=0,
-		bankspaceused=0,
-		flooritems={},
-		inventory={},
-		bank={},
-		party={},
-		monsterlist={},
-		playerhp=0,
-		playerhpmax=0,
-		playerfrozen=false,
-		playerconfused=false,
-		playerparalyzed=false,
-		playerdeftech=inittechdata(),
-		playeratktech=inittechdata(),
-		playertp=0,
-		playertpmax=0,
-		playerinvulnerabilitytime=0,
-		menustate={},
-		}
-	-- gamedata.player = {hp=0, hpmax=0, tp=0, tpmax=0, ata=0, statusfrozen=false, statusconfused=false, statusparalyzed=false, invulnerabilitytime=0, deftech=inittechdata(), atktech=inittechdata()}
-	initsessiontime()
-end
 
 do -- define psodata getter functions
 
@@ -974,6 +971,8 @@ do -- define psodata getter functions
 	
 
 end
+
+function psodata.getdata(fieldname) return gamedata[fieldname] end
 
 function psodata.getgamewindowsize()
 	return pso.read_u16(0x00a46c48), pso.read_u16(0x00a46c4a)

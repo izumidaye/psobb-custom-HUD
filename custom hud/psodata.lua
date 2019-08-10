@@ -759,79 +759,12 @@ do -- define psodata getter functions
 			-- gamedata.playeratktech.totaltime }
 	-- end
 	
-	psodata.combolist =
-		{
-		['string'] =
-			{
-			'player current hp',
-			'player maximum hp',
-			'player current tp',
-			'player maximum tp',
-			'invulnerability time',
-			'player level',
-			'level base xp',
-			'xp this level',
-			'player ata',
-			'pack meseta',
-			'session time elapsed',
-			'session xp accumulated',
-			'session time in dungeon',
-			'pack slots used',
-			'pack slots free',
-			'bank slots used',
-			'bank slots free',
-			'bank meseta',
-			'hp: current/maximum',
-			'tp: current/maximum',
-			'xp: progress/needed',
-			'xp to next level',
-			'xp/second this session',
-			'xp/second in dungeon',
-			'pack space: used/total',
-			'bank space: used/total',
-			},
-		['number'] =
-			{
-			'player current hp',
-			'player maximum hp',
-			'player current tp',
-			'player maximum tp',
-			'invulnerability time',
-			'player level',
-			'level base xp',
-			'xp progress',
-			'player ata',
-			'pack meseta',
-			'session time elapsed',
-			'session xp accumulated',
-			'session time in dungeon',
-			'pack slots used',
-			'pack slots free',
-			'bank slots used',
-			'bank slots free',
-			'bank meseta',
-			'xp to next level',
-			'xp/second this session',
-			'xp/second in dungeon',
-			},
-		['progress'] =
-			{
-			'player hp',
-			'player tp',
-			'player deband/zalure timer',
-			'player shifta/jellen timer',
-			'player s/d/j/z timer',
-			'xp progress',
-			},
-		['list'] =
-			{
-			'inventory items',
-			'floor items',
-			'bank items',
-			'party members',
-			'monsters in current room',
-			},
-		}
+	psodata.combolist = {
+		['string'] = { 'player current hp', 'player maximum hp', 'player current tp', 'player maximum tp', 'invulnerability time', 'player level', 'level base xp', 'xp this level', 'player ata', 'pack meseta', 'session time elapsed', 'session xp accumulated', 'session time in dungeon', 'pack slots used', 'pack slots free', 'bank slots used', 'bank slots free', 'bank meseta', 'hp: current/maximum', 'tp: current/maximum', 'xp: progress/needed', 'xp to next level', 'xp/second this session', 'xp/second in dungeon', 'pack space: used/total', 'bank space: used/total',},
+		['number'] = { 'player current hp', 'player maximum hp', 'player current tp', 'player maximum tp', 'invulnerability time', 'player level', 'level base xp', 'xp progress', 'player ata', 'pack meseta', 'session time elapsed', 'session xp accumulated', 'session time in dungeon', 'pack slots used', 'pack slots free', 'bank slots used', 'bank slots free', 'bank meseta', 'xp to next level', 'xp/second this session', 'xp/second in dungeon',},
+		['progress'] = { 'player hp', 'player tp', 'player deband/zalure timer', 'player shifta/jellen timer', 'player s/d/j/z timer', 'xp progress',},
+		['list'] = { 'inventory items', 'floor items', 'bank items', 'party members', 'monsters in current room',},
+	} -- psodata.combolist = {...}
 	
 	for _, list in pairs(psodata.combolist) do
 		utility.addcombolist(list)
@@ -841,118 +774,98 @@ do -- define psodata getter functions
 	
 	psodata.listfields = {}
 	psodata.listsubfields = {}
-	psodata.listsubfields['inventory items'] =
-		{
-		['weapon'] =
-			{
+	psodata.listsubfields['inventory items'] = {
+		weapon = {
 			['string'] = {'index', 'type', 'equipped', 'name', 'grind', 'wrapped', 'killcount', 'untekked', 'issrank', 'srankname', 'special', 'native', 'a. beast', 'machine', 'dark', 'hit'},
 			['number'] = {'index', 'grind', 'killcount', 'native', 'a. beast', 'machine', 'dark', 'hit'},
 			['progress'] = {},
-			},
-		['frame'] =
-			{
+		}, -- weapon = {...},
+		frame = {
 			['string'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'slots', 'defense', 'defensemax', 'evade', 'evademax'},
 			['number'] = {'index', 'slots', 'defense', 'defensemax', 'evade', 'evademax'},
 			['progress'] = {},
-			},
-		['barrier'] =
-			{
+		}, -- frame = {...},
+		barrier = {
 			['string'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'defense', 'defensemax', 'evade', 'evademax'},
 			['number'] = {'index', 'defense', 'defensemax', 'evade', 'evademax'},
 			['progress'] = {},
-			},
-		['unit'] =
-			{
+		}, -- barrier = {...},
+		unit = {
 			['string']= {'index', 'type', 'equipped', 'name', 'wrapped', 'killcount', 'unitmod'},
 			['number'] = {'index', 'killcount', 'unitmod'},
 			['progress'] = {},
-			},
-		['mag'] =
-			{
+		}, -- unit = {...},
+		mag = {
 			['string'] = {'index', 'type', 'equipped', 'name', 'wrapped', 'def', 'pow', 'dex', 'mind', 'sync', 'iq', 'color', 'pb', 'timer'},
 			['number']= {'index', 'def', 'pow', 'dex', 'mind', 'sync', 'iq', 'timer'},
 			['progress'] = {},
-			},
-		['technique disk'] =
-			{
+		}, -- mag = {...},
+		['technique disk'] = {
 			['string'] = {'index', 'type', 'name', 'wrapped', 'techniquelevel'},
 			['number'] = {'index', 'techniquelevel'},
 			['progress'] = {},
-			},
-		['tool'] =
-			{
+		}, -- ['technique disk'] = {...},
+		tool = {
 			['string'] = {'index', 'type', 'name', 'wrapped', 'quantity'},
 			['number'] = {'index', 'quantity'},
 			['progress'] = {},
-			},
-		['meseta'] =
-			{
+		}, -- tool = {...},
+		meseta = {
 			['string'] = {'index', 'type', 'name', 'wrapped', 'quantity'},
 			['number'] = {'index', 'quantity'},
 			['progress'] = {},
-			},
-		} -- psodata.listsubfields['inventory items'] = {...}
-	psodata.listsubfields['floor items'] =
-		{
-		['weapon'] =
-			{
+		}, -- meseta = {...},
+	} -- psodata.listsubfields['inventory items'] = {...}
+	psodata.listsubfields['floor items'] = {
+		['weapon'] = {
 			['string'] = {'index', 'type', 'name', 'grind', 'wrapped', 'killcount', 'untekked', 'issrank', 'srankname', 'special', 'native', 'a. beast', 'machine', 'dark', 'hit'},
 			['number'] = {'index', 'grind', 'killcount', 'native', 'a. beast', 'machine', 'dark', 'hit'},
 			['progress'] = {},
-			},
-		['frame'] =
-			{
+		},
+		['frame'] = {
 			['string'] = {'index', 'type', 'name', 'wrapped', 'slots', 'defense', 'defensemax', 'evade', 'evademax'},
 			['number'] = {'index', 'slots', 'defense', 'defensemax', 'evade', 'evademax'},
 			['progress'] = {},
-			},
-		['barrier'] =
-			{
+		},
+		['barrier'] = {
 			['string'] = {'index', 'type', 'name', 'wrapped', 'defense', 'defensemax', 'evade', 'evademax'},
 			['number'] = {'index', 'defense', 'defensemax', 'evade', 'evademax'},
 			['progress'] = {},
-			},
-		['unit'] =
-			{
+		},
+		['unit'] = {
 			['string'] = {'index', 'type', 'name', 'wrapped', 'killcount', 'unitmod'},
 			['number'] = {'index', 'killcount', 'unitmod'},
 			['progress'] = {},
-			},
-		['mag'] =
-			{
+		},
+		['mag'] = {
 			['string'] = {'index', 'type', 'name', 'wrapped', 'def', 'pow', 'dex', 'mind', 'sync', 'iq', 'color', 'pb', 'timer'},
 			['number']= {'index', 'def', 'pow', 'dex', 'mind', 'sync', 'iq', 'timer'},
 			['progress'] = {},
-			},
-		['technique disk'] =
-			{
+		},
+		['technique disk'] = {
 			['string'] = {'index', 'type', 'name', 'wrapped', 'techniquelevel'},
 			['number'] = {'index', 'techniquelevel'},
 			['progress'] = {},
-			},
-		['tool'] =
-			{
+		},
+		['tool'] = {
 			['string'] = {'index', 'type', 'name', 'wrapped', 'quantity'},
 			['number'] = {'index', 'quantity'},
 			['progress'] = {},
-			},
-		['meseta'] =
-			{
+		},
+		['meseta'] = {
 			['string'] = {'index', 'type', 'name', 'wrapped', 'quantity'},
 			['number'] = {'index', 'quantity'},
 			['progress'] = {},
-			},
-		}
-	psodata.listfields['party members'] =
-		{
+		},
+	}
+	psodata.listfields['party members'] = {
 		['string'] = {'hp', 'hpmax', 'statusfrozen', 'statusconfused', 'statusparalyzed', 'deftech', 'atktech', 'tp', 'tpmax', 'invulnerabilitytime', 'name'},
 		['number'] = {'hp', 'hpmax', 'tp', 'tpmax', 'invulnerabilitytime'},
-		}
-	psodata.listfields['monsters in current room'] =
-		{
+	}
+	psodata.listfields['monsters in current room'] = {
 		['string'] = {'hp', 'hpmax', 'statusfrozen', 'statusconfused', 'statusparalyzed', 'deftech', 'atktech', 'name'},
 		['number'] = {'hp', 'hpmax'},
-		}
+	}
 
 	for _, list in pairs(psodata.listsubfields) do
 		for _, sublist in pairs(list) do

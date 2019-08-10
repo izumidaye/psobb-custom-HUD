@@ -88,29 +88,34 @@ function utility.listadd(list, newitem, dest, selected)
 	end
 end -- function utility.listadd
 function utility.listmove(list, source, dest, selected)
+	local newselected = selected
 	if source ~= dest and source + 1 ~= dest then
-		print('insert ' .. dest)
+		-- print('insert ' .. dest)
 		table.insert(list, dest, list[source])
 		if source < dest then
-			print('remove ' .. source)
+			-- print('remove ' .. source)
 			table.remove(list, source)
 			if selected and source < selected and selected < dest then
-				return selected - 1
+				-- return selected - 1
+				newselected = selected - 1
+			elseif selected == source then
+				-- return dest
+				newselected = dest - 1
 			end
 		else
-			print('remove ' .. source + 1)
+			-- print('remove ' .. source + 1)
 			table.remove(list, source + 1)
-			if selected and dest < selected and selected < source then
-				return selected + 1
+			if selected and dest <= selected and selected < source then
+				-- return selected + 1
+				newselected = selected + 1
+			elseif selected == source then
+				-- return dest
+				newselected = dest
 			end
 		end -- if source < dest
-		if selected and selected == source then
-			return dest
-		else
-			return selected
-		end -- if selected and selected == source
 	end -- making sure the destination is different from the source
-	return selected
+	-- print('move: {source = ' .. source .. ', dest = ' .. dest .. ', selected = ' .. selected .. ', newselected = ' .. newselected .. '}')
+	return newselected
 end -- function utility.listmove
 function utility.listcopy(source)
 	local result = {}
@@ -154,6 +159,7 @@ do -- serialize functions
 	local serialize = {}
 	function utility.serialize(sourcedata, offset, excludekeys)
 		debugsave 'begin serialize...'
+		-- print(type(sourcedata))
 		local result = serialize[type(sourcedata)](sourcedata, offset)
 		debugsave 'serialize completed.'
 		debugsave(result)
@@ -165,7 +171,6 @@ do -- serialize functions
 		return string.format('\'%s\'', sourcedata)
 	end -- function serialize.string
 	function serialize.table(sourcedata, currentoffset)
-		
 		-- if sourcedata.serialize then return sourcedata:serialize(currentoffset) end
 		
 		currentoffset = currentoffset or 0

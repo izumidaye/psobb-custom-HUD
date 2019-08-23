@@ -9,23 +9,11 @@ local core_mainmenu, neondebug, psodata, utility, shortname do
 	neondebug = require 'custom hud.neondebug'
 	psodata = require 'custom hud.psodata'
 	utility = require 'custom hud.utility'
-	shortname = require 'custom hud.shortname'
+	shortname = {}
 	 -- = require 'custom hud.language_english'
 end
 --------------------------------------------------------------------------------
-do -- enable debugging on specific areas of code
-	-- neondebug.enablelogging('general')
-	-- neondebug.enablelogging('init.lua')
-	-- neondebug.enablelogging('new window')
-	-- neondebug.enablelogging('presentwindowlist')
-	-- neondebug.enablelogging('widget')
-	-- neondebug.enablelogging('save serialize')
-	-- neondebug.enablelogging('paramedit')
-	-- neondebug.enablelogging('add new widget to window')
-	-- neondebug.enablelogging'window options'
-end
---------------------------------------------------------------------------------
-local lasttime, huddata, ready, statusheight, status, freedids, takenids, tasks, gamewindowwidth, gamewindowheight, boundary do
+local lasttime, huddata, ready, statusheight, status, freedids, takenids, tasks, gamewindowwidth, gamewindowheight, boundary, languagetable do
 	lasttime = os.time()
 	huddata = {}
 	status = ''
@@ -239,21 +227,16 @@ local function restorewidget(self, parent)
 	if self.init then self:init() end
 end -- local function restorewidget --------------------------------------------
 local function newwidget(typename, parent)
-	neondebug.log('creating widget of type: ' .. typename, 'new window')
 	
 	local thisnewwidget = {}
 	setmetatable(thisnewwidget, {__index = widgets[typename]})
-	neondebug.log('new widget metatable set.', 'new window')
 	
 	thisnewwidget.widgettype = typename
 	thisnewwidget.parent = parent
-	thisnewwidget.dontserialize={dontserialize=true,parameters=true,editparam=true,}
-	neondebug.log('widgettype and dontserialize set.', 'new window')
+	thisnewwidget.dontserialize={dontserialize=true, parameters=true, editparam=true, parent=true}
 	
 	if thisnewwidget.firsttimeinit then
-		neondebug.log('starting ' .. typename .. ' specific init.', 'new window')
 		thisnewwidget:firsttimeinit()
-		neondebug.log(typename .. ' specific init complete.', 'new window')
 	else thisnewwidget:init()
 	end
 	
@@ -264,9 +247,7 @@ local basewidget = {
 		self.longname = self.widgettype .. ': ' .. namevalue
 		self.shortname = shortname[namevalue] or namevalue
 		if self.callbacks then
-			print'calling callbacks'
 			for _, callback in ipairs(self.callbacks) do callback() end
-		else print'no callbacks'
 		end -- if self.callbacks
 	end, -- updatename = function
 	initlabel = function(self)
@@ -275,25 +256,27 @@ local basewidget = {
 		else self.label = self.shortname
 		end -- if self.labeltype == 'none'
 	end, -- initlabel = function
-	labeleditor = function(self)
-		local changed, newvalue
-		text 'label:'
-		for _, option in ipairs{'none', 'automatic', 'custom'} do
-			changed, newvalue = imgui.RadioButton(option, self.labeltype == option)
-			if changed then
-				self.labeltype = option
-				self:initlabel()
-			end -- if changed
-		end -- for _, option in ipairs(self.labeloptions)
-		if self.labeltype == 'custom' then
-			imgui.SameLine()
-			changed, newvalue = imgui.InputText('##' .. self.id, self.label, 72)
-			if changed then
-				self.label = newvalue
-				self:updatename(self.label)
-			end
-		end -- if self.labeltype == 'custom'
-	end, -- labeleditor = function
+	initeditors = function(class)
+		class.labeleditor = function(self)
+			local changed, newvalue
+			text 'label:'
+			for _, option in ipairs{'none', 'automatic', 'custom'} do
+				changed, newvalue = imgui.RadioButton(option, self.labeltype == option)
+				if changed then
+					self.labeltype = option
+					self:initlabel()
+				end -- if changed
+			end -- for _, option in ipairs(self.labeloptions)
+			if self.labeltype == 'custom' then
+				imgui.SameLine()
+				changed, newvalue = imgui.InputText('##' .. self.id, self.label, 72)
+				if changed then
+					self.label = newvalue
+					self:updatename(self.label)
+				end
+			end -- if self.labeltype == 'custom'
+		end, -- labeleditor = function
+	end, -- initeditors = function
 	button = function(self, label, selected, tooltip)
 		local clicked
 		if selected then
@@ -347,8 +330,6 @@ basewidget.__index = basewidget
 widgets.text = {
 	labeltype = 'none',
 	datasource = psodata.combolist.string[1],
-	-- labeleditor = labeleditor('datasource'),
-	-- labeltypeeditor = radiolist('labeltype', 'label', {{'none', 'none'}, {'automatic', 'automatic'}, {'custom', 'custom'}}),
 	sourceeditor = combobox('datasource', psodata.combolist.string),
 	init = function(self)
 		basewidget.init(self)
@@ -403,19 +384,23 @@ widgets['progress bar'] = {
 	toggleshowvalue = booleaneditor('showvalue', 'show value'),
 	toggleshowrange = booleaneditor('showrange', 'show range'),
 	togglescalebar = booleaneditor('scalebar', 'scale progress bar'),
+	togglefillwindow = booleaneditor('fillwindow', 'fill window'),
 	toggledynamicbarcolor = booleaneditor('dynamicbarcolor', 'dynamic bar color'),
+	editcolor = coloreditor('barcolor', 'bar color'),
 	edit = function(self)
 		if self:sourceeditor() then self:updatename('datasource') end
 		self:toggleshowvalue()
 		if self.showvalue then self:toggleshowrange() end
 		self:togglescalebar()
+		if #self.parent == 1 then self:togglefillwindow() end
+		self:toggledynamicbarcolor()
+		if self.dynamicbarcolor then
+		
+		else
+			self:editcolor()
+		end
 	end, -- edit = function
 	editparam = {
-		overlaytext = function(self)
-			if not self.showvalue then
-				editstring(self, 'overlaytext', 'overlay text')
-			end
-		end,
 		barcolor = function(self)
 			if self.barcolor then editcolor(self, 'barcolor', 'bar color') end
 			local changed, enabled = optionalparamtoggle(self, 'barcolor', 'bar color')
@@ -438,7 +423,6 @@ widgets['progress bar'] = {
 		end,
 		}, -- editparam = {...}
 	display = function(self)
-		neondebug.log('begin progress bar.display...', 'add new widget to window')
 		local data = psodata.get[self.datasource]()
 		local barvalue = data[1] / data[2]
 		if self.sameline then imgui.SameLine() end
@@ -475,8 +459,6 @@ widgets['progress bar'] = {
 		
 		if self.textcolor then imgui.PopStyleColor() end
 		if self.barcolor then imgui.PopStyleColor() end
-		
-		neondebug.log('end progress bar.display.', 'add new widget to window')
 	end, -- display = function(self)
 	} -- widgets['progress bar'] = {...}
 setmetatable(widgets['progress bar'], basewidget)
@@ -672,66 +654,43 @@ widgets.window = {
 		end, -- style = function
 	},
 	firsttimeinit = function(self)
-		-- still need to actually initialize widget list (i think? this might be it)
 		self['widget list'] = newwidget('widget list', self)
 		self['window options'] = {'', 'NoResize', '', '', 'AlwaysAutoResize'}
 		self:init()
 	end, -- init = function(self)
 	additemlist = widgetcombolist,
 	init = function(self)
-		neondebug.log('basewidget init', 'new window')
 		basewidget.init(self)
 		self.x = self.id * 5
 		self.y = self.id * 5
 		
-		neondebug.log('init window: initializing widget list', 'new window')
-		-- self['widget list'].changed = true
 		restorewidget(self['widget list'])
 		
-		neondebug.log('init window: initializing window options', 'new window')
-		-- updatewindowoption(self, not self.showtitlebar, 1, 'NoTitleBar')
-		-- updatewindowoption(self, not self.allowmouseresize, 2, 'NoResize')
-		-- updatewindowoption(self, not self.allowmousemove, 3, 'NoMove')
-		-- updatewindowoption(self, not self.showscrollbar, 4, 'NoScrollBar')
-		-- updatewindowoption(self, self.autoresize, 5, 'AlwaysAutoResize')
-		
-		neondebug.log('init window: initializing layout', 'new window')
 		self.layout = {}
-		-- self.layout.w = utility.scale(self.w, gamewindowwidth)
-		-- self.layout.h = utility.scale(self.h, gamewindowheight)
 		self:updatelayoutw()
 		self:updatelayouth()
 		self:updatelayoutx()
 		self:updatelayouty()
 		
-		neondebug.log('init window: adding to dontserialize', 'new window')
 		self.dontserialize['id'] = true
-		-- self.dontserialize['window options'] = true
 		self.dontserialize['layout'] = true
 		self.dontserialize['show options'] = true
 		
-		-- neondebug.log('init window: setting up edit function', 'new window')
 	end, -- restore = function(self)
 	updatelayoutx = function(self)
 		self.layout.x = utility.scale(self.x, gamewindowwidth, self.w)
-		-- self['window option changed'] = true
 	end,
 	updatelayouty = function(self)
 		self.layout.y = utility.scale(self.y, gamewindowheight, self.h)
-		-- self['window option changed'] = true
 	end,
 	updatelayoutw = function(self)
 		self.layout.w = utility.scale(self.w, gamewindowwidth)
-		-- self['window option changed'] = true
 	end,
 	updatelayouth = function(self)
 		self.layout.h = utility.scale(self.h, gamewindowheight)
-		-- self['window option changed'] = true
 	end,
 	detectmouseresize = function(self)
-		if self['window options'][2] ~= 'NoResize'
-		and self['window options'][5] ~= 'AlwaysAutoResize' then
-			-- neondebug.alwayslog('updating window size', 'add new widget to window')
+		if self['window options'][2] ~= 'NoResize' and self['window options'][5] ~= 'AlwaysAutoResize' then
 			local neww, newh = imgui.GetWindowSize()
 			if neww ~= self.layout.w then
 				self.w = utility.unscale(neww, gamewindowwidth)
@@ -785,11 +744,9 @@ widgets.window = {
 		end
 		
 		local bgcolor = self.bgcolor
-			-- or huddata.'background color']
+			-- or huddata['background color']
 		if bgcolor then
 			imgui.PushStyleColor('WindowBg', unpack(bgcolor))
-			-- imgui.PushStyleColor('framebg', 1,0,0,1)
-			-- neondebug.log('used custom bg color', 'add new widget to window')
 		end
 		
 		local success
@@ -876,14 +833,12 @@ widgets['widget list'] = {
 		end
 	end, -- init = function
 	edit = function(self)
-		neondebug.alwayslog('begin list editor', 'add new widget to window')
 		
 		local dragtarget = self.dragtarget
 		local lastitempos
 		
 		local offsetx, offsety = imgui.GetCursorScreenPos()
 		
-		neondebug.alwayslog('begin show item list', 'add new widget to window')
 		if
 			imgui.BeginChild('item list', -1,
 				imgui.GetTextLineHeightWithSpacing() * 2, true)
@@ -905,10 +860,7 @@ widgets['widget list'] = {
 			for index, item in ipairs(self) do
 				if self.orientation == 'horizontal' then imgui.SameLine() end
 				
-				neondebug.alwayslog('showing list item ' .. index, 'add new widget to window')
-				-- print('attempting to show list item: ' .. utility.serialize(self[index]))
 				self:listitem(index)
-				neondebug.alwayslog('successfully displayed list item', 'add new widget to window')
 				
 				if not self.dragsource
 				and imgui.IsItemActive()
@@ -939,8 +891,6 @@ widgets['widget list'] = {
 			
 		end imgui.EndChild()
 		
-		neondebug.alwayslog('end show item list', 'add new widget to window')
-		
 		-- imgui.NewLine()
 		-- for _, pos in ipairs(self.itemcenters) do
 			-- imgui.SameLine(pos)
@@ -960,29 +910,21 @@ widgets['widget list'] = {
 			else -- assume self.orientation == 'vertical'
 				-- figure this out once everything else is working
 			end -- if self.orientation == 'horizontal'
-			-- print(self.dragtarget.left)
-			-- print(self.dragtarget.bottom)
-			neondebug.log('dragtarget:\n\tleft: ' .. dragtarget.left .. '\n\tright: ' .. dragtarget.right .. '\n\ttop: ' .. dragtarget.top .. '\n\tbottom: ' .. dragtarget.bottom, 'add new widget to window')
 		end -- if self.changed
 		
 		imgui.NewLine()
 		for index, itemname in ipairs(self.additemlist) do
 			imgui.SameLine()
 			if imgui.Button(itemname .. '##newitem') and not self.dragactive then
-				-- table.insert(self, newwidget(itemname))
 				self.dragsource = itemname
 				self.newitem = true
 				self.dragdest = #self + 1
-				-- self:processdrop()
-				neondebug.log('added new widget: ' .. itemname, 'add new widget to window')
-				-- self.changed = true
 			elseif not self.dragsource
 			and imgui.IsItemActive()
 			and imgui.IsMouseDragging(0, huddata.dragthreshold)
 			then
 				self.dragsource = itemname
 				self.newitem = true
-				neondebug.log('started dragging new widget: ' .. itemname, 'add new widget to window')
 			end
 		end
 		
@@ -995,7 +937,6 @@ widgets['widget list'] = {
 				if utility.iswithinrect(mousex, mousey, dragtarget) then
 					if self.orientation == 'horizontal' then
 						self.dragdest = self.calcdragdest(self.itemcenters, mousex)
-						neondebug.log('dragdest: ' .. self.dragdest, 'add new widget to window')
 					else -- assume orientation == 'vertical'
 						-- figure this out once everything else is working
 					end -- if self.orientation == 'horizontal'
@@ -1041,7 +982,6 @@ widgets['widget list'] = {
 			self.selected = nil
 		end
 		
-		neondebug.alwayslog('end list editor', 'add new widget to window')
 	end, -- edit = function(self)
 	display = function(self)
 		for _, childwidget in ipairs(self['widget list']) do
@@ -1051,8 +991,11 @@ widgets['widget list'] = {
 } -- widgets['widget list'] = {...}
 setmetatable(widgets['widget list'], basewidget)
 --------------------------------------------------------------------------------
+local function loadlanguage()
+
+end -- local function loadlanguage
 local globaloptions = {
-	slownumbereditor('longinterval', 'long interval', 1, 10, 1),
+	slownumbereditor('longinterval', 'long interval', 1, 10, 1), -- this might be completely pointless...
 	numbereditor('offscreenx', 'allow offscreen x', 0, 50, 1),
 	numbereditor('offscreeny', 'allow offscreen y', 0, 50, 1),
 	numbereditor('inputtextwidth', 'width of imgui.InputText', 24, 420, 1),
@@ -1085,9 +1028,9 @@ local globaloptions = {
 local function presentglobaloptionswindow()
 	imgui.SetNextWindowSize(500, 300, 'FirstUseEver')
 	local success
-	success, huddata['show global options window'] = imgui.Begin('global options', true)
+	success, huddata.showglobaloptionswindow = imgui.Begin('global options', true)
 		if not success then imgui.End() return end
-		for optionname, optioneditor in pairs(globaloptions) do
+		for _, optioneditor in ipairs(globaloptions) do
 			-- print('showing ' .. optionname)
 			optioneditor(huddata)
 		end
@@ -1099,47 +1042,38 @@ local mainmenuwidgets = {
 	simpletogglebutton('show debug window', 'show debug window'),
 } -- local mainmenuwidgets = {...}
 local function presentmainwindow()
-	neondebug.log('start presentmainwindow()', 'init.lua')
-	
 	imgui.SetNextWindowSize(600,300,'FirstUseEver')
 	local success
-	success, huddata['show main window'] = imgui.Begin('custom hud editor', true)
+	success, huddata.showmainwindow = imgui.Begin('custom hud editor', true)
 		if not success then
 			imgui.End()
-			neondebug.log('imgui.Begin() failed.', 'init.lua')
 			return
 		end
 		
-		neondebug.log('imgui.Begin() succeeded.', 'init.lua')
-		
 		imgui.BeginChild('window list and main menu', 150 * huddata.fontscale, -statusheight, true)
-		
 			for i = 1, #huddata.windowlist do
 				local window = huddata.windowlist[i]
-				local selected = huddata['selected window'] == i
+				local selected = huddata.selectedwindow == i
 				if window:button(window.title .. '##' .. i, selected) then
-					if selected then huddata['selected window'] = nil
-					else huddata['selected window'] = i
+					if selected then huddata.selectedwindow = nil
+					else huddata.selectedwindow = i
 					end
 				end
 			end
-			neondebug.log('displayed window list box', 'init.lua')
 			
 			imgui.Separator()
 			
 			if imgui.Button('add new window') then
-				neondebug.log('attempting to add new window.', 'init.lua')
 				table.insert(huddata.windowlist, newwidget('window'))
-				neondebug.log('successfully added new window.', 'init.lua')
 			end -- if imgui.Button('add new window')
 			-- maybe make a pop-up dialog to enter title before adding window
 			
 			if imgui.BeginPopup('confirmdeletewindow', {'NoTitleBar', 'NoResize', 'NoMove', 'NoScrollBar', 'AlwaysAutoResize'}) then
-				imgui.Text('delete window "' .. huddata.windowlist[huddata['selected window']].title .. '"?')
+				imgui.Text('delete window "' .. huddata.windowlist[huddata.selectedwindow].title .. '"?')
 				if imgui.Button 'delete##deletewindow' then
-					freeid(huddata.windowlist[huddata['selected window']].id)
-					table.remove(huddata.windowlist, huddata['selected window'])
-					huddata['selected window'] = nil
+					freeid(huddata.windowlist[huddata.selectedwindow].id)
+					table.remove(huddata.windowlist, huddata.selectedwindow)
+					huddata.selectedwindow = nil
 					imgui.CloseCurrentPopup()
 				end
 				imgui.SameLine()
@@ -1147,7 +1081,7 @@ local function presentmainwindow()
 				imgui.EndPopup()
 			end
 			
-			if huddata['selected window'] and imgui.Button('delete window') then
+			if huddata.selectedwindow and imgui.Button('delete window') then
 				imgui.OpenPopup('confirmdeletewindow')
 			end
 			
@@ -1169,9 +1103,9 @@ local function presentmainwindow()
 		
 		imgui.SameLine()
 		imgui.BeginChild('window editor', -1, -statusheight, true)
-			if huddata['selected window'] then
-				huddata.windowlist[huddata['selected window']]:edit()
-			end -- if huddata['selected window']
+			if huddata.selectedwindow then
+				huddata.windowlist[huddata.selectedwindow]:edit()
+			end -- if huddata.selectedwindow
 		imgui.EndChild()
 		
 		imgui.BeginChild('status bar', -1, statusheight, true)
@@ -1180,6 +1114,11 @@ local function presentmainwindow()
 		
 	imgui.End()
 end -- local function presentmainwindow ----------------------------------------
+local function presentfirsttimedialog()
+	if not huddata.selectedlanguage then
+	
+	end
+end -- local function presentfirsttimedialog
 local function loaddata()
 	local neww, newh = psodata.getgamewindowsize()
 	if neww > 0 then
@@ -1189,15 +1128,13 @@ local function loaddata()
 	
 		huddata = utility.loadtable('profile')
 		if huddata then
-			neondebug.log('\'profile\' loaded')
 			for _, window in ipairs(huddata.windowlist) do
 				restorewidget(window)
 			end
 		else
-			neondebug.log('load(\'profile\') failed')
 			huddata = {longinterval = 1, offscreenx = 0, offscreeny = 0, fontscale = 1, inputtextwidth = 96, dragtargetmargin = 48, dragthreshold = 24, defaulttextcolor = {.8, .8, .8, 1}, defaultbgcolor = {0, 0, 0, .5}, defaultautoresize = true,}
 			huddata.windowlist = {}
-			-- huddata['show main window'] = true
+			huddata.showmainwindow = true
 			huddata['show window options'] = false
 		end -- if huddata
 		
@@ -1209,7 +1146,6 @@ local function loaddata()
 end -- local function loaddata--------------------------------------------------
 table.insert(tasks, loaddata)
 local function present()
-	neondebug.log('start present()', 'init.lua')
 	
 	local now = os.time()
 	local interval = huddata.longinterval or 1
@@ -1228,38 +1164,27 @@ local function present()
 	if not ready then return end
 	
 	psodata.retrievepsodata()
-	neondebug.log('retrieved game data', 'init.lua')
 	
-	if huddata['show main window'] then
+	if huddata.showmainwindow then
 		presentmainwindow()
-		neondebug.log('presented window list', 'init.lua')
 	end
-	if huddata['show debug window'] then
-		huddata['show debug window'] = neondebug.present()
-		neondebug.log('presented debug window', 'init.lua')
+	if huddata.showdebugwindow then
+		huddata.showdebugwindow = neondebug.present()
 	end
-	if huddata['show global options window'] then
-		-- print 'showing global options'
+	if huddata.showglobaloptionswindow then
 		presentglobaloptionswindow()
 	end
 	for _, window in ipairs(huddata.windowlist) do
-		neondebug.log('attempting to present window: ' .. window.title .. '...', 'init.lua')
 		window:display()
-		neondebug.log('...succeeded', 'init.lua')
 	end
 	
-	neondebug.log('end present()', 'init.lua')
 end -- local function present
 local function init()
---	local pwd = io.popen([[dir 'addons\Custom HUD\core windows' /b]])
-	-- local testDisplayList = {}
-	-- for dir in pwd:lines() do
-		-- testDisplayList[dir] = {command='showString', args={text=dir}}
-		-- print('thing' .. dir .. ' end thing')
-	-- end
-	-- pwd:close()
-		
-	neondebug.log('starting first init process...', 'init.lua')
+	local pwd = io.popen([[dir "addons\custom hud" /b]])
+	for dir in pwd:lines() do
+		print(dir)
+	end
+	pwd:close()
 	
 	psodata.setactive('player')
 	psodata.setactive('meseta')
@@ -1271,20 +1196,18 @@ local function init()
 	psodata.setactive('inventory')
 	psodata.setactive('bank')
 	psodata.setactive('sessiontime')
-	neondebug.log('set up game huddata access.', 'init.lua')
 	
 	
-	core_mainmenu.add_button('Dynamic HUD', function()
-		huddata['show main window'] = not huddata['show main window']
+	core_mainmenu.add_button('custom hud', function()
+		huddata.showmainwindow = not huddata.showmainwindow
 		end)
 	
-	neondebug.log('first init finished.', 'init.lua')
 	return
 		{
-		name = 'Custom HUD',
-		version = '0.5',
-		author = 'IzumiDaye',
-		description = 'Build your own custom HUD',
+		name = 'custom hud',
+		version = '0.6',
+		author = 'izumidaye',
+		description = 'build your own customized hud',
 		present = present,
 		}
 end -- local function init -----------------------------------------------------

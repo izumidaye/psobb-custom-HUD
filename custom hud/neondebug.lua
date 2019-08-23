@@ -4,11 +4,14 @@ local loggingenabled = false
 local timeout = {}
 local timeoutlength = 5
 local enabledtypes = {}
+local windowtitle = ''
 
+neondebug.loadlanguage = function(languagetable)
+	windowtitle = languagetable.windowtitle.neondebug
+end -- neondebug.loadlanguage
 local function buildfilename(debugtype)
 	return os.date('addons/custom hud/log %F ') .. debugtype .. '.txt'
-end
-
+end -- local function buildfilename
 local function writetolog(text, debugtype)
 	debugtype = debugtype or ''
 	local file = io.open(buildfilename(debugtype), 'a')
@@ -17,10 +20,8 @@ local function writetolog(text, debugtype)
 		io.write(text)
 		io.close(file)
 	end
-end
-
+end -- local function writetolog
 local function timestamp() return os.date('%T> ') end
-
 neondebug.enablelogging = function(debugtype, newtimeoutlength)
 	enabledtypes[debugtype] = true
 	timeoutlength = newtimeoutlength or timeoutlength
@@ -33,14 +34,12 @@ neondebug.enablelogging = function(debugtype, newtimeoutlength)
 		io.close(file)
 	end
 	-- writetolog('\n\n'.. timestamp() .. 'session log start\n')
-end
-
+end -- neondebug.enablelogging = function
 neondebug.alwayslog = function(message, debugtype)
 	if loggingenabled and enabledtypes[debugtype] then
 		writetolog(timestamp() .. message .. '\n', debugtype)
 	end
-end
-
+end -- neondebug.alwayslog = function
 neondebug.log = function(message, debugtype)
 	if loggingenabled and enabledtypes[debugtype] then
 		if timeout[message] and os.time() < timeout[message] then
@@ -51,16 +50,14 @@ neondebug.log = function(message, debugtype)
 			timeout[message] = os.time() + timeoutlength
 		end
 	end
-end
-
+end -- neondebug.log = function
 neondebug.update = function(key, value)
 -- don't use integer keys! those are reserved for ordering the list.
 	-- if value then value = ': ' .. value else value = '' end
 	value = value or ''
 	if not debuglist[key] then table.insert(debuglist, key) end
 	debuglist[key] = value
-end
-
+end -- neondebug.update = function
 neondebug.present = function()
 	imgui.SetNextWindowSize(600, 300, 'FirstUseEver')
 	local stayopen
@@ -83,6 +80,6 @@ neondebug.present = function()
 	
 	imgui.End()
 	return stayopen
-end
+end -- neondebug.present = function
 
 return neondebug

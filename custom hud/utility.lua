@@ -1,4 +1,4 @@
-local neondebug = require('custom hud.neondebug')
+local neondebug = require 'custom hud.neondebug'
 
 local debugsave = function(message)
 	neondebug.log(message, 'save serialize')
@@ -60,12 +60,10 @@ function utility.tablecombolist(sourcetable)
 -- takes a string-indexed table, and returns an alphabetized index array with built-in reverse lookup.
 	
 	local resultlist = {}
-	
-	local longest = 12
-	-- space needed when list is displayed in a combo box
+	local longest = 12 -- space needed when list is displayed in a combo box
 	
 	for key, item in pairs(sourcetable) do
-		if not item.hidden then
+		if not item.hidden then -- i don't think i'm using the 'hidden' flag anymore, i'm just making sure that stuff that needs to be hidden (i think it was only used by widgets) isn't added to the sourcetable until after i call utility.tablecombolist
 			table.insert(resultlist, key)
 			longest = math.max(longest, string.len(key))
 		end
@@ -182,8 +180,7 @@ do -- serialize functions
 		local tableending = '}'
 		
 		for key, value in pairs(sourcedata) do
-			if type(value) == 'table'
-				and not (sourcedata.dontserialize and sourcedata.dontserialize[key])
+			if type(value) == 'table' and not (sourcedata.dontserialize and sourcedata.dontserialize[key])
 			then
 				result = '\n' .. indent .. '{'
 				optionallinebreak = '\n' .. indent

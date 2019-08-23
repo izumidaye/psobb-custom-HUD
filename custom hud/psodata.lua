@@ -36,11 +36,12 @@ local sessionstartxp
 local pmtaddress = nil
 local psodata = {}
 -- psodata.menustates = {'main menu open', 'lower screen menu open', 'full screen menu open', 'any menu open'}
+local lasttime = os.time()
+local lastlocation
 
 local function inittechdata()
 	return {multiplier=0, name="none", level=0, timeleft=0, totaltime=0, timefloat=0}
 end -- local function inittechdata
-
 local gamedata = {
 	currentlocation='',
 	level=0,
@@ -49,8 +50,8 @@ local gamedata = {
 	levelprogress=0,
 	levelprogressfloat=0,
 	meseta=0,
-	totaltime=0,
-	sessiontime=0,
+	-- totaltime=0,
+	-- sessiontime=0,
 	elapsedtime=0,
 	sessionxp=0,
 	sessionxprate=0,
@@ -75,20 +76,14 @@ local gamedata = {
 	playertpmax=0,
 	playerinvulnerabilitytime=0,
 	menustate={},
-}
-
-local lasttime = os.time()
-local lastlocation
-
+} -- local gamedata = {...}
 local function getself()
 	return pso.read_u32(_playerarray + pso.read_u32(_myplayerindex) * 4)
-end
-
+end -- local function getself
 local function loadpmtaddress()
 	pmtaddress = pso.read_u32(0x00a8dc94)
 	return pmtaddress ~= 0
-end
-
+end -- local function loadpmtaddress
 local function initsessiontime()
 	lasttime = os.time()
 	gamedata.elapsedtime = 0
@@ -134,8 +129,7 @@ local function getunitxtitemaddress(type, group, index)
 	else
 		return nil
 	end
-end -- getunitxtitemaddress = function
-
+end -- local function getunitxtitemaddress
 local function readfromunitxt(group, index)
 	local address = pso.read_u32(0x00a9cd50)
 	if address == 0 then return nil end
@@ -144,8 +138,7 @@ local function readfromunitxt(group, index)
 	address = pso.read_u32(address + index * 4)
 	if address == 0 then return nil end
 	return pso.read_wstr(address, 256)
-end
-
+end -- local function readfromunitxt
 local function readitemdata(itemaddr, location)
 	item = {} -- all item types: type, name, equipped* (*inventory only)
 	local offset = 0
@@ -374,7 +367,6 @@ local function readitemdata(itemaddr, location)
 	end -- item.type switch
 	return item
 end -- local function readitemdata
-
 local function readbuffdata(playeraddr, offset)
 	offset = offset or 0
 	local techdata = {}
@@ -389,8 +381,7 @@ local function readbuffdata(playeraddr, offset)
 		techdata.totaltime = (techdata.level + 3) * 10
 	end
 	return techdata
-end
-
+end -- local function readbuffdata
 local function readplayermonsterdata(playeraddr)
 	local player = {}
 	player.hp = pso.read_u16(playeraddr + _hp)
@@ -402,15 +393,14 @@ local function readplayermonsterdata(playeraddr)
 	player.deftech = readbuffdata(playeraddr, 12)
 	player.atktech = readbuffdata(playeraddr)
 	return player
-end
-
+end -- local function readplayermonsterdata
 function psodata.retrievepsodata()
 	if not psodata.screenwidth or psodata.screenwidth == 0 then
 		psodata.screenwidth = pso.read_u16(0x00a46c48)
 		psodata.screenheight = pso.read_u16(0x00a46c4a)
 	end
 	local frametime = os.time() - lasttime
-	gamedata.totaltime = gamedata.totaltime + frametime
+	-- gamedata.totaltime = gamedata.totaltime + frametime
 	
 	loadpmtaddress()
 	local playeraddr = getself()
@@ -653,81 +643,65 @@ function psodata.retrievepsodata()
 	end -- check: player data present or not
 	lasttime = os.time()
 end -- local function retrievepsodata
-
--- psodata.get = function(key) return gamedata[key] end
-function psodata.currentlocation()
-	return gamedata.currentlocation
-end
-
+function psodata.currentlocation() return gamedata.currentlocation end
 function psodata.setactive(datagroup) activegamedata[datagroup] = true end
-
 function psodata.activedatareset() activegamedata = {} end
 
-do -- define psodata getter functions
+psodata.stringdata = {
+	-- ['player current hp'] = function() return gamedata.playerhp end,
+	-- ['player current tp'] = function() return gamedata.playertp end,
+	
+	-- character
+	playerhp = function() return gamedata.playerhp .. '/' .. gamedata.playerhpmax end,
+	playertp = function() return gamedata.playertp .. '/' .. gamedata.playertpmax end,
+	playerinvulnerabilitytime = function() return gamedata.playerinvulnerabilitytime end,
+	
+	-- xp
+	playerlevel = function() return gamedata.level end,
+	-- levelprogress = function() return gamedata.levelprogress end,
+	sessionxp = function() return gamedata.sessionxp end,
+	playerxp = function() return gamedata.levelprogress .. '/' .. gamedata.thislevelxp end,
+	tonextlevel = function() return gamedata.thislevelxp - gamedata.levelprogress end,
+	
+	-- inventory
+	packmeseta = function() return gamedata.meseta end,
+	packused = function() return gamedata.inventoryspaceused end,
+	packfree = function() return 30 - gamedata.inventoryspaceused end,
+	packspace = function() return gamedata.inventoryspaceused .. '/30' end,
+	
+	-- bank
+	bankmeseta = function() return gamedata.bankmeseta end,
+	bankused = function() return gamedata.bankspaceused end,
+	bankfree = function() return 200 - gamedata.bankspaceused end,
+	bankspace = function() return gamedata.bankspaceused .. '/200' end,
+} -- psodata.stringdata = {...}
+psodata.timedata = {
+	sessiontime = function() return gamedata.elapsedtime end,
+	dungeontime = function() return gamedata.dungeontime end,
+} -- psodata.timedata = {...}
+psodata.xpratedata = {
+	sessionxprate = function() return gamedata.sessionxp / gamedata.elapsedtime end,
+	dungeonxprate = function() return gamedata.sessionxp / gamedata.dungeontime end,
+} -- psodata.xpratedata = {...}
+psodata.listdata = {
+	partylist = function() return gamedata.party end,
+	monsterlist = function() return gamedata.monsterlist end,
+} -- psodata.listdata = {...}
+psodata.itemlistdata = {
+	packlist = function() return gamedata.inventory end,
+	floorlist = function() return gamedata.flooritems end,
+	banklist = function() return gamedata.bank end,
+} -- psodata.itemlistdata = {...}
+psodata.progressdata = {
+	playerhp = function() return {gamedata.playerhp, gamedata.playerhpmax} end,
+	playertp = function() return {gamedata.playertp, gamedata.playertpmax} end,
+	playerxp = function() return {gamedata.levelprogress, gamedata.thislevelxp} end,
+	packspace = function() return {gamedata.inventoryspaceused, 30} end,
+	bankspace = function() return {gamedata.bankspaceused, 200} end,
+	playerdeftechtime = function() return {gamedata.playerdeftech.timeleft, gamedata.playerdeftech.totaltime} end,
+	playeratktechtime = function() return {gamedata.playeratktech.timeleft, gamedata.playeratktech.totaltime} end,
 
-	local sf = {} -- string functions
-	local nf = {} -- number functions
-	local lf = {} -- list functions
-	local bf = {} -- boolean functions
-	local pf = {} -- progress functions
-
-	sf['player current hp'] = function() return gamedata.playerhp end
-	sf['player maximum hp'] = function() return gamedata.playerhpmax end
-	sf['player current tp'] = function() return gamedata.playertp end
-	sf['player maximum tp'] = function() return gamedata.playertpmax end
-	sf['invulnerability time'] = function() return gamedata.playerinvulnerabilitytime end
-	sf['player level'] = function() return gamedata.level end
-	sf['level base xp'] = function() return gamedata.thislevelxp end
-	sf['xp this level'] = function() return gamedata.levelprogress end
-	sf['player ata'] = function() return gamedata.ata end
-	sf['pack meseta'] = function() return gamedata.meseta end
-	sf['session time elapsed'] = function() return gamedata.elapsedtime end
-	sf['session xp accumulated'] = function() return gamedata.sessionxp end
-	sf['session time in dungeon'] = function() return gamedata.dungeontime end
-	sf['pack slots used'] = function() return gamedata.inventoryspaceused end
-	sf['pack slots free'] = function() return 30 - gamedata.inventoryspaceused end
-	sf['bank slots used'] = function() return gamedata.bankspaceused end
-	sf['bank slots free'] = function() return 200 - gamedata.bankspaceused end
-	sf['bank meseta'] = function() return gamedata.bankmeseta end
-	sf['hp: current/maximum'] = function() return gamedata.playerhp .. '/' .. gamedata.playerhpmax end
-	sf['tp: current/maximum'] = function() return gamedata.playertp .. '/' .. gamedata.playertpmax end
-	sf['xp progress/needed'] = function() return gamedata.levelprogress .. '/' .. gamedata.thislevelxp end
-	sf['xp to next level'] = function() return gamedata.thislevelxp - gamedata.levelprogress end
-	sf['xp/second this session'] = function() return gamedata.sessionxp / gamedata.elapsedtime end
-	sf['kxp/hour this session'] = function() return gamedata.sessionxp / gamedata.elapsedtime * 3.6 end
-	sf['xp/second in dungeon'] = function() return gamedata.sessionxp / gamedata.dungeontime end
-	sf['kxp/hour in dungeon'] = function() return gamedata.sessionxp / gamedata.dungeontime * 3.6 end
-	sf['pack space: used/total'] = function() return gamedata.inventoryspaceused .. '/30' end
-	sf['bank space: used/total'] = function() return gamedata.bankspaceused .. '/200' end
-
-	sf['inventory items'] = function() return gamedata.inventory end
-	sf['floor items'] = function() return gamedata.flooritems end
-	sf['bank items'] = function() return gamedata.bank end
-	sf['party members'] = function() return gamedata.party end
-	sf['monsters in current room'] = function() return gamedata.monsterlist end
-
-	-- bf['player status: frozen'] = function() return gamedata.playerfrozen end
-	-- bf['player status: confused'] = function() return gamedata.playerconfused end
-	-- bf['player status: paralyzed'] = function() return gamedata.playerparalyzed end
-
-	sf['player hp'] = function() return
-		{gamedata.playerhp, gamedata.playerhpmax} end
-	sf['player tp'] = function() return
-		{gamedata.playertp, gamedata.playertpmax} end
-	sf['xp progress'] = function() return
-		{gamedata.levelprogress, gamedata.thislevelxp} end
-	sf['pack space'] = function() return
-		{gamedata.inventoryspaceused, 30} end
-	sf['bank space'] = function() return
-		{gamedata.bankspaceused, 200} end
-	sf['player deband/zalure timer'] = function() return
-		{gamedata.playerdeftech.timeleft,
-		gamedata.playerdeftech.totaltime} end
-	sf['player shifta/jellen timer'] = function() return
-		{gamedata.playeratktech.timeleft,
-		gamedata.playeratktech.totaltime} end
-
-	sf['player s/d/j/z timer'] = function()
+	bufftimer = function()
 		deffloat = gamedata.playerdeftech.timeleft / gamedata.playerdeftech.totaltime
 		atkfloat = gamedata.playeratktech.timeleft / gamedata.playeratktech.totaltime
 		if (deffloat == 0) or (deffloat > atkfloat) then
@@ -737,27 +711,14 @@ do -- define psodata getter functions
 			return {gamedata.playerdeftech.timeleft, 
 				gamedata.playerdeftech.totaltime}
 		end
-	end
-	
-	-- local timeuntilchange(time1, time2)
-		-- if (time1 == 0) or ((time2 < time1) and (time2 ~= 0)) then
-			-- return time2
-		-- else
-			-- return time1
-		-- end
-	-- end
-	
-	-- sf['s/d/j/z time left'] = function()
-		-- return timeuntilchange
-			-- { gamedata.playerdeftech.timeleft,
-			-- gamedata.playeratktech.timeleft }
-	-- end
-	
-	-- sf['s/d/j/z starting time'] = function()
-		-- return timeuntilchange
-			-- { gamedata.playerdeftech.totaltime,
-			-- gamedata.playeratktech.totaltime }
-	-- end
+	end, -- bufftimer = function
+} -- psodata.progressdata = {...}
+psodata.booleandata = {
+	playerfrozen = function() return gamedata.playerfrozen end,
+	playerconfused = function() return gamedata.playerconfused end,
+	playerparalyzed = function() return gamedata.playerparalyzed end,
+} -- psodata.booleandata = {...}
+do -- define psodata getter functions
 	
 	psodata.combolist = {
 		['string'] = { 'player current hp', 'player maximum hp', 'player current tp', 'player maximum tp', 'invulnerability time', 'player level', 'level base xp', 'xp this level', 'player ata', 'pack meseta', 'session time elapsed', 'session xp accumulated', 'session time in dungeon', 'pack slots used', 'pack slots free', 'bank slots used', 'bank slots free', 'bank meseta', 'hp: current/maximum', 'tp: current/maximum', 'xp: progress/needed', 'xp to next level', 'xp/second this session', 'xp/second in dungeon', 'pack space: used/total', 'bank space: used/total',},

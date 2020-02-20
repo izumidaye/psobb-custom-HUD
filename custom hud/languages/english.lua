@@ -1,0 +1,188 @@
+local languagetable = {}
+
+languagetable.windowtitle = {
+	neondebug = 'custom hud debug window',
+} -- languagetable.windowtitle = {...}
+
+languagetable.label = {
+	label = 'label',
+	labeltypenone = 'none',
+	labeltypeautomatic = 'automatic',
+	labeltypecustom = 'custom',
+	textcolor = 'text color',
+	bgcolor = 'background color',
+	fontscale = 'font scale',
+	sameline = 'same line',
+	datasource = 'data source',
+	showvalue = 'show value',
+	showrange = 'show range',
+	scalebar = 'scale bar',
+	fillwindow = 'fill window',
+	dynamicbarcolor = 'dynamic bar color',
+	barcolor = 'bar color',
+	bargradient = 'bar gradient',
+	title = 'window title',
+	showtitlebar = 'show titlebar',
+	showscrollbar = 'show scrollbar',
+	autoresize = 'auto resize window to fit contents',
+	allowmousemove = 'move window with mouse',
+	allowmouseresize = 'resize window with mouse',
+	enable = 'enable window',
+	notinfield = 'not in field',
+	inlobby = 'in lobby',
+	anymenu = 'any menu is open',
+	lowermenu = 'lower screen menu is open',
+	mainmenu = 'main menu is open',
+	fullmenu = 'full screen menu is open',
+	editwindowcontents = 'edit window contents',
+	editwindowoptions = 'edit window options',
+	general = 'general',
+	layout = 'layout',
+	autohidewindow = 'auto hide window',
+	style = 'style',
+	deletewidget = 'delete widget',
+	delete = 'delete',
+	cancel = 'cancel',
+	longinterval = 'long interval', -- this might be completely pointless...
+	offscreenx = 'allow windows offscreen: x',
+	offscreeny = 'allow windows offscreen: y',
+	inputtextwidth = 'width of imgui.InputText',
+	dragtargetmargin = 'drag and drop: extra space for target area',
+	dragthreshold = 'drag and drop: drag threshold',
+	defaultautoresize = 'auto resize new windows',
+	defaulttextcolor = 'default text color',
+	defaultbgcolor = 'default background color',
+	showpixels = 'show layout pixels',
+	showglobaloptions = 'global options',
+	showdebugwindow = 'debug window',
+	addnewwindow = 'add new window',
+	deletewindow = 'delete window',
+	saveprofile = 'save',
+	debugwindowtitle = 'custom hud debug window',
+} -- converter.languagetable.label = {...}
+
+languagetable.message = {
+	savesuccessful = 'profile and options saved',
+	logstart = 'session log start',
+}
+
+languagetable.psodata = {
+	armortypes = {'frame', 'barrier', 'unit'},
+	itemtypes = {'weapon', 'armor', 'mag', 'tool', 'meseta'},
+	techniquedisk = 'technique disk',
+	weaponattributes = {'native', 'a. beast', 'machine', 'dark', 'hit'},
+	unknownitemname = '???',
+	nospecial = '',
+	sdjz = {[9]="S", [10]="D", [11]="J", [12]="Z"},
+	-- menustates = {'main menu open', 'lower screen menu open', 'full screen menu open', 'any menu open'},
+	
+	playerhp = 'player hp',
+	playerhpmax = 'player max hp',
+	playertp = 'player tp',
+	playertpmax = 'player max tp',
+	playerfrozen = 'player status: frozen',
+	playerconfused = 'player status: confused',
+	playerparalyzed = 'player status: paralyzed',
+	playerdeftech = 'player status: deband or zalure',
+	playerdeftechtime = 'deband or zalure time left',
+	playeratktech = 'player status: shifta or jellen',
+	playeratktechtime = 'shifta or jellen time left',
+	playerinvulnerabilitytime = 'player status: invulnerability time remaining',
+	bufftimer = 'time until next buff or debuff runs out',
+	
+	playerlevel = 'player level',
+	-- thislevelxp = '',
+	tonextlevel = 'xp to next level',
+	levelprogress = 'progress toward next level',
+	sessionxp = 'xp gained this session',
+	
+	-- pack = 'inventory',
+	packmeseta = 'player meseta',
+	packused = 'number of items in inventory',
+	packfree = 'free space in inventory',
+	packspace = 'number of items in inventory / capacity',
+	packlist = 'list of items in pack',
+	
+	-- bank = 'bank',
+	bankmeseta = 'bank meseta',
+	bankused = 'number of items in bank',
+	bankfree = 'free space in bank',
+	bankspace = 'number of items in bank / capacity',
+	banklist = 'list of items in bank',
+	
+	floorlist = 'list of items on ground',
+	
+	sessiontime = 'time elapsed this session',
+	dungeontime = 'time elapsed in field this session',
+	
+	sessionxprate = 'xp gain rate this session',
+	dungeonxprate = 'xp gain rate in field this session',
+	
+	partylist = 'list of party members',
+	monsterlist = 'list of monsters in current room',
+	
+	location = 'player location',
+	techmultiplier = 'multiplier',
+	techname = 'name',
+	techlevel = 'level',
+	techtimeleft = 'time left',
+	techtotaltime = 'duration',
+} -- converter.languagetable.psodata = {...}
+
+languagetable.short = {
+	playerhp = 'hp',
+	playerhpmax = 'maxhp',
+	playertp = 'tp',
+	playertpmax = 'maxtp',
+	playerinvulnerabilitytime = 'invuln',
+	playerfrozen = 'frozen',
+	playerconfused = 'confsd',
+	playerparalyzed = 'prlyzd',
+	playerdeftech = 'd/z',
+	playeratktech = 's/j',
+	playerdeftechtime = 'd/z',
+	playeratktechtime = 's/j',
+	bufftimer = 'sdjz.t',
+	
+	playerlevel = 'level',
+	thislevelxp = 'xp',
+	tonextlevel = 'xp.tnl',
+	playerxp = 'xp',
+	sessionxp = 'ssn.xp',
+	
+	packmeseta = 'meseta',
+	packused = 'pkitms',
+	packfree = 'pkfree',
+	packspace = 'pack',
+	packlist = 'pack',
+	
+	bankmeseta = 'bkmsta',
+	bankused = 'bkitms',
+	bankfree = 'bkfree',
+	bankspace = 'bank',
+	banklist = 'bank',
+	
+	floorlist = 'floor',
+	
+	sessiontime = 's.time',
+	dungeontime = 'd.time',
+	
+	sessionxprate = 'xprate',
+	dungeonxprate = 'dxp/t',
+	
+	partylist = 'party',
+	monsterlist = 'mnstrs',
+	
+	shifta = 's',
+	deband = 'd',
+	jellen = 'j',
+	zalure = 'z',
+	location = 'loc.',
+	techmultiplier = 'mult',
+	techname = 'name',
+	techlevel = 'level',
+	techtimeleft = 'tectim',
+	techtotaltime = 'ttltim',
+} -- languagetable.short = {...}
+
+return languagetable

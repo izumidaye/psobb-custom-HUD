@@ -647,52 +647,67 @@ function psodata.currentlocation() return gamedata.currentlocation end
 function psodata.setactive(datagroup) activegamedata[datagroup] = true end
 function psodata.activedatareset() activegamedata = {} end
 
-psodata.stringdata = {
+psodata.get = {}
+psodata.get.string = {
 	-- ['player current hp'] = function() return gamedata.playerhp end,
 	-- ['player current tp'] = function() return gamedata.playertp end,
 	
-	-- character
 	playerhp = function() return gamedata.playerhp .. '/' .. gamedata.playerhpmax end,
 	playertp = function() return gamedata.playertp .. '/' .. gamedata.playertpmax end,
 	playerinvulnerabilitytime = function() return gamedata.playerinvulnerabilitytime end,
+	playerstatus = function()
+		local status = 'normal'
+		if gamedata.playerfrozen then status = 'frozen'
+		elseif gamedata.playerconfused then status = 'confused'
+		elseif gamedata.playerparalyzed then status = 'paralyzed'
+		end
+		return status
+	end, -- playerstatus = function
+	character = {'playerhp', 'playertp', 'playerstatus', 'playerinvulnerabilitytime'},
 	
-	-- xp
 	playerlevel = function() return gamedata.level end,
 	-- levelprogress = function() return gamedata.levelprogress end,
 	sessionxp = function() return gamedata.sessionxp end,
 	playerxp = function() return gamedata.levelprogress .. '/' .. gamedata.thislevelxp end,
 	tonextlevel = function() return gamedata.thislevelxp - gamedata.levelprogress end,
+	xp = {'playerlevel', 'playerxp', 'sessionxp', 'tonextlevel'},
 	
-	-- inventory
 	packmeseta = function() return gamedata.meseta end,
 	packused = function() return gamedata.inventoryspaceused end,
 	packfree = function() return 30 - gamedata.inventoryspaceused end,
 	packspace = function() return gamedata.inventoryspaceused .. '/30' end,
+	inventory = {'packmeseta', 'packused', 'packfree', 'packspace'},
 	
-	-- bank
 	bankmeseta = function() return gamedata.bankmeseta end,
 	bankused = function() return gamedata.bankspaceused end,
 	bankfree = function() return 200 - gamedata.bankspaceused end,
 	bankspace = function() return gamedata.bankspaceused .. '/200' end,
-} -- psodata.stringdata = {...}
-psodata.timedata = {
+	bank = {'bankmeseta', 'bankused', 'bankfree', 'bankspace'},
+} -- psodata.string = {...}
+psodata.get.time = {
+	'sessiontime', 'dungeontime', 'systemtime',
 	sessiontime = function() return gamedata.elapsedtime end,
 	dungeontime = function() return gamedata.dungeontime end,
+	systemtime = os.time, -- maybe make this its own separate type in psodata.get?
 } -- psodata.timedata = {...}
-psodata.xpratedata = {
+psodata.get.xprate = {
+	'sessionxprate', 'dungeonxprate',
 	sessionxprate = function() return gamedata.sessionxp / gamedata.elapsedtime end,
 	dungeonxprate = function() return gamedata.sessionxp / gamedata.dungeontime end,
 } -- psodata.xpratedata = {...}
-psodata.listdata = {
+psodata.get.list = {
+	'partylist', 'monsterlist',
 	partylist = function() return gamedata.party end,
 	monsterlist = function() return gamedata.monsterlist end,
 } -- psodata.listdata = {...}
-psodata.itemlistdata = {
+psodata.get.itemlist = {
+	'packlist', 'floorlist', 'banklist',
 	packlist = function() return gamedata.inventory end,
 	floorlist = function() return gamedata.flooritems end,
 	banklist = function() return gamedata.bank end,
 } -- psodata.itemlistdata = {...}
-psodata.progressdata = {
+psodata.get.progress = {
+	'playerhp', 'playertp', 'playerxp', 'packspace', 'bankspace', 'playerdeftechtime', 'playeratktechtime', 'bufftimer',
 	playerhp = function() return {gamedata.playerhp, gamedata.playerhpmax} end,
 	playertp = function() return {gamedata.playertp, gamedata.playertpmax} end,
 	playerxp = function() return {gamedata.levelprogress, gamedata.thislevelxp} end,
@@ -713,19 +728,22 @@ psodata.progressdata = {
 		end
 	end, -- bufftimer = function
 } -- psodata.progressdata = {...}
-psodata.booleandata = {
+psodata.get.boolean = {
+	'playerfrozen', 'playerconfused', 'playerparalyzed',
 	playerfrozen = function() return gamedata.playerfrozen end,
 	playerconfused = function() return gamedata.playerconfused end,
 	playerparalyzed = function() return gamedata.playerparalyzed end,
 } -- psodata.booleandata = {...}
-do -- define psodata getter functions
-	
-	psodata.combolist = {
-		['string'] = { 'player current hp', 'player maximum hp', 'player current tp', 'player maximum tp', 'invulnerability time', 'player level', 'level base xp', 'xp this level', 'player ata', 'pack meseta', 'session time elapsed', 'session xp accumulated', 'session time in dungeon', 'pack slots used', 'pack slots free', 'bank slots used', 'bank slots free', 'bank meseta', 'hp: current/maximum', 'tp: current/maximum', 'xp: progress/needed', 'xp to next level', 'xp/second this session', 'xp/second in dungeon', 'pack space: used/total', 'bank space: used/total',},
-		['number'] = { 'player current hp', 'player maximum hp', 'player current tp', 'player maximum tp', 'invulnerability time', 'player level', 'level base xp', 'xp progress', 'player ata', 'pack meseta', 'session time elapsed', 'session xp accumulated', 'session time in dungeon', 'pack slots used', 'pack slots free', 'bank slots used', 'bank slots free', 'bank meseta', 'xp to next level', 'xp/second this session', 'xp/second in dungeon',},
-		['progress'] = { 'player hp', 'player tp', 'player deband/zalure timer', 'player shifta/jellen timer', 'player s/d/j/z timer', 'xp progress',},
-		['list'] = { 'inventory items', 'floor items', 'bank items', 'party members', 'monsters in current room',},
-	} -- psodata.combolist = {...}
+
+--[[do -- define psodata get functions
+	psodata.combolist.string = {
+		character = {'playerhp', 'playertp', 'playerinvulnerabilitytime'},
+		xp = {'playerlevel', 'sessionxp', 'playerxp', 'tonextlevel'},
+		inventory = {'packmeseta', 'packused', 'packfree', 'packspace'},
+		bank = {'bankmeseta', 'bankused', 'bankfree', 'bankspace'},
+	}
+	psodata.combolist.time = {'sessiontime', 'dungeontime', 'systemtime'}
+	psodata.combolist.rate = {'sessionxprate', 'dungeonxprate'}
 	
 	for _, list in pairs(psodata.combolist) do
 		utility.addcombolist(list)
@@ -843,8 +861,8 @@ do -- define psodata getter functions
 		end
 	end
 	
-
-end
+end -- do -- define psodata get functions
+]]
 
 function psodata.getdata(fieldname) return gamedata[fieldname] end
 

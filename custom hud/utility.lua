@@ -1,7 +1,7 @@
-local neondebug = require 'custom hud.neondebug'
+-- local neondebug = require 'custom hud.neondebug'
 
 local debugsave = function(message)
-	neondebug.log(message, 'save serialize')
+	-- neondebug.log(message, 'save serialize')
 end
 
 local utility = {}
@@ -29,7 +29,7 @@ function utility.scale(value, range, offset)
 	else
 		offset = 1
 	end
-	neondebug.log('utility.scale(' .. value .. ', ' .. range .. ', ' .. offset .. ')', 5, 'widget')
+	-- neondebug.log('utility.scale(' .. value .. ', ' .. range .. ', ' .. offset .. ')', 5, 'widget')
 	return utility.round((value / 100) * range * offset)
 end -- function utility.scale
 function utility.unscale(value, range, offset)
@@ -44,6 +44,7 @@ function utility.bindnumber(value, minimum, maximum)
 	return math.min(math.max(minimum, value), maximum)
 end -- function utility.bindnumber
 function utility.binarysearch(target, arrayfunc)
+	-- i think i decided to do things differently, and that this function isn't used
 	local result
 	local rangestart, rangeend = 1, #array
 	repeat
@@ -56,6 +57,9 @@ function utility.binarysearch(target, arrayfunc)
 	until rangestart + 1 == rangeend
 	return rangestart
 end -- function utility.binarysearch
+function utility.tablesort(sourcetable)
+	table.sort(sourcetable, function(string1, string2) return string.lower(string1) < string.lower(string2) end)
+end -- function utility.tablesort
 function utility.tablecombolist(sourcetable)
 -- takes a string-indexed table, and returns an alphabetized index array with built-in reverse lookup.
 	
@@ -63,7 +67,7 @@ function utility.tablecombolist(sourcetable)
 	local longest = 12 -- space needed when list is displayed in a combo box
 	
 	for key, item in pairs(sourcetable) do
-		if not item.hidden then -- i don't think i'm using the 'hidden' flag anymore, i'm just making sure that stuff that needs to be hidden (i think it was only used by widgets) isn't added to the sourcetable until after i call utility.tablecombolist
+		if type(item) == 'table' and not item.hidden then -- i don't think i'm using the 'hidden' flag anymore, i'm just making sure that stuff that needs to be hidden (i think it was only used by widgets) isn't added to the sourcetable until after i call utility.tablecombolist
 			table.insert(resultlist, key)
 			longest = math.max(longest, string.len(key))
 		end
@@ -155,10 +159,10 @@ end -- function utility.iswithinrect
 do -- serialize functions
 -- convert entire table into a string, so it can be written to a file. recurses for nested tables.
 	local serialize = {}
-	function utility.serialize(sourcedata, offset, excludekeys)
+	function utility.serialize(sourcedata, offset, excludekeys, includefunctions)
 		debugsave 'begin serialize...'
 		-- print(type(sourcedata))
-		local result = serialize[type(sourcedata)](sourcedata, offset)
+		local result = serialize[type(sourcedata)](sourcedata, offset, includefunctions)
 		debugsave 'serialize completed.'
 		debugsave(result)
 		return result
@@ -168,7 +172,7 @@ do -- serialize functions
 	function serialize.string(sourcedata)
 		return string.format('\'%s\'', sourcedata)
 	end -- function serialize.string
-	function serialize.table(sourcedata, currentoffset)
+	function serialize.table(sourcedata, currentoffset, includefunctions)
 		-- if sourcedata.serialize then return sourcedata:serialize(currentoffset) end
 		
 		currentoffset = currentoffset or 0
@@ -181,23 +185,30 @@ do -- serialize functions
 		
 		for key, value in pairs(sourcedata) do
 			if type(value) == 'table' and not (sourcedata.dontserialize and sourcedata.dontserialize[key])
+			and not (key == '__index')
 			then
 				result = '\n' .. indent .. '{'
 				optionallinebreak = '\n' .. indent
 				tableending = '\n' .. indent .. '}'
 				break
 			end
-		end -- for _, value in pairs(sourcedata)
+		end -- for key, value in pairs(sourcedata)
 		-- if sourcedata contains any tables, then put each element of sourcedata on a separate line, with proper indentation; if sourcedata contains no tables, then put all its elements on one line.
 		
 		for key, value in pairs(sourcedata) do
 			if not ((sourcedata.dontserialize and sourcedata.dontserialize[key])
-			or type(value) == 'function' ) then
-				if type(key) ~= 'number' then
-					-- result = result .. optionallinebreak
-					result = result .. string.format('[%s]=', utility.serialize(key))
-				end -- if type(key) == 'number'
-				result = result .. utility.serialize(value, currentoffset + 2) .. ','
+			or key == '__index') then
+				if type(value) == 'function' then
+					if includefunctions then
+						result = result .. string.format("[%s]='function',", utility.serialize(key))
+					end
+				else
+					if type(key) ~= 'number' then
+						-- result = result .. optionallinebreak
+						result = result .. string.format('[%s]=', utility.serialize(key))
+					end -- if type(key) == 'number'
+					result = result .. utility.serialize(value, currentoffset + 2) .. ','
+				end -- if type(value) == 'function'
 				-- recursion is fun! :)
 			end
 		end -- for key, value in pairs(sourcedata)
@@ -205,6 +216,14 @@ do -- serialize functions
 		return result .. tableending
 	end -- function serialize.table
 end -- serialize functions
+function utility.showfunctionnames(list)
+	local result = '{'
+	for key, value in pairs(list) do
+		if type(value) == 'function' then result = result .. key .. ', ' end
+	end -- for key, value in pairs(list)
+	result = result .. '}'
+	return result
+end -- function utility.showfunctionnames
 function utility.savestring(filename, stringtosave)
 	local file = io.open('addons/custom hud/' .. filename .. '.lua', 'w')
 	if file then

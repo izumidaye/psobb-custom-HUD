@@ -1,19 +1,25 @@
 --[[
-PSOBB Dynamic Info Addon
-Catherine S (IzumiDaye/NeonLuna)
+psobb dynamic info addon
+catherine s (izumidaye/neonluna)
 2018-10-05
+color presets based on this set: https://sashat.me/2017/01/11/list-of-20-simple-distinct-colors/
 ]]
 --------------------------------------------------------------------------------
 local core_mainmenu, neondebug, psodata, utility, shortname do
 	core_mainmenu = require 'core_mainmenu'
 	neondebug = require 'custom hud.neondebug'
+	neondebug.enablelogging('error', 5)
+	neondebug.enablelogging('main', 5)
+	-- neondebug.enablelogging('listpicker2', 5)
+	neondebug.enablelogging('updatename', 5)
 	psodata = require 'custom hud.psodata'
 	utility = require 'custom hud.utility'
+	neondebug.log('finished require statements', 'main')
 	shortname = {}
 	 -- = require 'custom hud.language_english'
 end
 --------------------------------------------------------------------------------
-local lasttime, huddata, ready, statusheight, status, freedids, takenids, tasks, gamewindowwidth, gamewindowheight, boundary, languagetable do
+local lasttime, huddata, status, freedids, takenids, tasks, boundary, dragtargetmargin do
 	lasttime = os.time()
 	huddata = {}
 	status = ''
@@ -21,9 +27,22 @@ local lasttime, huddata, ready, statusheight, status, freedids, takenids, tasks,
 	takenids = {}
 	tasks = {}
 	boundary = {}
+	dragtargetmargin = 48
 end
+local labeleditorlabel, labeltypelabels, colorlabels, gamewindowwidth, gamewindowheight, ready, statusheight, languagetable
 --------------------------------------------------------------------------------
-local function newid()
+local function logpcall(f, desc, ...)
+	local results = {pcall(f, ...)}
+	local success = table.remove(results, 1)
+	if not success then
+		local errormsg = utility.serialize({desc, results, ...})
+		print(errormsg)
+		neondebug.alwayslog(errormsg, 'error')
+	else
+		return unpack(results)
+	end -- if not success
+end -- local function logpcall
+local function generateid()
 	local genid
 	if #freedids > 0 then genid = table.remove(freedids, 1)
 	else genid = #takenids + 1
@@ -35,40 +54,69 @@ local function freeid(idtofree)
 	table.insert(freedids, idtofree)
 	takenids[idtofree] = nil
 end -- local function freeid ---------------------------------------------------
-local function evaluategradient(gradient, value)
-	local barvalue = value[1] / value[2]
-	for index = #gradient, 1, -1 do -- change gradient data structure to be highest level -> lowest level (instead of the other way around, as it is now) so i can use 'for _, colorlevel in ipairs(gradient) do ... end'
-		if barvalue >= gradient[index][1] then return gradient[index][2] end
-	end -- for index = #self[gradientparam], 1, -1
+local function evaluategradient(levels, barvalue)
+	-- local barvalue = value[1] / value[2]
+	for index, level in ipairs(levels) do
+		if barvalue >= level then return index end
+	end -- for index, level in ipairs(levels)
+	return #levels
 end -- local function evaluategradient -----------------------------------------
 local function updatexboundary()
-	boundary.left = 0 - huddata.offscreenx
-	boundary.right = 100 + huddata.offscreenx
+	boundary.left = 0-- - huddata.offscreenx
+	boundary.right = 100-- + huddata.offscreenx
 end -- local function updatexboundary ------------------------------------------
 local function updateyboundary()
-	boundary.top = 0 - huddata.offscreeny
-	boundary.bottom = 100 + huddata.offscreeny
+	boundary.top = 0-- - huddata.offscreeny
+	boundary.bottom = 100-- + huddata.offscreeny
 end -- local function updateyboundary ------------------------------------------
+local function lookup(category, name)
+	local result = languagetable[category] and languagetable[category][name]
+	if result == nil then
+		print('no translation found for [' .. tostring(category) .. ':' .. tostring(name) .. ']')
+		return '???'
+	else
+		return result
+	end -- if result == nil
+end -- local function lookup
+local function searchparents(key, parents)
+	for _, parent in ipairs(parents) do
+		local value = parent[key]
+		if key then return key end
+	end -- for _, parent in ipairs(parents)
+end -- local function parents
+local function label(name)
+	-- neondebug.log('looking up translation: label.' .. name, 'main')
+	return lookup('label', name)
+end -- local function label ----------------------------------------------------
+local function text(textdata, color)
+	color = color or huddata.defaulttextcolor
+	logpcall(imgui.TextColored, 'text(textdata, color)', color[1], color[2], color[3], color[4], textdata)
+end -- local function text -----------------------------------------------------
 --------------------------------------------------------------------------------
-local function stringeditor(param, label)
+local function stringeditor(param, hidelabel)
+	neondebug.log('creating stringeditor ' .. param, 'main')
+	local editorlabel
+	if not hidelabel then editorlabel = label(param) end
 	return function(data)
 		local changed = false
-		local newvalue
-		imgui.Text(label)
-		imgui.SameLine()
-		imgui.PushItemWidth(huddata.inputtextwidth)
-			changed, newvalue = imgui.InputText('##' .. param, data[param], 72)
+		local newvalue, success
+		if editorlabel then
+			text(editorlabel)
+			imgui.SameLine()
+		end
+		imgui.PushItemWidth(huddata.inputtextwidth or 0)
+			changed, newvalue = logpcall(imgui.InputText, 'stringeditor(param)', '##' .. param, data[param], 72)
 		imgui.PopItemWidth()
 		if changed then data[param] = newvalue end
 		return changed
 	end -- return function
 end -- local function editstring -----------------------------------------------
-local function numbereditor(param, label, min, max, step)
-	return function(data)
-		imgui.Text(label .. ':')
-		imgui.SameLine()
-		imgui.PushItemWidth(72)
-		local changed, newvalue = imgui.DragFloat('##' .. param, data[param], step, min, max, data[param])
+local function numbereditor(param, min, max, step, formatstr)
+	formatstr = formatstr or '%f'
+	neondebug.log('creating numbereditor ' .. param, 'main')
+	local label = label(param)
+	local function showdragfloats(data)
+		local changed, newvalue = imgui.DragFloat('##' .. param, data[param], step, min, max, string.format(formatstr, data[param]))
 		-- label, value, step, min, max, displayvalue (aka format)
 		if changed then data[param] = newvalue end
 		imgui.SameLine()
@@ -77,64 +125,84 @@ local function numbereditor(param, label, min, max, step)
 		imgui.SameLine()
 		changed, newvalue = imgui.DragFloat('##quick' .. param, data[param], step * 10, min, max, step * 10 .. 'x')
 		if changed then data[param] = newvalue end
+	end -- local function showdragfloats
+	return function(data)
+		imgui.Text(label .. ':')
+		imgui.SameLine()
+		imgui.PushItemWidth(44)
+		logpcall(showdragfloats, {'numbereditor(param, min, max, step)', param, min, max, step}, data)
 		imgui.PopItemWidth()
 	end -- return function
 end -- local function numbereditor -----------------------------------------------
-local function slownumbereditor(param, label, min, max, step)
+local function slownumbereditor(param, min, max, step)
+	neondebug.log('creating slownumbereditor ' .. param, 'main')
+	local label = label(param)
 	return function(data)
 		imgui.Text(label)
 		imgui.SameLine()
 		imgui.PushItemWidth(96)
-			local changed, newvalue = imgui.InputFloat('##' .. param, data[param], step, 1, 1, data[param])
+			local changed, newvalue = logpcall(imgui.InputFloat, {'slownumbereditor(param, min, max, step)', param, min, max, step}, '##' .. param, data[param], step, 1, 1, data[param])
 		imgui.PopItemWidth()
 		if changed then data[param] = utility.bindnumber(newvalue, min, max) end
 	end
 end -- local function editslownumber -------------------------------------------
-local function booleaneditor(param, label, callback)
+local function booleaneditor(param)
+	neondebug.log('creating booleaneditor ' .. param, 'main')
+	local label = label(param)
 	return function(data)
 		local changed, newvalue = imgui.Checkbox(label, data[param])
 		if changed then
 			data[param] = newvalue
-			if callback then callback() end
 		end
 		return changed
 	end -- return function
 end -- local function booleaneditor ----------------------------------------------
-local colorlabels = {'r', 'g', 'b', 'a'}
-local function coloreditor(param, label)
+local function coloreditor(param)
+	neondebug.log('creating coloreditor ' .. param, 'main')
+	local label = label(param)
+	local function showdragfloats(data)
+		for i = 1, 4 do
+			imgui.SameLine()
+			local changed, newvalue = imgui.DragFloat('##' .. param .. i,
+				data[param][i] * 255, 1, 0, 255, colorlabels[i] .. ':%.0f')
+			if changed then data[param][i] = newvalue / 255 end
+		end
+	end -- local function showdragfloats
+	neondebug.log('finished defining local function showdragfloats for ' .. param, 'main')
 	return function(data)
 		imgui.Text(label)
 		imgui.PushItemWidth(40)
-			for i = 1, 4 do
-				imgui.SameLine()
-				local changed, newvalue = imgui.DragFloat('##' .. param .. i,
-					data[param][i] * 255, 1, 0, 255, colorlabels[i] .. ':%.0f')
-				if changed then data[param][i] = newvalue / 255 end
-			end
+		logpcall(showdragfloats, {'coloreditor(param)', param}, data)
 		imgui.PopItemWidth()
 		imgui.SameLine()
 		imgui.ColorButton(unpack(data[param]))
 	end -- return function
 end -- local function coloreditor
-local function editgradient(self, param, label)
-
-end -- local function editgradient ---------------------------------------------
-local function flageditor(param, label, flag, index, invert)
+--[[local function gradienteditor(self, param)
+	local label = label(param)
+	return function(data)
+	
+	end -- return function
+end -- local function editgradient ---------------------------------------------]]
+local function flageditor(param, flag, index, invert)
+	neondebug.log('creating flageditor ' .. param, 'main')
+	local label = label(param)
 	return function(data)
 		local changed, newvalue = imgui.Checkbox(label, data[param])
 		if changed then
 			data[param] = newvalue
 			if invert then newvalue = not newvalue end
 			if newvalue then
-				data['window options'][index] = flag
+				data.windowoptions[index] = flag
 			else
-				data['window options'][index] = ''
+				data.windowoptions[index] = ''
 			end
 		end -- if changed
 		return changed
 	end -- return function
 end -- local function flageditor -------------------------------------------------
-local function optionalparametereditor(arg)--(param, editlabel, resetlabel, editfunction, defaultvalue)
+local function optionalparametereditor(arg)-- arg={param, editlabel, resetlabel, editfunction, defaultvalue}
+	neondebug.log('creating optioanalparametereditor ' .. arg.param, 'main')
 	local param = arg.param
 	local editlabel = arg.editlabel
 	local resetlabel = arg.resetlabel
@@ -155,16 +223,18 @@ local function setactivebuttonstyle()
 	imgui.PushStyleColor('ButtonHovered', .3, .7, 1, 1)
 	imgui.PushStyleColor('ButtonActive', .5, .9, 1, 1)
 end -- local function setactivebuttonstyle
-local function button(param, label)
+local function button(param)
+	local label = label(param)
 	return function(data)
-		if data[param] then setactivebuttonstyle() end
 		local newvalue
+		if data[param] then setactivebuttonstyle() end
 		newvalue = imgui.Button(label)
 		if data[param] then imgui.PopStyleColor(3) end
 		if newvalue then data[param] = not data[param] end
 	end -- return function
 end -- local function listbutton
-local function togglebutton(label, callback, isactive)
+local function togglebutton(callback, isactive)
+	local label = label(param)
 	return function()
 		local active = isactive()
 		if active then setactivebuttonstyle() end
@@ -174,7 +244,9 @@ local function togglebutton(label, callback, isactive)
 		if active then imgui.PopStyleColor(3) end
 	end -- return function
 end -- local function togglebutton
-local function simpletogglebutton(param, label)
+local function simpletogglebutton(param)
+	local label = label(param)
+	if label == nil then print('translation for [' .. param .. '] not found.') return end
 	return function(data)
 		local active = data[param]
 		if active then
@@ -183,100 +255,255 @@ local function simpletogglebutton(param, label)
 			imgui.PushStyleColor('ButtonActive', .5, .9, 1, 1)
 		end
 		
-		if imgui.Button(label) then data[param] = not data[param] end
+		local clicked = logpcall(imgui.Button, {'simpletogglebutton(param)', param}, label)
+		if clicked then data[param] = not data[param] end
 		
 		if active then imgui.PopStyleColor(3) end
 	end -- return function
 end -- local function togglebutton ---------------------------------------------
-local function radiolist(param, label, list)
+local function listbutton(param, value)
+	local label = lookup('psodata', value)
 	return function(data)
-		local changed = false
-		local clicked, newvalue
-		imgui.Text(label .. ':')
-		for _, option in ipairs(list) do
-			clicked, newvalue = imgui.RadioButton(option[2], data[param] == option[1])
-			if clicked then data[param] = option[1] end
-			changed = changed or clicked
-		end -- for _, option in ipairs(list)
-		return changed
+		local clicked
+		local active = data[param] == value
+		if active then setactivebuttonstyle() end
+			clicked = logpcall(imgui.Button, {'listbutton(param, value)', param, value}, label)
+		if active then imgui.PopStyleColor(3) end
+		if clicked then
+			if active then data[param] = nil
+			else data[param] = value
+			end -- if active
+		end -- if success and clicked
+		-- if not success then print('protected button call (' .. value .. ') errored!') end
+		return clicked
 	end -- return function
-end -- local function radiolist
---------------------------------------------------------------------------------
+end -- local function listbutton
+local function listbutton2(param, value, labeltype) -- just like listbutton, but clicking an active button doesn't do data[param] = nil
+	local label = lookup(labeltype, value)
+	return function(data)
+		local clicked
+		local active = data[param] == value
+		if active then setactivebuttonstyle() end
+			clicked = logpcall(imgui.Button, {'listbutton(param, value)', param, value}, label)
+		if active then imgui.PopStyleColor(3) end
+		if clicked then data[param] = value end
+		-- if not success then print('protected button call (' .. value .. ') errored!') end
+		return clicked
+	end -- return function
+end -- local function listbutton2
+local function listpicker(param, combolist, popupid)
+	local label = label(param)
+	local buttonlist = {}
+	local clicked
+	for _, value in ipairs(combolist) do
+		table.insert(buttonlist, listbutton(param, value))
+	end -- for _, key in ipairs(orderlist)
+	local function showpopup(data)
+		text(label)
+		imgui.Separator()
+		for _, button in ipairs(buttonlist) do
+			clicked = clicked or button(data)
+			-- if button(data) then imgui.CloseCurrentPopup() end
+		end
+	end -- local function showpopup
+	return function(data)
+		clicked = false
+		if imgui.BeginPopup(popupid) then
+			logpcall(showpopup, {'listpicker(param, combolist, popupid)', param, combolist, popupid}, data)
+			if clicked then imgui.CloseCurrentPopup() end
+			imgui.EndPopup()
+		end -- if imgui.BeginPopup
+		return clicked
+	end -- return function
+end -- local function listpicker
+local function listpicker2(param, combolist, popupid)
+	local label = label(param)
+	local buttonlist = {}
+	local orderlist = {}
+	local clicked = false
+	for category, list in pairs(combolist) do
+		if type(list) == 'table' then
+			table.insert(orderlist, category)
+			buttonlist[category] = {}
+			for _, value in ipairs(list) do
+				table.insert(buttonlist[category], listbutton(param, value))
+				-- neondebug.alwayslog('added button ' .. value .. ' to listpicker2 ' .. param .. ' in category ' .. category, 'listpicker2')
+			end -- for key, _ in pairs(combolist)
+		end -- if type(list) == 'table'
+	end -- for category, list in pairs(combolist)
+	utility.tablesort(orderlist)
+	neondebug.log('initialized listpicker2 popup for ' .. param .. '.\norderlist contents: ' .. utility.serialize(orderlist) .. '\nbuttonlist contents: ' .. utility.serialize(buttonlist), 'listpicker2')
+	local function showpopup2(data)
+		neondebug.log('showing listpicker2 popup for ' .. param .. '.\norderlist contents: ' .. utility.serialize(orderlist) .. '\nbuttonlist contents: ' .. utility.serialize(buttonlist), 'listpicker2')
+		text(label)
+		-- imgui.NewLine()
+		for _, category in ipairs(orderlist) do
+			imgui.BeginGroup()
+				neondebug.log('showing category ' .. category .. ' in listpicker2 ' .. param, 'listpicker2')
+				text(category)
+				for index, button in ipairs(buttonlist[category]) do
+					clicked = clicked or button(data)
+					neondebug.log('showed button ' .. index .. ' in listpicker2 ' .. param, 'listpicker2')
+				end -- for _, button in ipairs(buttonlist[category])
+			imgui.EndGroup()
+			imgui.SameLine()
+		end -- for _, category in ipairs(orderlist)
+	end -- local function showpopup2
+	return function(data)
+		clicked = false
+		if imgui.BeginPopup(popupid) then
+			-- neondebug.log('showing listpicker2 popup ' .. popupid, 'listpicker2')
+			logpcall(showpopup2, {'listpicker2(param, combolist, popupid)', param, combolist, popupid}, data)
+			if clicked then
+				-- clicked = false
+				imgui.CloseCurrentPopup()
+			end
+			imgui.EndPopup()
+		end -- if imgui.BeginPopup
+		return clicked
+	end -- return function
+end -- local function listpicker2
 local function combobox(param, combolist)
 	return function(data)
 		local changed = false
-		local newvalue
+		local newvalue, success
 		imgui.PushItemWidth(8 + (8 * combolist.longest))
-			changed, newvalue = imgui.Combo('##' .. param, combolist[data[param]],
-				combolist, #combolist)
+			changed, newvalue = logpcall(imgui.Combo, {'combobox(param, combolist)', param, combolist}, '##' .. param, combolist[data[param]], combolist, #combolist)
 		imgui.PopItemWidth()
 		if changed then data[param] = combolist[newvalue] end
 		return changed
 	end -- return function
 end -- local function combobox -------------------------------------------------
-local function text(textdata, color)
-	color = color or huddata.defaulttextcolor
-	imgui.TextColored(color[1], color[2], color[3], color[4], textdata)
-end -- local function text -----------------------------------------------------
 --------------------------------------------------------------------------------
 local widgets = {}
-local function restorewidget(self, parent)
-	setmetatable(self, {__index = widgets[self.widgettype]})
-	self.parent = parent
-	self.dontserialize = {['dontserialize'] = true, ['parameters'] = true,} -- remove ['parameters'] = true after checking that 'parameters' has been removed from all widgets
-	if self.init then self:init() end
+local lists = {}
+local function initwidget(widget, widgetclass)
+	setmetatable(widget, widgetclass)
+	-- print('type(widget.init): ' .. type(widget.init))
+	-- print('widget metatable: ' .. utility.serialize(getmetatable(widget), 0, true) .. '\nwidgetclass: ' .. utility.serialize(widgetclass))
+	-- print('after - widget: ' .. utility.serialize(widget, 0, true))
+	widget.id = generateid()
+end -- local function initwidget
+local function restorewidget(widget, widgetclass)
+	initwidget(widget, widgetclass)
+	widget:init()
+	widget:restore()
 end -- local function restorewidget --------------------------------------------
-local function newwidget(typename, parent)
-	
-	local thisnewwidget = {}
-	setmetatable(thisnewwidget, {__index = widgets[typename]})
-	
-	thisnewwidget.widgettype = typename
-	thisnewwidget.parent = parent
-	thisnewwidget.dontserialize={dontserialize=true, parameters=true, editparam=true, parent=true}
-	
-	if thisnewwidget.firsttimeinit then
-		thisnewwidget:firsttimeinit()
-	else thisnewwidget:init()
-	end
-	
-	return thisnewwidget
-end -- local function newwidget ------------------------------------------------
+local function createwidget(widgetclass)
+	local newwidget = {}
+	newwidget.typename = widgetclass.typename
+	initwidget(newwidget, widgetclass)
+	-- newwidget.dontserialize={dontserialize=true, editparam=true, parent=true}
+	newwidget:firsttimeinit()
+	newwidget:init()
+	return newwidget
+end -- local function createwidget ------------------------------------------------
 local basewidget = {
+	--[[ creating a widget
+	+ new:
+		* allocate memory (= {})
+	+ restore:
+	+ both:
+		* setup inheritance
+		* generate id
+	]]
+	firsttimeinit = function(self) end,
+	init = function(self)
+		self:updatename()
+	end,
+	restore = function(self) end,
+	initeditors = function(self)
+		-- in this method, 'self' refers to a widget class, not an instance
+		self.textcoloreditor = optionalparametereditor{
+			param = 'textcolor',
+			editlabel = label('edittextcolor'),
+			resetlabel = label('resetparam'),
+			editfunction = coloreditor'textcolor',
+			defaultvalue = function() return huddata.defaulttextcolor end
+		} -- self.textcoloreditor = optionalparametereditor{...}
+		self.bgcoloreditor = optionalparametereditor{
+			param = 'bgcolor',
+			editlabel = label('editbgcolor'),
+			resetlabel = label('resetparam'),
+			editfunction = coloreditor'bgcolor',
+			defaultvalue = function() return huddata.defaultbgcolor end
+		} -- self.bgcoloreditor = optionalparametereditor{...}
+		self.fontscaleeditor = optionalparametereditor{
+			param = 'fontscale',
+			editlabel = label('editfontscale'),
+			resetlabel = label('resetparam'),
+			editfunction = numbereditor('fontscale', 1, 6, .1),
+			defaultvalue = function() return 1 end
+		} -- self.fontscaleeditor = optionalparametereditor{...}
+		self.togglesameline = booleaneditor'sameline'
+		local labeleditorbuttons = {
+			listbutton2('labeltype', 'none', 'label'),
+			listbutton2('labeltype', 'automatic', 'label'),
+			listbutton2('labeltype', 'custom', 'label'),
+		} -- local labeleditorbuttons = {...}
+		local labeleditorlabel = languagetable.label.labeleditor
+		local customlabeleditor = stringeditor('label', true)
+		self.labeleditor = function(data)
+			text(labeleditorlabel)
+			for _, labeleditorbutton in ipairs(labeleditorbuttons) do
+				imgui.SameLine()
+				if labeleditorbutton(data) then data:initlabel() end
+			end -- for _, button in ipairs(labeleditorbuttons)
+			if data.labeltype == 'custom' then
+				imgui.SameLine()
+				if customlabeleditor(data) then data:updatename(data.label) end
+			end -- if self.labeltype == 'custom'
+		end -- self.labeleditor = function
+		-- self:updatelabel()
+	end, -- initeditors = function
 	updatename = function(self, namevalue)
-		self.longname = self.widgettype .. ': ' .. namevalue
-		self.shortname = shortname[namevalue] or namevalue
-		if self.callbacks then
-			for _, callback in ipairs(self.callbacks) do callback() end
-		end -- if self.callbacks
+		namevalue = namevalue or lookup('psodata', self.datasource)
+		self.longname = label(self.typename) .. ':\n' .. namevalue
+		-- self.longname = languagetable.label[self.typename]
+		-- if self.longname == nil then print('translation for [' .. tostring(self.typename) .. '] not found.') return end
+		local oldshortname = self.shortname or 'nothing'
+		self.shortname = lookup('short', self.datasource)
+		if huddata.showwidgettype then self.shortname = lookup('short', self.typename) .. '\n' .. self.shortname end
+		neondebug.log('changed widget name ' .. oldshortname .. ' to ' .. self.shortname, 'updatename')
 	end, -- updatename = function
 	initlabel = function(self)
-		self:updatename(self.datasource)
+		self:updatename()
 		if self.labeltype == 'none' then self.label = nil
-		else self.label = self.shortname
+		else self.label = lookup('psodata', self.datasource)
 		end -- if self.labeltype == 'none'
+		-- neondebug.log('initialized label for widget ' .. self.widgetname .. ':' .. self.label, 'updatename')
 	end, -- initlabel = function
-	initeditors = function(class)
-		class.labeleditor = function(self)
-			local changed, newvalue
-			text 'label:'
-			for _, option in ipairs{'none', 'automatic', 'custom'} do
-				changed, newvalue = imgui.RadioButton(option, self.labeltype == option)
-				if changed then
-					self.labeltype = option
-					self:initlabel()
-				end -- if changed
-			end -- for _, option in ipairs(self.labeloptions)
-			if self.labeltype == 'custom' then
-				imgui.SameLine()
-				changed, newvalue = imgui.InputText('##' .. self.id, self.label, 72)
-				if changed then
-					self.label = newvalue
-					self:updatename(self.label)
-				end
-			end -- if self.labeltype == 'custom'
-		end, -- labeleditor = function
-	end, -- initeditors = function
+	updatelabel = function(self)
+		if self.labeltype == 'custom' then self:updatename(self.label)
+		else self:initlabel()
+		end
+		-- neondebug.log('updated label for widget ' .. self.widgetname .. ':' .. self.label, 'updatename')
+	end, -- updatelabel = function
+--[[	labeleditor = function(self)
+		local changed, newvalue
+		text(labeleditorlabel)
+		for _, option in ipairs{'none', 'automatic', 'custom'} do
+			changed, newvalue = imgui.RadioButton(labeltypelabels[option] .. '##' .. self.id, self.labeltype == option)
+			if changed then
+				self.labeltype = option
+				self:initlabel()
+			end -- if changed
+		end -- for _, option in ipairs(self.labeloptions)
+		if self.labeltype == 'custom' then
+			imgui.SameLine()
+			changed, newvalue = imgui.InputText('##' .. self.id, self.label, 72)
+			if changed then
+				self.label = newvalue
+				self:updatename(self.label)
+			end
+		end -- if self.labeltype == 'custom'
+	end, -- labeleditor = function]]
+	updatelayoutw = function(self)
+		self.layout.w = utility.scale(self.w, gamewindowwidth)
+	end,
+	updatelayouth = function(self)
+		self.layout.h = utility.scale(self.h, gamewindowheight)
+	end,
 	button = function(self, label, selected, tooltip)
 		local clicked
 		if selected then
@@ -285,11 +512,13 @@ local basewidget = {
 			imgui.PushStyleColor('Button', .5, .5, .5, .3)
 		end
 		
-		if imgui.Button(label)
-		and not imgui.IsMouseDragging(0, huddata.dragthreshold)
-		then clicked = true
-		else clicked = false
-		end
+		local clicked = logpcall(imgui.Button, {'basewidget.button(self, label, selected, tooltip)', self, label, selected, tooltip}, label)
+		clicked = clicked and not imgui.IsMouseDragging(0, huddata.dragthreshold)
+		-- if imgui.Button(label)
+		-- and not imgui.IsMouseDragging(0, huddata.dragthreshold)
+		-- then clicked = true
+		-- else clicked = false
+		-- end
 		
 		if selected then imgui.PopStyleColor(2) end
 		imgui.PopStyleColor()
@@ -300,220 +529,145 @@ local basewidget = {
 		end
 		return clicked
 	end, -- button = function
-	textcoloreditor = optionalparametereditor{
-		param = 'textcolor',
-		editlabel = 'custom text color',
-		resetlabel = 'use default',
-		editfunction = coloreditor('textcolor', 'text color'),
-		defaultvalue = function() return huddata.defaulttextcolor end
-	}, -- textcoloreditor = optionalparametereditor
-	bgcoloreditor = optionalparametereditor{
-		param = 'bgcolor',
-		editlabel = 'custom background color',
-		resetlabel = 'use default',
-		editfunction = coloreditor('bgcolor', 'background color'),
-		defaultvalue = function() return huddata.defaultbgcolor end
-	}, -- bgcoloreditor = optionalparametereditor
-	fontscaleeditor = optionalparametereditor{
-		param = 'fontscale',
-		editlabel = 'custom font scale',
-		resetlabel = 'use default',
-		editfunction = numbereditor('fontscale', 'font scale', 1, 6, .1),
-		defaultvalue = function() return 1 end
-	},
-	togglesameline = booleaneditor('sameline', 'same line'),
-	init = function(self)
-		self.id = newid()
-	end, -- init = function
+	dontserialize = {longname = true, shortname = true, dontserialize = true, editparam = true, parent = true, id = true},
 } -- basewidget = {...}
 basewidget.__index = basewidget
-widgets.text = {
+widgets.textvalue = {
+	typename = 'textvalue',
+	--[[ creating a widget
+	+ new:
+		* allocate memory (= {})
+	+ restore:
+	+ both:
+		* setup inheritance
+		* generate id
+	]]
+	--[[ creating a textvalue:
+		+ new:
+		+ restore:
+			* updatelabel
+		+ both:
+	]]
+	-- init = function(self)
+		-- basewidget.init(self)
+		-- self:updatelabel()
+	-- end,
+	initeditors = function(self)
+		-- in this method, 'self' refers to a widget class, not an instance
+		self.sourceeditor = listpicker2('datasource', psodata.get.string, self.sourceeditorid)
+		-- self:updatelabel()
+	end, -- initeditors = function
 	labeltype = 'none',
-	datasource = psodata.combolist.string[1],
-	sourceeditor = combobox('datasource', psodata.combolist.string),
-	init = function(self)
-		basewidget.init(self)
-		self:updatename(self.datasource)
-	end,
+	datasource = psodata.get.string.character[1],
+	editsource = true,
+	sourceeditorid = 'textsourcepicker',
 	edit = function(self)
 		self:labeleditor()
-		-- if self:labeltypeeditor() then self:initname() end
-		-- if self.labeltype == 'custom' then
-			-- imgui.SameLine()
-			-- if self:customlabeleditor() then self:updatename(self.label) end
-		-- end
-		
-		imgui.Text 'value:' imgui.SameLine()
-		if self:sourceeditor() then
-			self:updatename(self.datasource)
-			if self.labeltype == 'automatic' then self.label = self.shortname end
-		end
-		
 		self:textcoloreditor()
 		self:togglesameline()
+		if self:sourceeditor() then self:updatelabel() end
+		if imgui.Button('data source') then self.editsource = true end
+		if self.editsource then imgui.OpenPopup(self.sourceeditorid) self.editsource = false end
 	end, -- edit = function
+	protecteddisplay = function(self)
+		if self.label then text(self.label) imgui.SameLine() end
+		imgui.Text(psodata.get.string[self.datasource]())
+	end, -- protecteddisplay = function
 	display = function(self)
 		if self.sameline then imgui.SameLine() end
 		if self.textcolor then imgui.PushStyleColor('text', unpack(self.textcolor)) end
-			if self.label then imgui.Text(self.label) imgui.SameLine() end
-			imgui.Text(psodata.get[self.datasource]())
+		logpcall(self.protecteddisplay, 'widgets.textvalue:display()', self)
 		if self.textcolor then imgui.PopStyleColor() end
 	end, -- display = function
-} -- widgets['text'] = {...}
-setmetatable(widgets.text, basewidget)
-widgets['progress bar'] = {
-	parameters =
-		{
-		'general', 'layout', 'bar color', 'text color',
-		['general'] = {'barvalue', 'showvalue', 'showrange', 'overlaytext', 'scalebar',},
-		['layout'] = {'sameline', 'size'},
-		['bar color'] = {'bargradient'},
-		['text color'] = {'textgradient'},
-		},
-	w = -1,
-	h = -1,
-	datasource = psodata.combolist.progress[1],
+} -- widgets.textvalue = {...}
+widgets.time = {
+
+} -- widgets.time = {...}
+widgets.xprate = {
+
+} -- widgets.xprate = {...}
+widgets.progressbar = {
+	typename = 'progressbar',
+	--[[ creating a widget
+	+ new:
+		* allocate memory (= {})
+	+ restore:
+	+ both:
+		* setup inheritance
+		* generate id
+	]]
+	--[[
+	creating a progressbar:
+		+ new:
+			* init self.layout
+			* update layout w & h
+		+ restore:
+		+ both:
+	]]
+	-- init = function(self)
+		-- basewidget.init(self)
+		-- self:updatename(self.datasource)
+	-- end, -- init = function
+	firsttimeinit = function(self)
+		self.barcolor = utility.listcopy(huddata.defaultprogressbarcolor)
+		self.textcolor = utility.listcopy(huddata.defaulttextcolor)
+		self.bargradient = createwidget(lists.gradient)
+		self.layout = {}
+		-- self:updatelayoutw()
+		-- self:updatelayouth()
+	end, -- firsttimeinit = function
+	init = function(self)
+		self:updatename()
+		self:updatelayoutw()
+		self:updatelayouth()
+	end, -- init = function
+	restore = function(self)
+		restorewidget(self.bargradient, lists.gradient)
+		-- self.bargradient:init()
+	end, -- restore = function
+	initeditors = function(self)
+		-- in this method, 'self' refers to a widget class, not an instance
+		self.sourceeditor = listpicker('datasource', psodata.get.progress, self.sourceeditorid)
+		self.toggleshowvalue = booleaneditor'showvalue'
+		self.toggleshowrange = booleaneditor'showrange'
+		self.togglescalebar = booleaneditor'scalebar'
+		-- self.togglefillwindow = booleaneditor'fillwindow'
+		self.toggledynamicbarcolor = booleaneditor'dynamicbarcolor'
+		self.editcolor = coloreditor'barcolor'
+		-- self:updatelabel()
+	end, -- initeditors = function
+	w = .1,
+	h = .02,
+	datasource = psodata.get.progress[1],
 	showvalue = true,
 	showrange = true,
-	overlaytext = '',
-	init = function(self)
-		basewidget.init(self)
-		self:updatename('datasource')
-	end, -- init = function
-	sourceeditor = combobox('datasource', psodata.combolist.progress),
-	toggleshowvalue = booleaneditor('showvalue', 'show value'),
-	toggleshowrange = booleaneditor('showrange', 'show range'),
-	togglescalebar = booleaneditor('scalebar', 'scale progress bar'),
-	togglefillwindow = booleaneditor('fillwindow', 'fill window'),
-	toggledynamicbarcolor = booleaneditor('dynamicbarcolor', 'dynamic bar color'),
-	editcolor = coloreditor('barcolor', 'bar color'),
+	editsource = true,
+	sourceeditorid = 'progresssourcepicker',
+	labeltype = 'none',
 	edit = function(self)
-		if self:sourceeditor() then self:updatename('datasource') end
+		-- if self:sourceeditor() then self:updatename('datasource') end
 		self:toggleshowvalue()
 		if self.showvalue then self:toggleshowrange() end
+		self:labeleditor()
 		self:togglescalebar()
-		if #self.parent == 1 then self:togglefillwindow() end
+		-- if #self.parent == 1 then self:togglefillwindow() end
 		self:toggledynamicbarcolor()
 		if self.dynamicbarcolor then
-		
+			self.bargradient:edit()
 		else
 			self:editcolor()
 		end
+		-- print(utility.serialize(self))
+		if self:sourceeditor() then self:updatelabel() end
+		if imgui.Button('data source') then self.editsource = true end
+		if self.editsource then imgui.OpenPopup(self.sourceeditorid) self.editsource = false end
+		self:editsize()
 	end, -- edit = function
-	editparam = {
-		barcolor = function(self)
-			if self.barcolor then editcolor(self, 'barcolor', 'bar color') end
-			local changed, enabled = optionalparamtoggle(self, 'barcolor', 'bar color')
-			if changed then
-				if enabled then self.barcolor = {0, .9, .3, 1}
-				else self.barcolor = nil
-				end
-			end
-		end,
-		bargradient = function(self)
-			editboolean(self, 'dynamicbarcolor', 'dynamic bar color')
-			if self.dynamicbarcolor then
-				editgradient(self, 'bargradient', 'bar gradient')
-			else
-				self.editparam.barcolor(self)
-			end
-		end,
-		size = function(self)
-		
-		end,
-		}, -- editparam = {...}
-	display = function(self)
-		local data = psodata.get[self.datasource]()
-		local barvalue = data[1] / data[2]
-		if self.sameline then imgui.SameLine() end
-		if self['dynamic bar color'] then self.barcolor =
-				evaluategradient(self['bar gradient'], barvalue)
-		end
-		if self['dynamic text color'] then self.textcolor =
-				evaluategradient(self['text gradient'], barvalue)
-		end
-		if self.barcolor then
-			imgui.PushStyleColor('PlotHistogram', unpack(self.barcolor))
-		end
-		if self.textcolor then
-			imgui.PushStyleColor('Text', unpack(self.textcolor))
-		end
-		
-		local progress
-		if self.scalebar then
-			progress = barvalue
-			if progress ~= progress then progress = 0 end
-		else progress = 1
-		end
-		
-		local text
-		if self.showvalue then
-			if self.showrange then
-				text = data[1] .. '/' .. data[2]
-			else text = data[1]
-			end
-		else text = self.overlaytext or ''
-		end
-		
-		imgui.ProgressBar(progress, self.w, self.h, text)
-		
-		if self.textcolor then imgui.PopStyleColor() end
-		if self.barcolor then imgui.PopStyleColor() end
-	end, -- display = function(self)
-	} -- widgets['progress bar'] = {...}
-setmetatable(widgets['progress bar'], basewidget)
-widgets['item list'] = {
-	parameters = {},
-	
-	processdrop = function(self)
-	
-	end,
-	
-	listitem = function(self, index)
-	
-	end,
-	
-	editparam = {},
-	
-	init = function(self)
-	
-	end,
-	} -- widgets['item list'] = {...}
-local widgetcombolist = utility.tablecombolist(widgets)
-widgets.gradient = {
-	
-} -- widgets.gradient = {...}
-widgets.window = {
-	hidden = true,
-	menutypes = {'anymenu', 'mainmenu', 'lowermenu', 'fullmenu'},
-	
-	showoptions = true,
-	title = 'moo',
-	enable = 'true',
-	autoresize = true,
-	allowmousemove = true,
-	inlobby=true,
-	showtitlebar = true,
-	showscrollbar = true,
-	w = 10,
-	h = 10,
-	['window option changed'] = true,
-	titleeditor = stringeditor('title', 'window title'),
-	toggletitlebar = flageditor('showtitlebar', 'show titlebar', 'NoTitleBar', 1, true),
-	togglescrollbar = flageditor('showscrollbar', 'show scrollbar', 'NoScrollBar', 4, true),
-	toggleautoresize = flageditor('autoresize', 'auto resize window to fit contents', 'AlwaysAutoResize', 5),
-	togglemousemove = flageditor('allowmousemove', 'move window with mouse', 'NoMove', 3, true),
-	togglemouseresize = flageditor('allowmouseresize', 'resize window with mouse', 'NoResize', 2, true),
-	toggleenablewindow = booleaneditor('enable', 'enable window'),
-	togglehidenotinfield = booleaneditor('notinfield', 'not in field'),
-	togglehideinlobby = booleaneditor('inlobby', 'in lobby'),
-	togglehideanymenu = booleaneditor('anymenu', 'any menu is open'),
-	togglehidelowermenu = booleaneditor('lowermenu', 'lower screen menu is open'),
-	togglehidemainmenu = booleaneditor('mainmenu', 'main menu is open'),
-	togglehidefullmenu = booleaneditor('fullmenu', 'full screen menu is open'),
-	
-	editlayout = function(self)
-		local dragfloatwidth = 36
+	protectededitsize = function(self)
+		-- need to set this up to use language table once i can see how it looks
+		-- local dragfloatwidth = 36
+		local width = self.w * gamewindowwidth
+		local height = self.h * gamewindowheight
 		local labelsource, formatstr
 		if huddata.showpixels then
 			labelsource = self.layout
@@ -526,34 +680,241 @@ widgets.window = {
 		local smallstep = .01
 		local changed1, changed2
 		
+		text'w:'
+		imgui.SameLine()
+		-- imgui.PushItemWidth(dragfloatwidth)
+		changed1, newvalue = imgui.DragFloat('##width' .. self.id, width, huddata.bigstep, 0, gamewindowwidth, string.format('%.0f', width))
+		if changed1 then self.w = newvalue / gamewindowwidth end
+		imgui.SameLine()
+		changed2, newvalue = imgui.DragFloat('##wfinetune' .. self.id, width, huddata.smallstep, 0, gamewindowwidth, 'slow')
+		if changed2 then self.w = newvalue / gamewindowwidth end
+		-- if changed1 or changed2 then self:updatelayoutw() end
+		
+		imgui.SameLine()
+		text'h:'
+		imgui.SameLine()
+		-- imgui.PushItemWidth(dragfloatwidth)
+		changed1, newvalue = imgui.DragFloat('##height' .. self.id, height, huddata.bigstep, 0, gamewindowheight, string.format('%.0f', height))
+		if changed1 then self.h = newvalue / gamewindowheight end
+		imgui.SameLine()
+		changed2, newvalue = imgui.DragFloat('##hfinetune' .. self.id, height, huddata.smallstep, 0, gamewindowheight, 'slow')
+		if changed2 then self.h = newvalue / gamewindowheight end
+		-- if changed1 or changed2 then self:updatelayouth() end
+	end, -- protectededitsize = function
+	editsize = function(self)
+		local dragfloatwidth = 36
+		imgui.PushItemWidth(dragfloatwidth)
+		logpcall(self.protectededitsize, 'widgets.progressbar:editsize()', self)
+		imgui.PopItemWidth()
+	end, -- editsize = function
+	editparam = {
+		bargradient = function(self)
+			editboolean(self, 'dynamicbarcolor', 'dynamic bar color')
+			if self.dynamicbarcolor then
+				self.gradient:edit()
+			else
+				-- self.editparam.barcolor(self)
+			end
+		end,
+		size = function(self)
+		
+		end,
+		}, -- editparam = {...}
+	display = function(self)
+		local barcolor, textcolor
+		local data = psodata.get.progress[self.datasource]()
+		local barvalue = data[1] / data[2]
+		if self.sameline then imgui.SameLine() end
+		
+		local progress
+		if barvalue == barvalue then
+			if self.scalebar then
+				progress = barvalue
+			else
+				progress = 1
+			end -- if self.scalebar
+		else
+			barvalue, progress = 1, 1
+		end -- if barvalue == barvalue
+		
+		if self.dynamicbarcolor then
+			local colorindex = evaluategradient(self.bargradient.levels, barvalue)
+			barcolor = self.bargradient[colorindex]
+			-- imgui.PushStyleColor('PlotHistogram', unpack(evaluategradient(self.bargradient, barvalue)))
+		elseif self.barcolor then
+			barcolor = self.barcolor
+			-- imgui.PushStyleColor('PlotHistogram', unpack(self.barcolor))
+		-- else
+			-- barcolor = huddata.defaultprogressbarcolor
+		end
+		
+		if self.dynamictextcolor then
+			textcolor = evaluategradient(self.textgradient, barvalue)
+			-- imgui.PushStyleColor('Text', unpack(evaluategradient(self.textgradient, barvalue)))
+		elseif self.textcolor then
+			textcolor = self.textcolor
+			-- imgui.PushStyleColor('Text', unpack(self.textcolor))
+		-- else
+			-- textcolor = huddata.defaulttextcolor
+		end
+		
+		local text
+		if self.showvalue then
+			if self.showrange then
+				text = data[1] .. '/' .. data[2]
+			else text = data[1]
+			end
+		else text = ''
+		end
+		if self.label then text = self.label .. ': ' .. text end
+		
+		imgui.PushStyleColor('Text', unpack(textcolor))
+		imgui.PushStyleColor('PlotHistogram', unpack(barcolor))
+		
+		logpcall(imgui.ProgressBar, 'widgets.progressbar:display()', progress, self.w * gamewindowwidth, self.h * gamewindowheight, text)
+		
+		imgui.PopStyleColor(2)
+		-- if self.dynamictextcolor or self.textcolor then imgui.PopStyleColor() end
+		-- if self.dynamicbarcolor or self.barcolor then imgui.PopStyleColor() end
+	end, -- display = function(self)
+} -- widgets.progressbar = {...}
+widgets.list = {
+	--[[ creating a widget
+	+ new:
+		* allocate memory (= {})
+	+ restore:
+	+ both:
+		* setup inheritance
+		* generate id
+	]]
+	--[[
+	creating a list:
+		+ new:
+		+ restore:
+		+ both:
+	]]
+
+} -- widgets.list = {...}
+widgets.itemlist = {
+	--[[ creating a widget
+	+ new:
+		* allocate memory (= {})
+	+ restore:
+	+ both:
+		* setup inheritance
+		* generate id
+	]]
+	--[[
+	creating an itemlist:
+		+ new:
+		+ restore:
+		+ both:
+	]]
+
+} -- widgets.itemlist = {...}
+local widgetcombolist = utility.tablecombolist(widgets)
+local customwindow = {
+	--[[ creating a widget
+	+ new:
+		* allocate memory (= {})
+	+ restore:
+	+ both:
+		* setup inheritance
+		* generate id
+	]]
+	--[[
+	creating a customwindow:
+		+ new:
+		+ restore:
+		+ both:
+	]]
+	firsttimeinit = function(self)
+		self.windowoptions = {'', 'NoResize', '', '', 'AlwaysAutoResize'}
+		self.layout = {}
+		self.widgetlist = createwidget(lists.widgetlist)
+		self.x = self.id * 5
+		self.y = self.id * 5
+	end, -- firsttimeinit = function
+	init = function(self)
+		self:updatelayoutw()
+		self:updatelayouth()
+		self:updatelayoutx()
+		self:updatelayouty()
+	end, -- init = function
+	restore = function(self)
+		-- self.widgetlist:init()
+		restorewidget(self.widgetlist, lists.widgetlist)
+	end, -- restore = function
+	hidden = true,
+	menutypes = {'anymenu', 'mainmenu', 'lowermenu', 'fullmenu'},
+	
+	showoptions = false,
+	title = 'moo',
+	enable = 'true',
+	autoresize = true,
+	allowmousemove = true,
+	inlobby=true,
+	showtitlebar = true,
+	showscrollbar = true,
+	w = 10,
+	h = 10,
+	windowoptionchanged = true,
+	initeditors = function(self)
+		self.titleeditor = stringeditor'title'
+		self.toggletitlebar = flageditor('showtitlebar', 'NoTitleBar', 1, true)
+		self.togglescrollbar = flageditor('showscrollbar', 'NoScrollBar', 4, true)
+		self.toggleautoresize = flageditor('autoresize', 'AlwaysAutoResize', 5)
+		self.togglemousemove = flageditor('allowmousemove', 'NoMove', 3, true)
+		self.togglemouseresize = flageditor('allowmouseresize', 'NoResize', 2, true)
+		self.toggleenablewindow = booleaneditor'enable'
+		self.togglehidenotinfield = booleaneditor'notinfield'
+		self.togglehideinlobby = booleaneditor'inlobby'
+		self.togglehideanymenu = booleaneditor'anymenu'
+		self.togglehidelowermenu = booleaneditor'lowermenu'
+		self.togglehidemainmenu = booleaneditor'mainmenu'
+		self.togglehidefullmenu = booleaneditor'fullmenu'
+	end, -- initeditors = function --------------------------------------
+	editlayout = function(self)
+		local dragfloatwidth = 36
+		local labelsource, formatstr, changed1, changed2, success
+		if huddata.showpixels then
+			labelsource = self.layout
+			formatstr = '%.0f'
+		else
+			labelsource = self
+			formatstr = '%.2f'
+		end -- if huddata.showpixels
+		local step = 1
+		local smallstep = .01
+		
 		imgui.PushItemWidth(dragfloatwidth)
 		imgui.BeginGroup() -- edit xpos and width
-			imgui.Text('x:')
+			text'x:'
 			imgui.SameLine()
 			-- imgui.PushItemWidth(dragfloatwidth)
-			changed1, newvalue = imgui.DragFloat('##xpos' .. self.id, self.x, step, boundary.left, boundary.right, string.format(formatstr, labelsource.x))
+			changed1, newvalue = logpcall(imgui.DragFloat, 'customwindow:editlayout(), x', '##xpos' .. self.id, self.x, step, boundary.left, boundary.right, string.format(formatstr, labelsource.x))
 			if changed1 then self.x = newvalue end
 			imgui.SameLine()
-			changed2, newvalue = imgui.DragFloat('##xfinetune' .. self.id, self.x, smallstep, boundary.left, boundary.right, '.01x')
+			changed2, newvalue = logpcall(imgui.DragFloat, 'customwindow:editlayout(), x fine', '##xfinetune' .. self.id, self.x, smallstep, boundary.left, boundary.right, '.01x')
 			if changed2 then self.x = newvalue end
 			if changed1 or changed2 then
 				self:updatelayoutx()
-				self['window option changed'] = true
+				self.windowoptionchanged = true
 			end
 			
 			if not self.autoresize then
-				imgui.Text('w:')
+				text'w:'
 				imgui.SameLine()
 				-- imgui.PushItemWidth(dragfloatwidth)
-				changed1, newvalue = imgui.DragFloat('##width' .. self.id, self.w, step, boundary.left, boundary.right, string.format(formatstr, labelsource.w))
+				changed1, newvalue = logpcall(imgui.DragFloat, 'customwindow:editlayout(), w', '##width' .. self.id, self.w, step, boundary.left, boundary.right, string.format(formatstr, labelsource.w))
 				if changed1 then self.w = newvalue end
 				imgui.SameLine()
-				changed2, newvalue = imgui.DragFloat('##wfinetune' .. self.id, self.w, smallstep, boundary.left, boundary.right, '.01x')
+				changed2, newvalue = logpcall(imgui.DragFloat, 'customwindow:editlayout(), w fine', '##wfinetune' .. self.id, self.w, smallstep, boundary.left, boundary.right, '.01x')
 				if changed2 then self.w = newvalue end
 				if changed1 or changed2 then
 					self:updatelayoutx()
 					self:updatelayoutw()
-					self['window option changed'] = true
+					self.windowoptionchanged = true
 				end -- if changed1 or changed2
 			end -- if not self.autoresize
 		imgui.EndGroup() -- edit xpos and width
@@ -561,38 +922,37 @@ widgets.window = {
 		imgui.SameLine()
 		
 		imgui.BeginGroup() -- edit ypos and height
-			imgui.Text('y:')
+			text'y:'
 			imgui.SameLine()
 			-- imgui.PushItemWidth(dragfloatwidth)
-			changed1, newvalue = imgui.DragFloat('##ypos' .. self.id, self.y, step, boundary.left, boundary.right, string.format(formatstr, labelsource.y))
+			changed1, newvalue = logpcall(imgui.DragFloat, 'customwindow:editlayout(), y', '##ypos' .. self.id, self.y, step, boundary.left, boundary.right, string.format(formatstr, labelsource.y))
 			if changed1 then self.y = newvalue end
 			imgui.SameLine()
-			changed2, newvalue = imgui.DragFloat('##yfinetune' .. self.id, self.y, smallstep, boundary.left, boundary.right, '.01x')
+			changed2, newvalue = logpcall(imgui.DragFloat, 'customwindow:editlayout(), y fine', '##yfinetune' .. self.id, self.y, smallstep, boundary.left, boundary.right, '.01x')
 			if changed2 then self.y = newvalue end
 			if changed1 or changed2 then
 				self:updatelayouty()
-				self['window option changed'] = true
+				self.windowoptionchanged = true
 			end
 			
 			if not self.autoresize then
-				imgui.Text('h:')
+				text'h:'
 				imgui.SameLine()
 				-- imgui.PushItemWidth(dragfloatwidth)
-				changed1, newvalue = imgui.DragFloat('##height' .. self.id, self.h, step, boundary.left, boundary.right, string.format(formatstr, labelsource.h))
+				changed1, newvalue = logpcall(imgui.DragFloat, 'customwindow:editlayout(), h', '##height' .. self.id, self.h, step, boundary.left, boundary.right, string.format(formatstr, labelsource.h))
 				if changed1 then self.h = newvalue end
 				imgui.SameLine()
-				changed2, newvalue = imgui.DragFloat('##hfinetune' .. self.id, self.h, smallstep, boundary.left, boundary.right, '.01x')
+				changed2, newvalue = logpcall(imgui.DragFloat, 'customwindow:editlayout(), h fine', '##hfinetune' .. self.id, self.h, smallstep, boundary.left, boundary.right, '.01x')
 				if changed2 then self.h = newvalue end
 				if changed1 or changed2 then
 					self:updatelayouty()
 					self:updatelayouth()
-					self['window option changed'] = true
+					self.windowoptionchanged = true
 				end -- if changed1 or changed2
 			end -- if not self.autoresize
 		imgui.EndGroup() -- edit ypos and height
 		imgui.PopItemWidth()
-	end,
-	
+	end, -- editlayout = function ---------------------------------------
 	edit = function(self)
 	-- button = function(self, label, selected, tooltip)
 		if self.showoptions then
@@ -618,8 +978,7 @@ widgets.window = {
 				self.showoptions = true
 			end
 			imgui.Separator()
-			-- widgets['widget list'].edit(self['widget list'])
-			self['widget list']:edit()
+			self.widgetlist:edit()
 		end
 	end, -- edit = function
 	paramgroups = {
@@ -631,7 +990,7 @@ widgets.window = {
 			self:editlayout()
 			self:toggletitlebar()
 			self:togglescrollbar()
-			if self:toggleautoresize() and not self.autoresize then self['window option changed'] = true end
+			if self:toggleautoresize() and not self.autoresize then self.windowoptionchanged = true end
 			self:togglemousemove()
 			if not self.autoresize then self:togglemouseresize() end
 		end, -- layout = function
@@ -653,44 +1012,15 @@ widgets.window = {
 			self:fontscaleeditor()
 		end, -- style = function
 	},
-	firsttimeinit = function(self)
-		self['widget list'] = newwidget('widget list', self)
-		self['window options'] = {'', 'NoResize', '', '', 'AlwaysAutoResize'}
-		self:init()
-	end, -- init = function(self)
-	additemlist = widgetcombolist,
-	init = function(self)
-		basewidget.init(self)
-		self.x = self.id * 5
-		self.y = self.id * 5
-		
-		restorewidget(self['widget list'])
-		
-		self.layout = {}
-		self:updatelayoutw()
-		self:updatelayouth()
-		self:updatelayoutx()
-		self:updatelayouty()
-		
-		self.dontserialize['id'] = true
-		self.dontserialize['layout'] = true
-		self.dontserialize['show options'] = true
-		
-	end, -- restore = function(self)
+	-- additemlist = widgetcombolist,
 	updatelayoutx = function(self)
 		self.layout.x = utility.scale(self.x, gamewindowwidth, self.w)
 	end,
 	updatelayouty = function(self)
 		self.layout.y = utility.scale(self.y, gamewindowheight, self.h)
 	end,
-	updatelayoutw = function(self)
-		self.layout.w = utility.scale(self.w, gamewindowwidth)
-	end,
-	updatelayouth = function(self)
-		self.layout.h = utility.scale(self.h, gamewindowheight)
-	end,
 	detectmouseresize = function(self)
-		if self['window options'][2] ~= 'NoResize' and self['window options'][5] ~= 'AlwaysAutoResize' then
+		if self.windowoptions[2] ~= 'NoResize' and self.windowoptions[5] ~= 'AlwaysAutoResize' then
 			local neww, newh = imgui.GetWindowSize()
 			if neww ~= self.layout.w then
 				self.w = utility.unscale(neww, gamewindowwidth)
@@ -702,10 +1032,10 @@ widgets.window = {
 				self.layout.h = newh
 				self:updatelayouty()
 			end -- if newh ~= self.layout.h
-		end -- if self['window options'][2] ~= 'NoResize' and self['window options'][5] ~= 'AlwaysAutoResize'
+		end -- if self.windowoptions[2] ~= 'NoResize' and self.windowoptions[5] ~= 'AlwaysAutoResize'
 	end, -- detectmouseresize = function
 	detectmousemove = function(self)
-		if self['window options'][3] ~= 'NoMove' then
+		if self.windowoptions[3] ~= 'NoMove' then
 			local newx, newy = imgui.GetWindowPos()
 			local outofbounds = false
 			if newx ~= self.layout.x then
@@ -722,8 +1052,8 @@ widgets.window = {
 				self:updatelayouty()
 				if newy ~= self.layout.y then outofbounds = true end
 			end -- if newy ~= self.layout.y
-		if outofbounds then self['window option changed'] = true end
-		end -- if self['window options'][3] ~= 'NoMove'
+		if outofbounds then self.windowoptionchanged = true end
+		end -- if self.windowoptions[3] ~= 'NoMove'
 	end, -- detectmousemove = function
 	display = function(self)
 		if (self['inlobby'] and psodata.currentlocation() == 'lobby')
@@ -735,12 +1065,12 @@ widgets.window = {
 			if self[menu] then return end
 		end
 		
-		if self['window option changed'] then
+		if self.windowoptionchanged then
 			imgui.SetNextWindowPos(self.layout.x, self.layout.y, 'Always')
-			if self['window options'][5] ~= 'AlwaysAutoResize' then
+			if self.windowoptions[5] ~= 'AlwaysAutoResize' then
 				imgui.SetNextWindowSize(self.layout.w, self.layout.h, 'Always')
 			end
-			self['window option changed'] = false
+			self.windowoptionchanged = false
 		end
 		
 		local bgcolor = self.bgcolor
@@ -751,7 +1081,7 @@ widgets.window = {
 		
 		local success
 		success, self.enable = imgui.Begin(self.title .. '###' .. self.id, true,
-			self['window options'])
+			self.windowoptions)
 			if not success then
 				imgui.End()
 				return
@@ -762,50 +1092,200 @@ widgets.window = {
 			
 			-- imgui.SetWindowFontScale(self['font scale'] or huddata.fontscale)
 			
-			for _, item in ipairs(self['widget list']) do
-				item:display()
+			for _, item in ipairs(self.widgetlist) do
+				logpcall(item.display, 'customwindow:display()', item)
 			end
 			
 		imgui.End()
 		if bgcolor then imgui.PopStyleColor() end
 	end,
 	updatewindowoption = function(self, newvalue, optionindex, flag)
-		if newvalue then
-			self['window options'][optionindex] = flag
-		else
-			self['window options'][optionindex] = ''
-		end
-	end,
-	} -- widgets['window'] = {...}
-setmetatable(widgets.window, basewidget)
-widgets['widget list'] = {
+		if newvalue then self.windowoptions[optionindex] = flag
+		else self.windowoptions[optionindex] = ''
+		end -- if newvalue
+	end, -- updatewindowoption = function
+} -- widgets.customwindow = {...}
+setmetatable(customwindow, basewidget)
+customwindow.__index = customwindow
+local baselist = {
+	--[[ creating a list
+	+ new:
+		* allocate memory (= {})
+		* set list type
+	+ restore:
+	+ both:
+		* setup inheritance
+	]]
+	firsttimeinit = function(self)
+		self.dragtarget = {}
+		self.buttonedges = {5}
+		self.buttoncenters = {}
+	end, -- firsttimeinit = function
+	init = function(self) end,
+	restore = function(self) end,
 	changed = true,
 	orientation = 'horizontal',
-	additemlist = widgetcombolist,
+	listheight = 36,
 	initdragtarget = function(self, width, height)
-		-- self.dragtarget.top = y - huddata.dragtargetmargin
-		-- self.dragtarget.bottom = y + height + huddata.dragtargetmargin
-		self.dragtarget.top = - huddata.dragtargetmargin
-		self.dragtarget.bottom = height + huddata.dragtargetmargin
-		-- self.dragtarget.left = x - huddata.dragtargetmargin
-		-- self.dragtarget.right = x + width + huddata.dragtargetmargin
-		self.dragtarget.left = - huddata.dragtargetmargin
-		self.dragtarget.right = width + huddata.dragtargetmargin
+		self.dragtarget.top = -dragtargetmargin
+		self.dragtarget.bottom = height + dragtargetmargin
+		self.dragtarget.left = -dragtargetmargin
+		self.dragtarget.right = width + dragtargetmargin
 	end, -- initdragtarget = function
-	calcdragdest = function(self, targetvalue)
-		-- print('button centers: ' .. utility.serialize(self))
-		local result = #self + 1
-		for index = 1, #self do
-			if targetvalue < self[index] then result = index break end
+	calcdragdest = function(positions, targetvalue)
+		local result = #positions + 1
+		for index = 1, #positions do
+			if targetvalue < positions[index] then result = index break end
 		end
-		-- print('cursor: ' .. targetvalue .. ' | dest index: ' .. result)
 		return result
 	end, -- calcdragdest = function
+	showitemcenters = function(self)
+		imgui.NewLine()
+		for _, pos in ipairs(self.itemcenters) do
+			imgui.SameLine(pos)
+			text'|'
+		end
+	end, -- showitemcenters = function
+	showitemedges = function(self)
+		imgui.NewLine()
+		for _, pos in ipairs(self.itemedges) do
+			imgui.SameLine(pos)
+			text'|'
+		end
+	end, -- showitemedges = function
+	detectdragstart = function(self, itemactive)
+		return itemactive and not self.dragsource and imgui.IsMouseDragging(0, huddata.dragthreshold)
+	end, -- detectdragstart = function
+	dragend = function(self)
+				if self.dragdest then
+					self:processdrop()
+					self.changed = true
+				end
+				self.newitem = nil
+				self.dragactive = nil
+				self.dragdest = nil
+				self.dragsource = nil
+	end, -- dragend = function
+	showadditemlist = function(self) end,
+	showitemeditor = function(self) end,
+	edit = function(self)
+		local lastitempos
+		local offsetx, offsety = imgui.GetCursorScreenPos() -- need these to reconcile relative and absolute coordinates
+		
+		if imgui.BeginChild('item list', -1, imgui.GetTextLineHeightWithSpacing() + self.listheight, true) then
+		-- this won't work with vertical layout because of size values
+		
+			if self.orientation == 'horizontal' then
+				imgui.Dummy(0, 0)
+			end
+			-- not sure why i need this?
+			
+			if self.changed then
+				if self.orientation == 'horizontal' then
+					lastitempos, _ = imgui.GetCursorPos() + 5
+				end
+				self.itemedges = {lastitempos}
+				self.itemcenters = {}
+			end
+			-- initialize itemcenters and itemedges
+			
+			for index, item in ipairs(self) do
+				if self.orientation == 'horizontal' then imgui.SameLine() end
+				if self:detectdragstart(self:listitem(index)) then self.dragsource = index end
+				-- display one list item and detect when drag starts
+				
+				if self.changed then
+					if self.orientation == 'horizontal' then
+						local itemwidth, itemheight = imgui.GetItemRectSize()
+						if itemheight > self.listheight then self.listheight = itemheight end
+						table.insert(self.itemcenters, lastitempos + 8 + itemwidth / 2)
+						lastitempos = lastitempos + itemwidth + 8
+						table.insert(self.itemedges, lastitempos + 3)
+					else -- assume self.orientation == 'vertical'
+						-- figure this out once everything else is working
+					end -- if self.orientation == 'horizontal'
+				end -- if self.changed
+				-- add entries to itemcenters and itemedges for current item
+				
+			end -- for index, item in ipairs(self)
+			
+			if self.dragdest then
+				local offset, _ = imgui.GetCursorPos()
+				imgui.SameLine(self.itemedges[self.dragdest] - 7)
+				text'|'
+			end
+			-- show where drag item will go if mouse is released now
+			-- this is horizontal layout specific
+			
+		end imgui.EndChild() -- end item list
+		
+		-- self:showitemcenters()
+		-- self:showitemedges()
+		
+		if self.changed then
+			self.changed = false
+			self:initdragtarget(imgui.GetItemRectSize())
+		end -- if self.changed
+		-- setup drop zone; layout recalculation done
+		
+		self:showadditemlist()
+		
+		if self.dragsource then
+			if imgui.IsMouseDown(0) then
+				local mousex, mousey = imgui.GetMousePos()
+				mousex = mousex - offsetx
+				mousey = mousey - offsety
+				
+				if utility.iswithinrect(mousex, mousey, self.dragtarget) then
+					if self.orientation == 'horizontal' then
+						self.dragdest = self.calcdragdest(self.itemcenters, mousex)
+					else -- assume orientation == 'vertical'
+						-- figure this out once everything else is working
+					end -- if self.orientation == 'horizontal'
+				else
+					self.dragdest = nil
+				end -- if mouse position is within dragtarget
+			else -- drag action ended
+				self:dragend()
+			end -- if imgui.IsMouseDown(0)
+		end -- if self.dragsource
+		-- recalculate drag target, or complete drag action
+		
+		self:showitemeditor()
+		
+	end, -- edit = function(self)
+} -- local baselist = {...}
+baselist.__index = baselist
+lists.widgetlist = {
+	--[[ creating a list
+	+ new:
+		* allocate memory (= {})
+		* set list type
+	+ restore:
+	+ both:
+		* setup inheritance
+	]]
+	--[[
+	creating a widgetlist:
+		+ new:
+		+ restore:
+		+ both:
+	]]
+	additemlist = {'textvalue', 'progressbar',},
+	init = function(self)
+		for _, item in ipairs(self) do
+			restorewidget(item, widgets[item.typename])
+			-- widgets[item.typename]:init(item)
+			-- item.callbacks = {function() self.changed = true end}
+		end
+	end, -- init = function
 	processdrop = function(self)
 		if self.newitem then
-			local newitem = newwidget(self.dragsource, self)
-			newitem.callbacks = {function() self.changed = true end}
-			self.selected = utility.listadd(self, newitem, self.dragdest, self.selected)
+			local newitem = createwidget(self.dragsource)
+			-- newitem.callbacks = {function() self.changed = true end}
+			-- self.selected = utility.listadd(self, newitem, self.dragdest, self.selected)
+			table.insert(self, self.dragdest, newitem)
+			self.selected = self.dragdest
 		else
 			self.selected = utility.listmove(self, self.dragsource, self.dragdest, self.selected)
 		end
@@ -817,161 +1297,41 @@ widgets['widget list'] = {
 		if item:button(item.shortname .. '##' .. item.id, selected, self[index].longname) then
 			if selected then self.selected = nil else self.selected = index end
 		end
+		return imgui.IsItemActive()
 	end, -- listitem = function
-	firsttimeinit = function(self)
-		self.dragtarget = {}
-		self.buttonedges = {5}
-		self.buttoncenters = {}
-		self.changed = true
-		self:init()
-	end, -- firsttimeinit = function
-	init = function(self)
-		basewidget.init(self)
-		for _, item in ipairs(self) do
-			restorewidget(item, self)
-			item.callbacks = {function() self.changed = true end}
-		end
-	end, -- init = function
-	edit = function(self)
-		
-		local dragtarget = self.dragtarget
-		local lastitempos
-		
-		local offsetx, offsety = imgui.GetCursorScreenPos()
-		
-		if
-			imgui.BeginChild('item list', -1,
-				imgui.GetTextLineHeightWithSpacing() * 2, true)
-		then
-			if self.orientation == 'horizontal' then
-				imgui.Dummy(0, 0)
-			else
-			
-			end
-			if self.changed then
-				if self.orientation == 'horizontal' then
-					lastitempos, _ = imgui.GetCursorPos() + 5
-				else
-				
-				end
-				self.itemedges = {lastitempos}
-				self.itemcenters = {}
-			end
-			for index, item in ipairs(self) do
-				if self.orientation == 'horizontal' then imgui.SameLine() end
-				
-				self:listitem(index)
-				
-				if not self.dragsource
-				and imgui.IsItemActive()
-				and imgui.IsMouseDragging(0, huddata.dragthreshold)
-				then
-						self.dragsource = index
-				end
-				
-				if self.changed then
-					if self.orientation == 'horizontal' then
-						local itemwidth
-						itemwidth, _ = imgui.GetItemRectSize()
-						table.insert(self.itemcenters, lastitempos + 8 + itemwidth / 2)
-						lastitempos = lastitempos + itemwidth + 8
-						table.insert(self.itemedges, lastitempos + 3)
-					else -- assume self.orientation == 'vertical'
-						-- figure this out once everything else is working
-					end -- if self.orientation == 'horizontal'
-				end -- if self.changed
-				
-			end -- for index, item in ipairs(self)
-			
-			if self.dragdest then
-				local offset, _ = imgui.GetCursorPos()
-				imgui.SameLine(self.itemedges[self.dragdest] - 7)
-				imgui.Text('|')
-			end
-			
-		end imgui.EndChild()
-		
-		-- imgui.NewLine()
-		-- for _, pos in ipairs(self.itemcenters) do
-			-- imgui.SameLine(pos)
-			-- imgui.Text('|')
-		-- end
-		
-		-- imgui.NewLine()
-		-- for _, pos in ipairs(self.itemedges) do
-			-- imgui.SameLine(pos)
-			-- imgui.Text('|')
-		-- end
-		
-		if self.changed then
-			self.changed = false
-			if self.orientation == 'horizontal' then
-				self:initdragtarget(imgui.GetItemRectSize())
-			else -- assume self.orientation == 'vertical'
-				-- figure this out once everything else is working
-			end -- if self.orientation == 'horizontal'
-		end -- if self.changed
-		
+	showadditemlist = function(self)
+		-- show list of  widget types that can be added to the list, and detect when one is clicked or dragged.
 		imgui.NewLine()
 		for index, itemname in ipairs(self.additemlist) do
 			imgui.SameLine()
 			if imgui.Button(itemname .. '##newitem') and not self.dragactive then
-				self.dragsource = itemname
+				self.dragsource = widgets[itemname]
 				self.newitem = true
 				self.dragdest = #self + 1
-			elseif not self.dragsource
-			and imgui.IsItemActive()
-			and imgui.IsMouseDragging(0, huddata.dragthreshold)
-			then
-				self.dragsource = itemname
+			elseif self:detectdragstart(imgui.IsItemActive()) then
+				self.dragsource = widgets[itemname]
 				self.newitem = true
-			end
-		end
-		
-		if self.dragsource then
-			if imgui.IsMouseDown(0) then
-				local mousex, mousey = imgui.GetMousePos()
-				mousex = mousex - offsetx
-				mousey = mousey - offsety
-				
-				if utility.iswithinrect(mousex, mousey, dragtarget) then
-					if self.orientation == 'horizontal' then
-						self.dragdest = self.calcdragdest(self.itemcenters, mousex)
-					else -- assume orientation == 'vertical'
-						-- figure this out once everything else is working
-					end -- if self.orientation == 'horizontal'
-				else
-					self.dragdest = nil
-				end -- if mouse position is within dragtarget
-			else -- drag action ended
-				if self.dragdest then
-					self:processdrop()
-					self.changed = true
-				end
-				self.newitem = nil
-				self.dragactive = nil
-				self.dragdest = nil
-				self.dragsource = nil
-			end -- if imgui.IsMouseDown(0)
-		end -- if self.dragsource
-		
+			end -- if imgui.Button(itemname .. '##newitem') and not self.dragactive
+		end -- for index, itemname in ipairs(self.additemlist)
+	end, -- showadditemlist = function
+	showitemeditor = function(self)
 		local deletewidget = false
 		if self.selected then
 			if imgui.BeginChild('list item editor', -1, -1, true) then
-				if imgui.BeginPopup('confirmdeletewidget', {'NoTitleBar', 'NoResize', 'NoMove', 'NoScrollBar', 'AlwaysAutoResize'}) then
-					imgui.Text('delete widget "' .. self[self.selected].longname .. '"?')
-					if imgui.Button 'delete##deletewidget' then
+				if imgui.BeginPopup('confirmdeletewidget' .. self.id, {'NoTitleBar', 'NoResize', 'NoMove', 'NoScrollBar', 'AlwaysAutoResize'}) then
+					text(label'deletewidget' .. ' "' .. self[self.selected].longname .. '"?')
+					if imgui.Button (languagetable.label.delete .. '##deletewidget') then
 						deletewidget = true
 						imgui.CloseCurrentPopup()
 					end
 					imgui.SameLine()
-					if imgui.Button 'cancel##deletewidget' then imgui.CloseCurrentPopup() end
+					if imgui.Button (languagetable.label.cancel .. '##deletewidget') then imgui.CloseCurrentPopup() end
 				imgui.EndPopup() end
 		
 				if self == nil then print('self is nil') end
 				
 				if imgui.Button('delete widget') then
-					imgui.OpenPopup('confirmdeletewidget')
+					imgui.OpenPopup('confirmdeletewidget' .. self.id)
 				end
 			
 				self[self.selected]:edit()
@@ -980,67 +1340,276 @@ widgets['widget list'] = {
 		if deletewidget then
 			table.remove(self, self.selected)
 			self.selected = nil
-		end
-		
-	end, -- edit = function(self)
+		end -- if deletewidget
+	end, -- showitemeditor = function
 	display = function(self)
-		for _, childwidget in ipairs(self['widget list']) do
+		for _, childwidget in ipairs(self.widgetlist) do
 			childwidget:display()
 		end
 	end, -- display = function
-} -- widgets['widget list'] = {...}
-setmetatable(widgets['widget list'], basewidget)
---------------------------------------------------------------------------------
-local function loadlanguage()
-
-end -- local function loadlanguage
-local globaloptions = {
-	slownumbereditor('longinterval', 'long interval', 1, 10, 1), -- this might be completely pointless...
-	numbereditor('offscreenx', 'allow offscreen x', 0, 50, 1),
-	numbereditor('offscreeny', 'allow offscreen y', 0, 50, 1),
-	numbereditor('inputtextwidth', 'width of imgui.InputText', 24, 420, 1),
-	numbereditor('dragtargetmargin', 'extra space for target drag box', 0, 144, 1),
-	slownumbereditor('dragthreshold', 'drag detection threshold', 2, 24, 1),
-	booleaneditor('defaultautoresize', 'auto resize new windows'),
-	optionalparametereditor{
-		param = 'defaulttextcolor',
-		editlabel = 'set default text color',
-		resetlabel = 'reset',
-		editfunction = coloreditor('defaulttextcolor', 'default text color'),
-		defaultvalue = function() return {.8, .8, .8, 1} end,
-	}, -- editdefaulttextcolor = optionalparametereditor{...}
-	optionalparametereditor{
-		param = 'defaultbgcolor',
-		editlabel = 'set default background color',
-		resetlabel = 'reset',
-		editfunction = coloreditor('defaultbgcolor', 'default background color'),
-		defaultvalue = function() return {.2, .2, .2, .5} end,
-	}, -- editdefaultbgcolor = optionalparametereditor{...}
-	basewidget.fontscaleeditor,
-	booleaneditor('showpixels', 'show layout pixels', function()
-		if huddata.showpixels then
-			
+} -- widgets.widgetlist = {...}
+characterviewmodel = {
+	additemlist = {},
+	editparams = function(self)
+		-- datasource editor
+	end, -- editparams = function
+	display = function(self)
+	
+	end, -- display = function
+} -- rowviewmodel = {...}
+setmetatable(characterviewmodel, {__index = function(self, key)
+	local value = searchparents(key, {basewidget, lists.widgetlist})
+	self[key] = value
+	return value
+end})
+lists.gradient = {
+	--[[ creating a widget
+	+ new:
+		* allocate memory (= {})
+	+ restore:
+	+ both:
+		* setup inheritance
+		* generate id
+	]]
+	--[[
+	creating a gradient:
+		+ new:
+			* start with sensible minimal default values - .66 green, 0 red
+		+ restore:
+		+ both:
+	]]
+	firsttimeinit = function(self)
+		baselist.firsttimeinit(self)
+		self[1] = {.25, .75, .3, 1}
+		self[2] = {.75, 0, 0, 1}
+		self.levels = {.66, 0}
+	end, -- firsttimeinit = function
+	computepressure = function(self, startpoint, endpoint)
+		local gapstart = startpoint
+		-- local gapend = startpoint + 1
+		-- local pressurelevels = {}
+		local gapsize, gappressure
+		local pressuresum = 0
+		repeat
+			gapsize = self.levels[gapstart] - self.levels[gapstart + 1]
+			gappressure = huddata.minimumgradientlevelseparation - gapsize
+			-- table.insert(pressurelevels, gappressure)
+			pressuresum = pressuresum + gappressure
+			gapstart = gapstart + 1
+		until gapstart == endpoint
+		-- for _, pressurelevel in ipairs(pressurelevels) do
+			-- pressuresum = pressuresum + pressurelevel
+		-- end -- for _, pressurelevel in ipairs(pressurelevels)
+		-- return pressuresum / #pressurelevels
+		return pressuresum
+	end, -- computelevelpressure = function
+	distributealllevelsevenly = function(self)
+		local spacing = 1 / (1 - #self )
+		local index = 1
+		for level = 1, 0, spacing do
+			self.levels[index] = level
+			index = index + 1
+		end -- for level = 1, 0, spacing
+	end, -- distributealllevelsevenly = function
+	separatelevels = function(self, startpoint)
+		if startpoint == 0 or startpoint == #self then
+			-- easy, just push away from the beginning or end.
 		else
+			-- tricky - figure out where there's lower pressure, and push in that direction - or in both, if there's low pressure in both directions.
+		end -- if startpoint == 0 or startpoint == #self
+	end, -- separatelevels = function
+	-- maximumgradientlevels = 6, minimumgradientlevelseparation = .05
+	processdrop = function(self)
+		if not self.newitem then
+			-- when *moving* a color/level, give the user the option of either deleting the old level and creating a new one at the destination, or moving only the color, shifting other colors over relative to the levels, and leaving the levels as they are.
+			self.selected = utility.listmove(self, self.dragsource, self.dragdest, self.selected)
+		else--if #self < huddata.maximumgradientlevels then -- if not self.newitem
+			if self.dragdest == #self + 1 then
+				-- if self.levels[#self] == 0 then
+					-- self.levels[#self] = self.levels[#self - 1] / 2
+				-- end -- if self.levels[#self] == 0
+				-- table.insert(self, self.newitem)
+				table.insert(self.levels, #self, self.levels[#self - 1] / 2)
+			elseif self.dragdest == 1 then
+				if self.levels[1] == 1 then
+					self.levels[1] = (1 + self.levels[2]) / 2
+				end -- if self.levels[1] == 1
+				-- table.insert(self, 1, self.newitem)
+				table.insert(self.levels, 1, 1)
+			else
+				-- table.insert(self, self.dragdest, self.newitem)
+				table.insert(self.levels, self.dragdest, (self.levels[self.dragdest - 1] + self.levels[self.dragdest]) / 2)
+			end -- if self.dragdest == #self
+			-- when the user chooses to add a new color/level at the end (past 0) or at the beginning, if the first level is 1, then automatically create a new level between the one being replaced and the next one, and just shift over the one being replaced
+			
+			-- probably should limit a gradient to a specific maximum number of levels - but this could easily be a global option that could be changed.
+			-- also, enforce a minimum distance between levels - again, this amount should be a customizable global option.
+			-- these two things are maybe less important than i thought, and the second one is a pain in the ass to implement.
+			
+		-- self.selected = utility.listadd(self, newitem, self.dragdest, self.selected)
+			table.insert(self, self.dragdest, utility.listcopy(self.dragsource))
+			self.selected = self.dragdest
+		end -- if not self.newitem
+		self.changed = true
+	end, -- processdrop = function
+	listitem = function(self, index)
+		local minlevel, maxlevel
+		if index == 1 then maxlevel = 1
+		else maxlevel = self.levels[index - 1] - .01
+		end -- if index == 1
+		if index == #self then minlevel = 0
+		else minlevel = self.levels[index + 1] + .01
+		end -- if index == #self
 		
-		end
-	end)
-} -- local globaloptions = {...}
+		imgui.BeginGroup()
+		imgui.PushID(self.id .. index)
+		local clicked = logpcall(imgui.ColorButton, {'lists.gradient:listitem(index)', index}, unpack(self[index])) -- should activate color editor when clicked
+		imgui.PopID()
+		local active = imgui.IsItemActive()
+		if clicked then
+			if self.selected == index then self.selected = nil else self.selected = index end
+		end -- if clicked
+		imgui.PushItemWidth(36)
+		local changed, newvalue = logpcall(imgui.DragFloat, 'lists.gradient:listitem(index)', '##level' .. self.id .. index, self.levels[index], .001, minlevel, maxlevel, string.format('%.1f', self.levels[index]))
+		imgui.PopItemWidth()
+		if changed then self.levels[index] = newvalue end
+		--slownumbereditor (level)
+		imgui.EndGroup()
+		return active
+	end, -- listitem = function
+	showadditemlist = function(self)
+		local itemwidth
+		for index, presetcolor in ipairs(huddata.presetcolors) do
+			imgui.PushID(self.id .. index)
+			local clicked = logpcall(imgui.ColorButton, 'lists.gradient:showadditemlist() - preset color button',unpack(presetcolor))
+			imgui.PopID()
+			if not itemwidth then itemwidth, _ = imgui.GetItemRectSize() end
+			if clicked and not self.dragactive then
+				if self.selected then
+					self[self.selected] = utility.listcopy(presetcolor)
+				end -- if self.selected
+			elseif self:detectdragstart(imgui.IsItemActive()) then
+				self.dragsource = presetcolor
+				self.newitem = true
+			end -- if imgui.ColorButton(unpack(presetcolor)) and not self.dragactive
+			imgui.SameLine()
+			local windowposx = imgui.GetWindowPos()
+			local cursorposx = imgui.GetCursorPosX()
+			local availwidth = imgui.GetContentRegionAvailWidth()
+			if availwidth < itemwidth then imgui.NewLine() end
+			-- if cursorposx - windowposx + itemwidth > availwidth then imgui.NewLine() end
+			neondebug.log('imgui.GetCursorPosX(): ' .. cursorposx .. '\nitemwidth: ' .. itemwidth .. '\nimgui.GetContentRegionAvailWidth(): ' .. availwidth, 'main')
+		end -- for index, presetcolor in ipairs(huddata.presetcolors)
+		imgui.NewLine()
+	end, -- showadditemlist = function
+	showitemeditor = function(self)
+		local deletelevel = false
+		if self.selected then
+			if imgui.BeginChild('color level editor', -1, 36, true) then
+				imgui.PushID'selectedcolorbutton'
+				logpcall(imgui.ColorButton, 'lists.gradient:showitemeditor() - selected level colorbutton', unpack(self[self.selected]))
+				imgui.PopID()
+				imgui.SameLine()
+				for i = 1, 4 do
+					imgui.PushItemWidth(36)
+					local changed, newvalue = logpcall(imgui.DragFloat, 'lists.gradient:showitemeditor() - color component dragfloat', '##coloredit' .. self.id .. i, self[self.selected][i] * 255, 1, 0, 255, colorlabels[i] .. ':%.0f')
+					imgui.PopItemWidth()
+					if changed then self[self.selected][i] = newvalue / 255 end
+					imgui.SameLine()
+				end -- for i = 1, 4
+				
+				if self.selected > 1 and self.selected < #self and imgui.Button(label'deletecolorlevel') then
+					imgui.OpenPopup('confirmdeletecolorlevel' .. self.id)
+				end
+				
+				if imgui.BeginPopup('confirmdeletecolorlevel' .. self.id, {'NoTitleBar', 'NoResize', 'NoMove', 'NoScrollBar', 'AlwaysAutoResize'}) then
+					local levelpercent = string.format('%.1f%%%%', self.levels[self.selected] * 100)
+					local colordesc = {}
+					for i = 1, 4 do colordesc[i] = tonumber(string.format('%u', self[self.selected][i] * 255)) end
+					text(label'deletecolorlevel' .. ' (' .. levelpercent .. ')?\n')
+					imgui.PushID'deletecolorlevelpreview'
+						logpcall(imgui.ColorButton, 'lists.gradient:showitemeditor() - deletelevel colorbutton', unpack(self[self.selected]))
+					imgui.PopID()
+					imgui.SameLine()
+					text(utility.serialize(colordesc ))
+					if imgui.Button(label'delete' .. '##deletecolorlevel') then
+						deletelevel = true
+						imgui.CloseCurrentPopup()
+					end -- if imgui.Button(label'delete' .. '##deletecolorlevel')
+					imgui.SameLine()
+					if imgui.Button(label'cancel' .. '##deletecolorlevel') then imgui.CloseCurrentPopup() end
+				imgui.EndPopup() end
+				
+			end imgui.EndChild()
+		end -- if self.selected
+		if deletelevel then
+			table.remove(self, self.selected)
+			table.remove(self.levels, self.selected)
+			self.selected = nil
+		end -- if deletelevel
+	end, -- showitemeditor = function
+} -- widgets.gradient = {...}
+for _, widgetclass in pairs(widgets) do
+	setmetatable(widgetclass, basewidget)
+	widgetclass.__index = widgetclass
+end -- for _, widgetclass in pairs(widgets)
+for _, listclass in pairs(lists) do
+	setmetatable(listclass, baselist)
+	listclass.__index = listclass
+end -- for _, listclass in pairs(lists)
+--------------------------------------------------------------------------------
+local globaloptions = {}
+local function initglobaloptions()
+	globaloptions = {
+		coloreditor'defaultprogressbarcolor',
+		booleaneditor'showwidgettype',
+		-- booleaneditor'autoeditnewwidgets',
+		-- slownumbereditor('longinterval', 1, 10, 1), -- this might be completely pointless...
+		-- numbereditor('offscreenx', 0, 50, 1),
+		-- numbereditor('offscreeny', 0, 50, 1),
+		numbereditor('inputtextwidth', 24, 420, 1, '%u'),
+		-- numbereditor('dragtargetmargin', 0, 144, 1, '%u'),
+		slownumbereditor('dragthreshold', 2, 24, 1),
+		booleaneditor'defaultautoresize',
+		optionalparametereditor{
+			param = 'defaulttextcolor',
+			editlabel = 'set default text color',
+			resetlabel = 'reset',
+			editfunction = coloreditor'defaulttextcolor',
+			defaultvalue = function() return {.8, .8, .8, 1} end,
+		}, -- editdefaulttextcolor = optionalparametereditor{...}
+		optionalparametereditor{
+			param = 'defaultbgcolor',
+			editlabel = 'set default background color',
+			resetlabel = 'reset',
+			editfunction = coloreditor'defaultbgcolor',
+			defaultvalue = function() return {.2, .2, .2, .5} end,
+		}, -- editdefaultbgcolor = optionalparametereditor{...}
+		-- basewidget.fontscaleeditor,
+		-- booleaneditor'showpixels',
+		numbereditor('smallstep', .01, 1, .01, '%.2f'),
+		numbereditor('bigstep', 1, 50, 1, '%.0f'),
+	} -- globaloptions = {...}
+end -- local function initglobaloptions
 local function presentglobaloptionswindow()
 	imgui.SetNextWindowSize(500, 300, 'FirstUseEver')
 	local success
-	success, huddata.showglobaloptionswindow = imgui.Begin('global options', true)
+	success, huddata.showglobaloptions = imgui.Begin('global options', true)
 		if not success then imgui.End() return end
-		for _, optioneditor in ipairs(globaloptions) do
-			-- print('showing ' .. optionname)
+		for index, optioneditor in ipairs(globaloptions) do
+			neondebug.log('showing global option # ' .. index, 'main')
 			optioneditor(huddata)
 		end
 	imgui.End()
 	-- return windowopen
 end -- local function presentglobaloptionswindow -------------------------------
-local mainmenuwidgets = {
-	simpletogglebutton('show global options window', 'global options'),
-	simpletogglebutton('show debug window', 'show debug window'),
-} -- local mainmenuwidgets = {...}
+local mainmenuwidgets = {}
+local function initmainmenuwidgets()
+	mainmenuwidgets = {
+		simpletogglebutton('showglobaloptions'),
+		simpletogglebutton('showdebugwindow'),
+	} -- mainmenuwidgets = {...}
+end -- local function initmainmenuwidgets
 local function presentmainwindow()
 	imgui.SetNextWindowSize(600,300,'FirstUseEver')
 	local success
@@ -1057,14 +1626,15 @@ local function presentmainwindow()
 				if window:button(window.title .. '##' .. i, selected) then
 					if selected then huddata.selectedwindow = nil
 					else huddata.selectedwindow = i
-					end
-				end
-			end
+					end -- if selected
+				end -- if window:button
+			end -- for i = 1, #huddata.windowlist
 			
 			imgui.Separator()
 			
 			if imgui.Button('add new window') then
-				table.insert(huddata.windowlist, newwidget('window'))
+				table.insert(huddata.windowlist, createwidget(customwindow))
+				huddata.selectedwindow = #huddata.windowlist
 			end -- if imgui.Button('add new window')
 			-- maybe make a pop-up dialog to enter title before adding window
 			
@@ -1119,23 +1689,54 @@ local function presentfirsttimedialog()
 	
 	end
 end -- local function presentfirsttimedialog
+local function loadlanguage()
+	initglobaloptions()
+	neondebug.log('finished initglobaloptions()', 'main')
+	initmainmenuwidgets()
+	neondebug.log('finished initmainmenuwidgets()', 'main')
+	-- labeleditorlabel = languagetable.label.label
+	-- labeltypelabels = languagetable.label.labeltypes
+	colorlabels = languagetable.label.rgba
+	neondebug.log('successfully loaded label tables (labeleditor, labeltypes, colors)', 'main')
+	basewidget:initeditors()
+	neondebug.log('finished basewidget:initeditors()', 'main')
+	customwindow:initeditors()
+	neondebug.log('finished customwindow:initeditors()', 'main')
+	for widgetname, widget in pairs(widgets) do
+		widget:initeditors()
+		neondebug.log('finished ' .. widgetname .. ':initeditors()', 'main')
+	end -- for _, widget in pairs(widgets)
+end -- local function loadlanguage
+local function initnewprofile()
+	huddata = {windowlist = {}, showmainwindow = true, showwidgettype = true, --[[dragtargetmargin = 48, longinterval = 1, autoeditnewwidgets = true, offscreenx = 0, offscreeny = 0, ]]fontscale = 1, inputtextwidth = 96, dragthreshold = 24, defaulttextcolor = {.8, .8, .8, 1}, defaultbgcolor = {0, 0, 0, .5}, defaultprogressbarcolor = {.2, .2, 1, 1}, defaultautoresize = true, bigstep = 5, smallstep = .2, maximumgradientlevels = 6, minimumgradientlevelseparation = .05}
+	huddata.presetcolors = {{0.5, 0, 0, 1, }, {1, 0, 0, 1, }, {0.9, 0.1, 0.29, 1, }, {0.98, 0.75, 0.75, 1, }, {0.67, 0.43, 0.16, 1, }, {0.96, 0.51, 0.19, 1, }, {1, 0.84, 0.71, 1, }, {0.5, 0.5, 0, 1, }, {1, 0.88, 0.1, 1, }, {1, 0.98, 0.78, 1, }, {0.24, 0.71, 0.29, 1, }, {0.82, 0.96, 0.24, 1, }, {0, 1, 0, 1, }, {0.67, 1, 0.76, 1, }, {0, 0.5, 0.5, 1, }, {0.27, 0.94, 0.94, 1, }, {0, 0, 0.5, 1, }, {0, 0, 1, 1, }, {0, 0.51, 0.78, 1, }, {0.57, 0.12, 0.71, 1, }, {0.94, 0.2, 0.9, 1, }, {0.9, 0.75, 1, 1, }, {0, 0, 0, 1, }, {0.5, 0.5, 0.5, 1, }, {1, 1, 1, 1, },}-- huddata.presetcolors = {...}
+end -- local function initnewprofile
 local function loaddata()
+	neondebug.log('starting loaddata()', 'main')
+	
 	local neww, newh = psodata.getgamewindowsize()
 	if neww > 0 then
+		neondebug.log('successfully retrieved window size', 'main')
 		statusheight = imgui.GetTextLineHeightWithSpacing() * 2
 		gamewindowwidth = neww
 		gamewindowheight = newh
-	
-		huddata = utility.loadtable('profile')
+		
+		neondebug.log('attempting to load languagetable...', 'main')
+		languagetable = require'custom hud.languages.english'
+		loadlanguage()
+		neondebug.log('successfully loaded languagetable', 'main')
+		
+		-- huddata = utility.loadtable('profile')
+		huddata = logpcall(require, 'loaddata() - attempting to load saved profile', 'custom hud.profile')
 		if huddata then
+			neondebug.log('successfully loaded saved profile', 'main')
 			for _, window in ipairs(huddata.windowlist) do
-				restorewidget(window)
+				restorewidget(window, customwindow)
+				-- window.init(thiswindow)
 			end
 		else
-			huddata = {longinterval = 1, offscreenx = 0, offscreeny = 0, fontscale = 1, inputtextwidth = 96, dragtargetmargin = 48, dragthreshold = 24, defaulttextcolor = {.8, .8, .8, 1}, defaultbgcolor = {0, 0, 0, .5}, defaultautoresize = true,}
-			huddata.windowlist = {}
-			huddata.showmainwindow = true
-			huddata['show window options'] = false
+			neondebug.log('no saved profile found; initializing new profile', 'main')
+			initnewprofile()
 		end -- if huddata
 		
 		updatexboundary()
@@ -1143,15 +1744,22 @@ local function loaddata()
 		ready = true
 		return true
 	end -- if neww > 0
+	neondebug.log('finished loaddata()', 'main')
 end -- local function loaddata--------------------------------------------------
 table.insert(tasks, loaddata)
 local function present()
+	neondebug.log('starting present()', 'main')
 	
 	local now = os.time()
+	neondebug.log('retrieved current system time', 'main')
+	
 	local interval = huddata.longinterval or 1
+	
+	neondebug.log('starting tasks loop', 'main')
 	if #tasks > 0 and os.difftime(now, lasttime) >= interval then
 		local taskindex = 1
 		repeat
+			neondebug.log('attempting task index ' .. taskindex, 'main')
 			if tasks[taskindex]() then
 				table.remove(tasks, taskindex)
 			else
@@ -1160,31 +1768,40 @@ local function present()
 		until taskindex > #tasks
 		lasttime = now
 	end
+	neondebug.log('finished tasks loop', 'main')
 	
 	if not ready then return end
 	
 	psodata.retrievepsodata()
+	neondebug.log('finished psodata.retrievepsodata()', 'main')
 	
 	if huddata.showmainwindow then
 		presentmainwindow()
 	end
+	neondebug.log('showed main window (or not) successfully', 'main')
 	if huddata.showdebugwindow then
 		huddata.showdebugwindow = neondebug.present()
 	end
-	if huddata.showglobaloptionswindow then
+	neondebug.log('showed debug window (or not) successfully', 'main')
+	if huddata.showglobaloptions then
 		presentglobaloptionswindow()
 	end
+	neondebug.log('showed global options window (or not) successfully', 'main')
 	for _, window in ipairs(huddata.windowlist) do
 		window:display()
 	end
-	
+	neondebug.log('finished displaying window list; finished present()', 'main')
 end -- local function present
-local function init()
+local function dirtest()
 	local pwd = io.popen([[dir "addons\custom hud" /b]])
 	for dir in pwd:lines() do
 		print(dir)
 	end
 	pwd:close()
+end -- local function dirtest
+local function init()
+	-- dirtest()
+	neondebug.log('starting init()', 'main')
 	
 	psodata.setactive('player')
 	psodata.setactive('meseta')
@@ -1202,6 +1819,7 @@ local function init()
 		huddata.showmainwindow = not huddata.showmainwindow
 		end)
 	
+	neondebug.log('finished init(), returning', 'main')
 	return
 		{
 		name = 'custom hud',

@@ -67,10 +67,10 @@ function utility.tablecombolist(sourcetable)
 	local longest = 12 -- space needed when list is displayed in a combo box
 	
 	for key, item in pairs(sourcetable) do
-		if type(item) == 'table' and not item.hidden then -- i don't think i'm using the 'hidden' flag anymore, i'm just making sure that stuff that needs to be hidden (i think it was only used by widgets) isn't added to the sourcetable until after i call utility.tablecombolist
+		-- if type(item) == 'table' and not item.hidden then -- i don't think i'm using the 'hidden' flag anymore, i'm just making sure that stuff that needs to be hidden (i think it was only used by widgets) isn't added to the sourcetable until after i call utility.tablecombolist
 			table.insert(resultlist, key)
 			longest = math.max(longest, string.len(key))
-		end
+		-- end
 	end -- for key, _ in pairs(sourcetable)
 	resultlist.longest = longest
 	
@@ -217,9 +217,9 @@ do -- serialize functions
 	end -- function serialize.table
 end -- serialize functions
 function utility.showfunctionnames(list)
-	local result = '{'
+	local result = '{\n'
 	for key, value in pairs(list) do
-		if type(value) == 'function' then result = result .. key .. ', ' end
+		if type(value) == 'function' then result = result .. key .. ',\n' end
 	end -- for key, value in pairs(list)
 	result = result .. '}'
 	return result

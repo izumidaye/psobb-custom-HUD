@@ -10,8 +10,10 @@ local core_mainmenu, neondebug, psodata, utility, shortname do
 	neondebug = require 'custom hud.neondebug'
 	neondebug.enablelogging('error', 5)
 	neondebug.enablelogging('main', 5)
+	-- neondebug.enablelogging('instantgamecrash', 1)
 	-- neondebug.enablelogging('listpicker2', 5)
-	neondebug.enablelogging('updatename', 5)
+	-- neondebug.enablelogging('updatename', 5)
+	-- neondebug.enablelogging('layoutvalues')
 	psodata = require 'custom hud.psodata'
 	utility = require 'custom hud.utility'
 	neondebug.log('finished require statements', 'main')
@@ -30,7 +32,43 @@ local lasttime, huddata, status, freedids, takenids, tasks, boundary, dragtarget
 	dragtargetmargin = 48
 end
 local labeleditorlabel, labeltypelabels, colorlabels, gamewindowwidth, gamewindowheight, ready, statusheight, languagetable
+local writelayoutvaluesthisframe, showstyleeditorwindow
 --------------------------------------------------------------------------------
+local function writelayoutvalues(location)
+	if writelayoutvaluesthisframe then
+		local layoutfunctions = {
+			'GetContentRegionAvail',
+			'GetContentRegionAvailWidth',
+			'GetContentRegionMax',
+			'GetCursorPos',
+			'GetCursorPosX',
+			'GetCursorPosY',
+			'GetCursorScreenPos',
+			'GetCursorStartPos',
+			'GetFontSize',
+			'GetItemRectMax',
+			'GetItemRectMin',
+			'GetItemRectSize',
+			'GetItemsLineHeightWithSpacing',
+			'GetTextLineHeight',
+			'GetTextLineHeightWithSpacing',
+			'GetTreeNodeToLabelSpacing',
+			'GetWindowContentRegionMax',
+			'GetWindowContentRegionMin',
+			'GetWindowContentRegionWidth',
+			'GetWindowHeight',
+			'GetWindowPos',
+			'GetWindowSize',
+			'GetWindowWidth',
+		} -- local layoutfunctions = {...}
+		local layoutvalues = {location}
+		for _, funcname in ipairs(layoutfunctions) do
+			table.insert(layoutvalues, 'imgui.' .. funcname .. '(): ' .. utility.serialize{imgui[funcname]()})
+		end -- for _, funcname in ipairs(layoutfunctions)
+		table.insert(layoutvalues, '\n')
+		neondebug.alwayslog(table.concat(layoutvalues, '\n'), 'layoutvalues')
+	end -- if writelayoutvaluesthisframe
+end -- local function writelayoutvalues
 local function logpcall(f, desc, ...)
 	local results = {pcall(f, ...)}
 	local success = table.remove(results, 1)
@@ -61,11 +99,11 @@ local function evaluategradient(levels, barvalue)
 	end -- for index, level in ipairs(levels)
 	return #levels
 end -- local function evaluategradient -----------------------------------------
-local function updatexboundary()
+local function updatexboundary() -- i don't think i actually want to allow objects even partially offscreen, so i will probably remove this
 	boundary.left = 0-- - huddata.offscreenx
 	boundary.right = 100-- + huddata.offscreenx
 end -- local function updatexboundary ------------------------------------------
-local function updateyboundary()
+local function updateyboundary() -- i don't think i actually want to allow objects even partially offscreen, so i will probably remove this
 	boundary.top = 0-- - huddata.offscreeny
 	boundary.bottom = 100-- + huddata.offscreeny
 end -- local function updateyboundary ------------------------------------------
@@ -214,8 +252,11 @@ local function optionalparametereditor(arg)-- arg={param, editlabel, resetlabel,
 			imgui.SameLine()
 			if imgui.Button(resetlabel .. '##' .. param) then data[param] = nil end
 		else
-			if imgui.Button(editlabel) then data[param] = defaultvalue() end
-		end
+			if imgui.Button(editlabel) then
+				data[param] = defaultvalue()
+				if type(data[param]) == 'table' then data[param] = utility.listcopy(data[param]) end
+			end
+		end -- if data[param]
 	end -- return function
 end -- local function editoptionalparameter
 local function setactivebuttonstyle()
@@ -423,8 +464,8 @@ local basewidget = {
 		} -- self.textcoloreditor = optionalparametereditor{...}
 		self.bgcoloreditor = optionalparametereditor{
 			param = 'bgcolor',
-			editlabel = label('editbgcolor'),
-			resetlabel = label('resetparam'),
+			editlabel = label'editbgcolor',
+			resetlabel = label'resetparam',
 			editfunction = coloreditor'bgcolor',
 			defaultvalue = function() return huddata.defaultbgcolor end
 		} -- self.bgcoloreditor = optionalparametereditor{...}
@@ -463,7 +504,7 @@ local basewidget = {
 		-- if self.longname == nil then print('translation for [' .. tostring(self.typename) .. '] not found.') return end
 		local oldshortname = self.shortname or 'nothing'
 		self.shortname = lookup('short', self.datasource)
-		if huddata.showwidgettype then self.shortname = lookup('short', self.typename) .. '\n' .. self.shortname end
+		if huddata.showwidgettype then self.shortname = lookup('short', self.typename) .. ': ' .. self.shortname end
 		neondebug.log('changed widget name ' .. oldshortname .. ' to ' .. self.shortname, 'updatename')
 	end, -- updatename = function
 	initlabel = function(self)
@@ -834,6 +875,7 @@ local customwindow = {
 		self.widgetlist = createwidget(lists.widgetlist)
 		self.x = self.id * 5
 		self.y = self.id * 5
+		self.title = 'new window ' .. #huddata.windowlist + 1
 	end, -- firsttimeinit = function
 	init = function(self)
 		self:updatelayoutw()
@@ -1121,12 +1163,23 @@ local baselist = {
 		self.buttonedges = {5}
 		self.buttoncenters = {}
 	end, -- firsttimeinit = function
-	init = function(self) end,
+	init = function(self) self.changed = true end,
 	restore = function(self) end,
 	changed = true,
 	orientation = 'horizontal',
 	listheight = 36,
+	initeditors = function(self)
+		-- in this method, 'self' refers to a widget class, not an instance
+		local horizontalbutton = listbutton('orientation', 'horizontal', 'label')
+		local verticalbutton = listbutton('orientation', 'vertical', 'label')
+		self.chooseorientation = function(data)
+			horizontalbutton(data)
+			imgui.SameLine()
+			verticalbutton(data)
+		end -- self.chooseorientation = function
+	end, -- initeditors = function
 	initdragtarget = function(self, width, height)
+		-- neondebug.log('initdragtarget - width: ' .. width .. ' | height: ' .. height, 'layoutvalues')
 		self.dragtarget.top = -dragtargetmargin
 		self.dragtarget.bottom = height + dragtargetmargin
 		self.dragtarget.left = -dragtargetmargin
@@ -1140,18 +1193,38 @@ local baselist = {
 		return result
 	end, -- calcdragdest = function
 	showitemcenters = function(self)
-		imgui.NewLine()
-		for _, pos in ipairs(self.itemcenters) do
-			imgui.SameLine(pos)
-			text'|'
-		end
+		if self.orientation == 'horizontal' then
+			imgui.NewLine()
+			-- imgui.Dummy(0, 0)
+			-- imgui.SetCursorPosX(0)
+			for _, pos in ipairs(self.itemcenters) do
+				imgui.SameLine(pos)
+				text'|'
+			end -- for _, pos in ipairs(self.itemcenters)
+		else -- self.orientation is assumed to be 'vertical'
+			local currentposy = imgui.GetCursorPosY()
+			for _, pos in ipairs(self.itemcenters) do
+				imgui.SetCursorPosY(pos)
+				imgui.Separator()
+			end -- for _, pos in ipairs(self.itemcenters)
+			imgui.SetCursorPosY(currentposy)
+		end -- if self.orientation == 'horizontal'
 	end, -- showitemcenters = function
 	showitemedges = function(self)
-		imgui.NewLine()
-		for _, pos in ipairs(self.itemedges) do
-			imgui.SameLine(pos)
-			text'|'
-		end
+		if self.orientation == 'horizontal' then
+			imgui.NewLine()
+			for _, pos in ipairs(self.itemedges) do
+				imgui.SameLine(pos)
+				text'|'
+			end -- for _, pos in ipairs(self.itemedges)
+		else -- self.orientation is assumed to be 'vertical'
+			local currentposy = imgui.GetCursorPosY()
+			for _, pos in ipairs(self.itemedges) do
+				imgui.SetCursorPosY(pos)
+				imgui.Separator()
+			end -- for _, pos in ipairs(self.itemedges)
+			imgui.SetCursorPosY(currentposy)
+		end -- if self.orientation == 'horizontal'
 	end, -- showitemedges = function
 	detectdragstart = function(self, itemactive)
 		return itemactive and not self.dragsource and imgui.IsMouseDragging(0, huddata.dragthreshold)
@@ -1167,22 +1240,44 @@ local baselist = {
 				self.dragsource = nil
 	end, -- dragend = function
 	showadditemlist = function(self) end,
+	showadditempopup = function(self) end,
 	showitemeditor = function(self) end,
 	edit = function(self)
+		self.changed = true
+		writelayoutvalues('start baselist.edit()')
 		local lastitempos
-		local offsetx, offsety = imgui.GetCursorScreenPos() -- need these to reconcile relative and absolute coordinates
+		local windowoffsetx, windowoffsety = imgui.GetCursorScreenPos() -- need these to reconcile relative and absolute coordinates
+		local editoroffsetx, editoroffsety = imgui.GetCursorPos()
+		-- local currentx, currenty = imgui.GetCursorPos()
+		-- offsetx = offsetx - currentx
+		-- offsety = offsety - currenty
+		-- local framewidth, frameheight
+		-- if self.orientation == 'horizontal' then
+			-- framewidth = -1
+			-- frameheight = imgui.GetTextLineHeightWithSpacing() + self.listheight
+		-- else -- self.orientation is assumed to be 'vertical'
+			-- i think i might just decide to not put lists in a frame...
+		-- end -- if self.orientation == 'horizontal'
 		
-		if imgui.BeginChild('item list', -1, imgui.GetTextLineHeightWithSpacing() + self.listheight, true) then
+		imgui.BeginGroup()
+			writelayoutvalues('baselist.edit: start imgui.BeginGroup()')
+		-- if imgui.BeginChild('item list', framewidth, frameheight, true) then
 		-- this won't work with vertical layout because of size values
 		
 			if self.orientation == 'horizontal' then
 				imgui.Dummy(0, 0)
+				imgui.SameLine()
+				writelayoutvalues('after imgui.Dummy()')
+				-- imgui.SameLine(12)
 			end
-			-- not sure why i need this?
+			-- not sure why i need this?  - it might be to make space for the drop target indicator.
 			
 			if self.changed then
 				if self.orientation == 'horizontal' then
-					lastitempos, _ = imgui.GetCursorPos() + 5
+					self.spacing = imgui.GetCursorStartPos() * .75
+					lastitempos = imgui.GetCursorPosX() - self.spacing
+				else -- self.orientation is assumed to be 'vertical'
+					lastitempos = imgui.GetCursorPosY() - 2.5
 				end
 				self.itemedges = {lastitempos}
 				self.itemcenters = {}
@@ -1190,19 +1285,23 @@ local baselist = {
 			-- initialize itemcenters and itemedges
 			
 			for index, item in ipairs(self) do
-				if self.orientation == 'horizontal' then imgui.SameLine() end
 				if self:detectdragstart(self:listitem(index)) then self.dragsource = index end
+				if self.orientation == 'horizontal' then imgui.SameLine() end
+				writelayoutvalues('list item: ' .. index)
 				-- display one list item and detect when drag starts
 				
 				if self.changed then
+					local itemwidth, itemheight = imgui.GetItemRectSize()
 					if self.orientation == 'horizontal' then
-						local itemwidth, itemheight = imgui.GetItemRectSize()
-						if itemheight > self.listheight then self.listheight = itemheight end
-						table.insert(self.itemcenters, lastitempos + 8 + itemwidth / 2)
-						lastitempos = lastitempos + itemwidth + 8
-						table.insert(self.itemedges, lastitempos + 3)
+						-- if itemheight > self.listheight then self.listheight = itemheight end
+						local currentpos = imgui.GetCursorPosX()
+						table.insert(self.itemcenters, (currentpos + self.itemedges[#self.itemedges]) / 2)
+						table.insert(self.itemedges, currentpos - self.spacing)
 					else -- assume self.orientation == 'vertical'
-						-- figure this out once everything else is working
+						local currentpos = imgui.GetCursorPosY()
+						table.insert(self.itemcenters, (currentpos + self.itemedges[#self.itemedges]) / 2)
+						-- lastitempos = lastitempos + itemheight + 4
+						table.insert(self.itemedges, currentpos)
 					end -- if self.orientation == 'horizontal'
 				end -- if self.changed
 				-- add entries to itemcenters and itemedges for current item
@@ -1210,37 +1309,48 @@ local baselist = {
 			end -- for index, item in ipairs(self)
 			
 			if self.dragdest then
-				local offset, _ = imgui.GetCursorPos()
-				imgui.SameLine(self.itemedges[self.dragdest] - 7)
-				text'|'
+				if self.orientation == 'horizontal' then
+					local offset, _ = imgui.GetCursorPos()
+					imgui.SameLine(self.itemedges[self.dragdest])
+					text'|'
+				else -- self.orientation is assumed to be 'vertical'
+					local currentposy = imgui.GetCursorPosY()
+					imgui.SetCursorPosY(self.itemedges[self.dragdest])
+					imgui.Separator()
+					imgui.SetCursorPosY(currentposy)
+				end -- if self.orientation == 'horizontal'
 			end
 			-- show where drag item will go if mouse is released now
 			-- this is horizontal layout specific
 			
-		end imgui.EndChild() -- end item list
-		
-		-- self:showitemcenters()
-		-- self:showitemedges()
+		imgui.EndGroup()
+		writelayoutvalues('after imgui.EndGroup()')
+		-- end imgui.EndChild() -- end item list
 		
 		if self.changed then
-			self.changed = false
+			-- self.changed = false
 			self:initdragtarget(imgui.GetItemRectSize())
 		end -- if self.changed
 		-- setup drop zone; layout recalculation done
+		
+		-- imgui.SameLine()
+		-- self:showitemcenters()
+		writelayoutvalues('after showitemcenters()')
+		-- self:showitemedges()
 		
 		self:showadditemlist()
 		
 		if self.dragsource then
 			if imgui.IsMouseDown(0) then
 				local mousex, mousey = imgui.GetMousePos()
-				mousex = mousex - offsetx
-				mousey = mousey - offsety
+				mousex = mousex - windowoffsetx
+				mousey = mousey - windowoffsety
 				
 				if utility.iswithinrect(mousex, mousey, self.dragtarget) then
 					if self.orientation == 'horizontal' then
-						self.dragdest = self.calcdragdest(self.itemcenters, mousex)
+						self.dragdest = self.calcdragdest(self.itemcenters, mousex + editoroffsetx)
 					else -- assume orientation == 'vertical'
-						-- figure this out once everything else is working
+						self.dragdest = self.calcdragdest(self.itemcenters, mousey + editoroffsety)
 					end -- if self.orientation == 'horizontal'
 				else
 					self.dragdest = nil
@@ -1254,6 +1364,144 @@ local baselist = {
 		self:showitemeditor()
 		
 	end, -- edit = function(self)
+	edithorizontal = function(self)
+		-- self.changed = true
+		local windowoffsetx, windowoffsety = imgui.GetCursorScreenPos() -- need these to reconcile relative and absolute coordinates
+		local editoroffsetx, editoroffsety = imgui.GetCursorPos()
+		
+		imgui.BeginGroup()
+		
+			imgui.Dummy(0, 0)
+			imgui.SameLine()
+			writelayoutvalues('after imgui.Dummy()')
+			-- not sure why i need this?  - it might be to make space for the drop target indicator.
+			
+			if self.changed then
+				self.spacing = imgui.GetCursorStartPos() * .75
+				self.itemedges = {imgui.GetCursorPosX() - self.spacing}
+				self.itemcenters = {}
+			end
+			-- initialize itemcenters and itemedges
+			
+			for index, item in ipairs(self) do
+				if self:detectdragstart(self:listitem(index)) then self.dragsource = index end
+				imgui.SameLine()
+				writelayoutvalues('list item: ' .. index)
+				-- display one list item and detect when drag starts
+				
+				if self.changed then
+					local currentpos = imgui.GetCursorPosX()
+					table.insert(self.itemcenters, (currentpos + self.itemedges[#self.itemedges]) / 2)
+					table.insert(self.itemedges, currentpos - self.spacing)
+				end -- if self.changed
+				-- add entries to itemcenters and itemedges for current item
+				
+			end -- for index, item in ipairs(self)
+			
+			if self.dragdest then
+				local offset, _ = imgui.GetCursorPos()
+				imgui.SameLine(self.itemedges[self.dragdest])
+				text'|'
+			end
+			-- show where drag item will go if mouse is released now
+			
+		imgui.EndGroup()
+		
+		if self.changed then
+			self.changed = false
+			self:initdragtarget(imgui.GetItemRectSize())
+		end -- if self.changed
+		-- setup drop zone; layout recalculation done
+		
+		-- imgui.SameLine()
+		-- self:showitemcenters()
+		-- self:showitemedges()
+		
+		self:showadditemlist()
+		
+		if self.dragsource then
+			if imgui.IsMouseDown(0) then
+				local mousex, mousey = imgui.GetMousePos()
+				mousex = mousex - windowoffsetx
+				mousey = mousey - windowoffsety
+				
+				if utility.iswithinrect(mousex, mousey, self.dragtarget) then
+					self.dragdest = self.calcdragdest(self.itemcenters, mousex + editoroffsetx)
+				else self.dragdest = nil
+				end -- if mouse position is within dragtarget
+			else -- drag action ended
+				self:dragend()
+			end -- if imgui.IsMouseDown(0)
+		end -- if self.dragsource
+		-- recalculate drag target, or complete drag action
+		
+		-- self:showitemeditor()
+	end, -- edithorizontal = function(self)
+	editvertical = function(self)
+		local windowoffsetx, windowoffsety = imgui.GetCursorScreenPos() -- need these to reconcile relative and absolute coordinates
+		local editoroffsetx, editoroffsety = imgui.GetCursorPos()
+		
+		imgui.BeginGroup()
+		
+			if self.changed then
+				self.itemedges = {imgui.GetCursorPosY() - 2.5}
+				self.itemcenters = {}
+			end
+			-- initialize itemcenters and itemedges
+			
+			for index, item in ipairs(self) do
+				if self:detectdragstart(self:listitem(index)) then self.dragsource = index end
+				-- display one list item and detect when drag starts
+				
+				if self.changed then
+					local currentpos = imgui.GetCursorPosY()
+					table.insert(self.itemcenters, (currentpos + self.itemedges[#self.itemedges]) / 2)
+					table.insert(self.itemedges, currentpos)
+				end -- if self.changed
+				-- add entries to itemcenters and itemedges for current item
+				
+			end -- for index, item in ipairs(self)
+			
+			if self.dragdest then
+				local currentposy = imgui.GetCursorPosY()
+				imgui.SetCursorPosY(self.itemedges[self.dragdest])
+				imgui.Separator()
+				imgui.SetCursorPosY(currentposy)
+			end
+			-- show where drag item will go if mouse is released now
+			
+		imgui.EndGroup()
+		
+		if self.changed then
+			self.changed = false
+			self:initdragtarget(imgui.GetItemRectSize())
+		end -- if self.changed
+		-- setup drop zone; layout recalculation done
+		
+		-- imgui.SameLine()
+		-- self:showitemcenters()
+		-- self:showitemedges()
+		
+		-- self:showadditemlist()
+		
+		if self.dragsource then
+			if imgui.IsMouseDown(0) then
+				local mousex, mousey = imgui.GetMousePos()
+				mousex = mousex - windowoffsetx
+				mousey = mousey - windowoffsety
+				
+				if utility.iswithinrect(mousex, mousey, self.dragtarget) then
+					self.dragdest = self.calcdragdest(self.itemcenters, mousey + editoroffsety)
+				else self.dragdest = nil
+				end -- if mouse position is within dragtarget
+			else -- drag action ended
+				self:dragend()
+			end -- if imgui.IsMouseDown(0)
+		end -- if self.dragsource
+		-- recalculate drag target, or complete drag action
+		
+		-- self:showitemeditor()
+	end, -- editvertical = function(self)
 } -- local baselist = {...}
 baselist.__index = baselist
 lists.widgetlist = {
@@ -1314,6 +1562,22 @@ lists.widgetlist = {
 			end -- if imgui.Button(itemname .. '##newitem') and not self.dragactive
 		end -- for index, itemname in ipairs(self.additemlist)
 	end, -- showadditemlist = function
+	showadditempopup = function(self)
+		-- show list of  widget types that can be added to the list, and detect when one is clicked or dragged.
+		if imgui.Button(label'addnewwidget') then imgui.OpenPopup'newwidgetpopup' end
+		if imgui.BeginPopup'newwidgetpopup' then
+			for index, itemname in ipairs(self.additemlist) do
+				if imgui.Button(itemname .. '##newitem') and not self.dragactive then
+					self.dragsource = widgets[itemname]
+					self.newitem = true
+					self.dragdest = #self + 1
+				elseif self:detectdragstart(imgui.IsItemActive()) then
+					self.dragsource = widgets[itemname]
+					self.newitem = true
+				end -- if imgui.Button(itemname .. '##newitem') and not self.dragactive
+			end -- for index, itemname in ipairs(self.additemlist)
+		imgui.EndPopup() end
+	end, -- showadditempopup = function
 	showitemeditor = function(self)
 		local deletewidget = false
 		if self.selected then
@@ -1561,6 +1825,7 @@ end -- for _, listclass in pairs(lists)
 local globaloptions = {}
 local function initglobaloptions()
 	globaloptions = {
+		booleaneditor'compactmainwindow',
 		coloreditor'defaultprogressbarcolor',
 		booleaneditor'showwidgettype',
 		-- booleaneditor'autoeditnewwidgets',
@@ -1604,95 +1869,185 @@ local function presentglobaloptionswindow()
 	-- return windowopen
 end -- local function presentglobaloptionswindow -------------------------------
 local mainmenuwidgets = {}
+local statuspopup
+local function showstatuspopup()
+	if statuspopup then
+		imgui.OpenPopup'statuspopup'
+		statuspopup = false
+	end
+	if imgui.BeginPopup'statuspopup' then
+		text(status)
+		if imgui.Button(label'close') then imgui.CloseCurrentPopup() end
+	imgui.EndPopup() end -- if imgui.BeginPopup'statuspopup'
+end -- local function showstatuspopup
+local function saveprofile()
+	utility.savetable('profile', huddata)
+	status = os.date('%F | %T\n' .. lookup('message', 'savesuccessful'))
+	statuspopup = true
+end -- local function saveprofile
+local function showsavebutton()
+	if imgui.Button(label'saveprofile') then saveprofile() end
+	showstatuspopup()
+end -- local function showsavebutton
+local mainmenu
+local function initmainmenu()
+	mainmenu = {
+		{label'saveprofile', saveprofile},
+		{label'showglobaloptions', function()
+			huddata.showglobaloptions = not huddata.showglobaloptions
+		end},
+		{label'showdebugwindow', function()
+			huddata.showdebugwindow = not huddata.showdebugwindow
+		end},
+		{label'showstyleeditor', function()
+			showstyleeditorwindow = not showstyleeditorwindow
+		end},
+	} -- mainmenu = {...}
+end -- local function initmainmenu
 local function initmainmenuwidgets()
 	mainmenuwidgets = {
 		simpletogglebutton('showglobaloptions'),
 		simpletogglebutton('showdebugwindow'),
+		showsavebutton,
 	} -- mainmenuwidgets = {...}
 end -- local function initmainmenuwidgets
+local function changefocus(newfocus)
+	huddata.previousfocus, huddata.focus = huddata.focus, newfocus
+end -- local function changefocus
+local function revertfocus()
+	huddata.focus, huddata.previousfocus = huddata.previousfocus, huddata.focus
+end -- local function revertfocus
+local function showmainmenu()
+	if imgui.Button(label'addnewwindow') then
+		table.insert(huddata.windowlist, createwidget(customwindow))
+		huddata.selectedwindow = #huddata.windowlist
+		imgui.OpenPopup'namenewwindow'
+	end -- if imgui.Button('add new window')
+	if imgui.BeginPopup'namenewwindow' then
+		text(label'newwindow')
+		huddata.windowlist[huddata.selectedwindow]:titleeditor()
+		if imgui.Button(label'ok') then imgui.CloseCurrentPopup() end
+	imgui.EndPopup() end
+end -- local function showmainmenu ---------------------------------------------
+local function showdeletewindowbutton()
+	if huddata.selectedwindow and imgui.Button(label'deletewindow') then
+		imgui.OpenPopup('confirmdeletewindow')
+	end
+	if imgui.BeginPopup'confirmdeletewindow' then
+		imgui.Text(label'deletewindow' .. ' "' .. huddata.windowlist[huddata.selectedwindow].title .. '"?')
+		if imgui.Button(label'delete' .. '##deletewindow') then
+			freeid(huddata.windowlist[huddata.selectedwindow].id)
+			table.remove(huddata.windowlist, huddata.selectedwindow)
+			huddata.selectedwindow = nil
+			imgui.CloseCurrentPopup()
+		end -- if imgui.Button(label'delete' .. '##deletewindow')
+		imgui.SameLine()
+		if imgui.Button 'cancel##deletewindow' then imgui.CloseCurrentPopup() end
+	imgui.EndPopup() end
+end -- local function showdeletewindowbutton -----------------------------------
+local function showwindowlist()
+	for i = 1, #huddata.windowlist do
+		local window = huddata.windowlist[i]
+		local selected = huddata.selectedwindow == i
+		if window:button(window.title .. '##' .. i, selected) then
+			if selected then huddata.selectedwindow = nil
+			else huddata.selectedwindow = i
+			end -- if selected
+		end -- if window:button
+	end -- for i = 1, #huddata.windowlist
+	if imgui.Button(label'addnewwindow') then
+		table.insert(huddata.windowlist, createwidget(customwindow))
+	end -- if imgui.Button(label'addnewwindow')
+end -- local function showwindowlist -------------------------------------------
 local function presentmainwindow()
+	neondebug.alwayslog('start presentmainwindow()', 'instantgamecrash')
 	imgui.SetNextWindowSize(600,300,'FirstUseEver')
+	neondebug.alwayslog('successfully called imgui.SetNextWindowSize(...)', 'instantgamecrash')
 	local success
 	success, huddata.showmainwindow = imgui.Begin('custom hud editor', true)
 		if not success then
 			imgui.End()
 			return
 		end
-		
-		imgui.BeginChild('window list and main menu', 150 * huddata.fontscale, -statusheight, true)
-			for i = 1, #huddata.windowlist do
-				local window = huddata.windowlist[i]
-				local selected = huddata.selectedwindow == i
-				if window:button(window.title .. '##' .. i, selected) then
-					if selected then huddata.selectedwindow = nil
-					else huddata.selectedwindow = i
-					end -- if selected
-				end -- if window:button
-			end -- for i = 1, #huddata.windowlist
+		neondebug.alwayslog('main window imgui.Begin success', 'instantgamecrash')
+		if imgui.BeginChild('window list and main menu', 150 * huddata.fontscale, -1, true) then
+			showwindowlist()
+			neondebug.alwayslog('showed window list', 'instantgamecrash')
 			
 			imgui.Separator()
 			
-			if imgui.Button('add new window') then
-				table.insert(huddata.windowlist, createwidget(customwindow))
-				huddata.selectedwindow = #huddata.windowlist
-			end -- if imgui.Button('add new window')
-			-- maybe make a pop-up dialog to enter title before adding window
+			showstatuspopup()
 			
-			if imgui.BeginPopup('confirmdeletewindow', {'NoTitleBar', 'NoResize', 'NoMove', 'NoScrollBar', 'AlwaysAutoResize'}) then
-				imgui.Text('delete window "' .. huddata.windowlist[huddata.selectedwindow].title .. '"?')
-				if imgui.Button 'delete##deletewindow' then
-					freeid(huddata.windowlist[huddata.selectedwindow].id)
-					table.remove(huddata.windowlist, huddata.selectedwindow)
-					huddata.selectedwindow = nil
-					imgui.CloseCurrentPopup()
-				end
-				imgui.SameLine()
-				if imgui.Button 'cancel##deletewindow' then imgui.CloseCurrentPopup() end
-				imgui.EndPopup()
-			end
+			for _, item in ipairs(mainmenu) do
+				if imgui.Button(item[1]) then item[2]() end
+			end -- for _, item in mainmenu
+			neondebug.alwayslog('showed main menu buttons', 'instantgamecrash')
 			
-			if huddata.selectedwindow and imgui.Button('delete window') then
-				imgui.OpenPopup('confirmdeletewindow')
-			end
+			-- writelayoutvalues = false
+			writelayoutvaluesthisframe = imgui.Button'write layout values'
 			
-			if imgui.Button('save') then
-				utility.savetable('profile', huddata)
-				status = os.date('%F | %T: profile and options saved')
-				local delayfinished = os.time() + 10
-				table.insert(tasks, function()
-					if os.time() >= delayfinished then
-						status = ''
-						return true
-					end
-				end)
-			end
-			
-			for _, button in ipairs(mainmenuwidgets) do button(huddata) end
-			
-		imgui.EndChild()
-		
+		end imgui.EndChild()
+		neondebug.alwayslog('showed window list and main menu', 'instantgamecrash')
 		imgui.SameLine()
-		imgui.BeginChild('window editor', -1, -statusheight, true)
+		imgui.BeginChild('window editor', -1, -1, true)
+		neondebug.alwayslog('start window editor', 'instantgamecrash')
 			if huddata.selectedwindow then
 				huddata.windowlist[huddata.selectedwindow]:edit()
 			end -- if huddata.selectedwindow
 		imgui.EndChild()
+		neondebug.alwayslog('showed window editor', 'instantgamecrash')
 		
-		imgui.BeginChild('status bar', -1, statusheight, true)
-			imgui.Text(status)
-		imgui.EndChild()
-		
+		-- imgui.BeginChild('status bar', -1, statusheight, true)
+			-- imgui.Text(status)
+		-- imgui.EndChild()
 	imgui.End()
+	neondebug.alwayslog('end presentmainwindow()', 'instantgamecrash')
 end -- local function presentmainwindow ----------------------------------------
+local function presentmainwindowcompact()
+	imgui.SetNextWindowSize(400,300,'FirstUseEver')
+	local success
+	success, huddata.showmainwindow = imgui.Begin('custom hud editor', true, {'MenuBar'})
+	if success then
+		if imgui.BeginMenuBar() then
+			if imgui.BeginMenu(label'customhud') then
+				for _, item in ipairs(mainmenu) do
+					if imgui.MenuItem(item[1]) then item[2]() end
+				end -- for _, item in mainmenu
+			imgui.EndMenu() end
+			if imgui.BeginMenu(label'windowlist', #huddata.windowlist > 0) then
+				for i = 1, #huddata.windowlist do
+					local window = huddata.windowlist[i]
+					local selected = huddata.selectedwindow == i
+					if imgui.MenuItem(window.title .. '##' .. i, nil, selected) then
+						if selected then huddata.selectedwindow = nil
+						else huddata.selectedwindow = i
+						end -- if selected
+					end -- if imgui.MenuItem
+				end -- for i = 1, #huddata.windowlist
+				imgui.Separator()
+			imgui.EndMenu() end -- window list
+		imgui.EndMenuBar() end
+		showstatuspopup()
+		if imgui.BeginChild("selected window's widget list", huddata.sidebarwidth or 150 * huddata.fontscale, -1, true) then
+			imgui.Separator()
+			if huddata.selectedwindow then
+			 huddata.windowlist[huddata.selectedwindow].widgetlist:editvertical()
+			 huddata.windowlist[huddata.selectedwindow].widgetlist:showadditempopup()
+			end -- if huddata.selectedwindow
+		end -- if imgui.BeginChild("window list and selected window's widget list" ...)
+		imgui.EndChild()
+	end -- if success
+	imgui.End()
+end -- local function presentmainwindowcompact ---------------------------------
 local function presentfirsttimedialog()
 	if not huddata.selectedlanguage then
-	
+		createwidget(customwindow)
 	end
 end -- local function presentfirsttimedialog
 local function loadlanguage()
 	initglobaloptions()
 	neondebug.log('finished initglobaloptions()', 'main')
-	initmainmenuwidgets()
+	initmainmenu()
 	neondebug.log('finished initmainmenuwidgets()', 'main')
 	-- labeleditorlabel = languagetable.label.label
 	-- labeltypelabels = languagetable.label.labeltypes
@@ -1776,8 +2131,12 @@ local function present()
 	neondebug.log('finished psodata.retrievepsodata()', 'main')
 	
 	if huddata.showmainwindow then
-		presentmainwindow()
-	end
+		if huddata.compactmainwindow then
+			presentmainwindowcompact()
+		else
+			presentmainwindow()
+		end -- if huddata.compactmainwindow
+	end -- if huddata.showmainwindow
 	neondebug.log('showed main window (or not) successfully', 'main')
 	if huddata.showdebugwindow then
 		huddata.showdebugwindow = neondebug.present()
@@ -1787,6 +2146,7 @@ local function present()
 		presentglobaloptionswindow()
 	end
 	neondebug.log('showed global options window (or not) successfully', 'main')
+	if showstyleeditorwindow then imgui.ShowStyleEditor() end
 	for _, window in ipairs(huddata.windowlist) do
 		window:display()
 	end
@@ -1818,6 +2178,9 @@ local function init()
 	core_mainmenu.add_button('custom hud', function()
 		huddata.showmainwindow = not huddata.showmainwindow
 		end)
+	
+	-- local actuallythere = utility.tablecombolist(imgui)
+	-- utility.savestring(os.date('imgui functions available %F '), utility.serialize(actuallythere))
 	
 	neondebug.log('finished init(), returning', 'main')
 	return

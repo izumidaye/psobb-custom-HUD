@@ -2,6 +2,7 @@ local languagetable = {}
 
 languagetable.windowtitle = {
 	neondebug = 'custom hud debug window',
+	startup = 'starting custom hud',
 } -- languagetable.windowtitle = {...}
 
 languagetable.label = {

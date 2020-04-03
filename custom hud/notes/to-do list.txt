@@ -1,0 +1,165 @@
+PSOBB Custom HUD project - to-do list
+
+************************************************************************
+- core functionality
+************************************************************************
+
+***********************************
+- widget system overhaul:
+***********************************
+* actually use window font scale (the option is already there)
+* actually use global font scale (again, the option is already there)
+* progress bar: toggle gradual color change vs. discrete steps
+* progress bar: toggle gradual progress display vs. discrete steps (like the life bars in megaman x)
+* fix progress bar size going crazy when it is after other widgets in a window - make sure it is not, and cannot be, set to 'fill' size unless it is the only widget in a window
+* single-widget windows
+* item rating - compare floor items to what you're carrying, and show something that can be evaluated at a glance, like a bar that changes color based on relative quality (weapons, armor, techs, or specific items the player is searching for)
+
+***********************************
+- general:
+***********************************
+* disable imgui saving the position of my windows, since it's just interfering
+* when custom hud is starting, show a loading progress bar, and load things gradually so pso runs smoothly
+* select a window for editing by clicking on it
+* custom hud editor window options
+* drag and drop widgets to other windows, either by targeting the window list, or the windows themselves. in compact mode, change the main display area to show the window list when dragging widgets.
+* choose main window layout: [everything visible] or [(menu + context) sidebar with editing window focused on one specific thing at a time]
+* optionally save deleted widgets and stuff (in 'trash')
+* construct/reconstruct "ActiveGameData" based on what widgets are using
+* automatic HUD profile selection based on character name - these character-specific profiles should be usable along with a universal profile containing windows and widgets that are used for all characters. (also, global options should be toggleable between universal and per-character. -- actually, i don't see the point of this since all current global options only affect editing.)
+* implement import/export individual windows or widgets
+* move string constants to separate file to enable translations
+* write item list to text file
+* choose type of widget and step sizes for editing number options and parameters
+* filter InputText(...) input to remove forbidden characters
+* optional window snap alignment when moving with mouse
+
+* clean up code
+* organize code
+* comment code
+
+***********************************
+- formatted lists:
+***********************************
+* choose which columns to display, and in what order
+* choose display mode: pages, scrolling, display only first X items, display only last X items
+* toggle: list follows new items (page buttons mode only?)
+* list order: normal or inverted
+* choose filter: none, blacklist, whitelist, highlight
+* filter items based on data in one column
+
+***********************************
+- preset editors (add, remove, use presets):
+***********************************
+* color presets (palette of distinctive colors)
+* color gradient presets
+* widget presets
+* window presets
+* checklist presets
+
+***********************************
+- widget editing:
+***********************************
+* preview current setup using fake data
+* optionally show parameter editors all on one line if they fit
+* when a widget is created or edited, generate a custom display function that uses mapped values directly
+
+***********************************
+- game data retrieval:
+***********************************
+* only update GameData when necessary
+* add chat log to psodata.lua
+* read hotbar data from PSO memory
+* add 'rare' to monster list fields
+* add number of stars to item list fields
+* party members' TP and PB
+* mag timer progress function
+* item sell value
+* system clock - display date and / or time
+* data function subtypes - time and xp gain rate
+
+***********************************
+- new widgets:
+***********************************
+* formatted time widget for system time or session time elapsed
+* checklist (check off items manually or when picked up or when deposited in bank)
+* targeted monster accuracy display and suggested attack combo
+* hp bar that changes color at fixed values, to help with stuff like surviving dark falz 3's swipe attack - maybe only active when in the relevant area
+
+***********************************
+- widget features:
+***********************************
+* page buttons for lists
+* text alignment options
+* scroll to end of list when items are added
+* maybe probably font scaling per widget
+
+************************************************************************
++ bugfixes:
+************************************************************************
+* when moving a window that is set to auto-resize, use its actual size when preventing it from being moved offscreen, instead of its saved size ...when switching to auto-sizing, maybe store the saved size values in a different field, and just update the regular fields to follow the auto values. then if auto-sizing is turned off, it can revert to the original sizes by retrieving them from the backup fields.
+
+************************************************************************
++ maybe:
+************************************************************************
+* option to only *show* window under certain conditions (what conditions?)
+* ensure minimum list button size (??? i don't know what this is talking about)
+* shuffle music files when player returns to ship, so it's possible to have a playlist of songs per area, and they all get playtime eventually - instead of putting a bunch of songs in one audio file, and always hearing them in the same order, with the later ones never getting as much playtime. -- maybe this should be its own addon.
+* abstract program away from imgui specific code
+* abstract program away from PSO specific code
+* find out if "pmtAddress" ever changes during a session
+* widget groups - adjust chosen arguments for every widget in a group at once
+* option / argument : filter / sort
+* implement event system
+* actually have separate objects for everything in a table instead of changing the values and redisplaying them for each row? (probably not, just make widgets specifically designed for use in lists)
+* different types of datasource selectors (option to use a drop-down box instead of the new method)
+* global option to not automatically select new widgets/windows
+* optional, automatic global scaling based on screen resolution
+
+************************************************************************
++ these depend on something else being done first:
+************************************************************************
+
+************************************************************************
++ these will require research or help from forum people:
+************************************************************************
+* write widget to display images (section IDs, status effects, tools, attacks, techs, and traps)
+* does the address returned by GetSelf() change over the course of a session, or can I get it once and store it until the program exits?
+
+************************************************************************
++ done:
+************************************************************************
+* change progress type to be a list {value, range}
+* make big text look better - i think Ender did this?
+* which rules do BeginGroup() and EndGroup() follow - do i need to always call an EndGroup() for each BeginGroup(), or only if the BeginGroup() returns true? -- they return void, so there's no 'if' statement, which means always call EndGroup.
+* set up vertical drag and drop lists
+* set up serialize function so that it has the option to ignore any table that contains only functions
+* global options isn't appearing (fixed)
+* progress bar size, color and gradient
+* any time i have an imgui push/pop, put all the code within into a protected function call
+* auto select new widgets
+* pop-up window with buttons to choose datasource
+* auto show datasource pop-up when adding new widgets
+* formatted list drag and drop reordering
+* order widget argument lists (to put 'composite' at the end)
+* widget class
+* 'label+value' widget to replace compositestring
+* button helper function: show as normal or active
+* change 'detectmousemove' and 'detectmouseresize' to only set a value indicating that the window has been moved or resized; check for this in window.display to update stored window coordinates to the new position, and keep the window from moving out of bounds, so that the window slides along the edge as it is moved, instead of moving past the edge and snapping back when the mouse button is released. -- didn't quite do it like this, but i think i'm happy with what i have now.
+* static table widget
+* implement add/remove windows
+* write simple functions for accessing main PSO data
+* write lists of data access functions based on their output type
+* implement save/load custom HUD
+* specific widget argument types: screen position or font size instead of just numbers
+* write widget to display and filter lists of PSO data (inventory, monsters, etc.) -- how to dynamically process lists of items, when different types of items have different fields?
+* window option: hide when main menu is open
+* window option: hide when quick menu is open
+* window option: hide when shop or bank dialog is open
+* window option: transparency
+* window option: hide when quick symbol is open
+* window positions and sizes are wrong on first load, fixes when i click 'reload'
+* progress bars flicker when they don't have data
+* merge 'window options' and 'window editor' into one window
+* merge window editor and item editor
+* implement widget reordering by drag and drop (if possible)

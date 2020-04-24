@@ -1,65 +1,72 @@
--- convert entire table into a string, so it can be written to a file. recurses for nested tables.
-local serializetypes = {}
+--[[
+PSOBB Custom HUD
+Catherine S (izumidaye/neonluna)
+2020-04-21
+Convert entire table into a string, formatted such that it can be read back and restored by the Lua interpreter. Recurses for nested tables. Due to the way Lua works, cannot restore function values.
+]] ----------------------------------------------------------------------------
+local serializeTypes = {}
 
 function serialize(...)
-	-- debugsave 'begin serialize...'
-	-- print(type(sourcedata))
-	local result = serializetypes[type(...)](...)
-	-- debugsave 'serialize completed.'
-	-- debugsave(result)
-	return result
+	dataType = type(...)
+	if serializeTypes[dataType] then
+		local result = serializeTypes[dataType](...)
+		return result
+	else
+		print('type: [' .. dataType .. '] not in serializeTypes.')
+	end -- if serializeTypes[dataType]
 end -- function serialize
 
-serializetypes.number = tostring
-serializetypes.boolean = tostring
+serializeTypes.number = tostring
+serializeTypes.boolean = tostring
+serializeTypes['nil'] = tostring
 
-function serializetypes.string(sourcedata)
-	return string.format('\'%s\'', sourcedata)
-end -- function serializetypes.string
+function serializeTypes.string(sourceData)
+	return string.format('\'%s\'', sourceData)
+end -- function serializeTypes.string
 
-function serializetypes.table(sourcedata, currentoffset, includefunctions)
-	-- if sourcedata.serialize then return sourcedata:serialize(currentoffset) end
+function serializeTypes.table(sourceData, currentOffset, includeFunctions)
+	-- if sourceData.serialize then return sourceData:serialize(currentOffset) end
 	
-	currentoffset = currentoffset or 0
-	local indent = string.rep(' ', currentoffset)
+	currentOffset = currentOffset or 0
+	local indent = string.rep(' ', currentOffset)
 	-- indentation within nested tables
 	
 	local result = '{'
-	local optionallinebreak = ''
-	local tableending = '}'
+	local optionalLineBreak = ''
+	local tableEnding = '}'
 	
-	for key, value in pairs(sourcedata) do
+	for key, value in pairs(sourceData) do
 		if type(value) == 'table'
-		and not (sourcedata.dontserialize and sourcedata.dontserialize[key])
+		and not (sourceData.dontSerialize and sourceData.dontSerialize[key])
 		and not (key == '__index')
 		then
 			result = '\n' .. indent .. '{'
-			optionallinebreak = '\n' .. indent
-			tableending = '\n' .. indent .. '}'
+			optionalLineBreak = '\n' .. indent
+			tableEnding = '\n' .. indent .. '}'
 			break
 		end
-	end -- for key, value in pairs(sourcedata)
-	-- if sourcedata contains any tables, then put each element of sourcedata on a separate line, with proper indentation; if sourcedata contains no tables, then put all its elements on one line.
+	end -- for key, value in pairs(sourceData)
+	-- If sourcedata contains any tables, then put each element of sourcedata on a separate line, with proper indentation; if sourcedata contains no tables, then put all its elements on one line.
 	
-	for key, value in pairs(sourcedata) do
-		if not ((sourcedata.dontserialize and sourcedata.dontserialize[key])
+	for key, value in pairs(sourceData) do
+		if not ((sourceData.dontSerialize and sourceData.dontSerialize[key])
 		or key == '__index') then
 			if type(value) == 'function' then
-				if includefunctions then
+				if includeFunctions then
 					result = result .. string.format("[%s]='function',", serialize(key))
 				end
 			else
 				if type(key) ~= 'number' then
-					-- result = result .. optionallinebreak
+					-- result = result .. optionalLineBreak
 					result = result .. string.format('[%s]=', serialize(key))
 				end -- if type(key) == 'number'
-				result = result .. serialize(value, currentoffset + 2) .. ','
+				result = result .. serialize(value, currentOffset + 2) .. ','
 			end -- if type(value) == 'function'
-			-- recursion is fun! :)
+			-- Recursion is fun! :)
 		end
-	end -- for key, value in pairs(sourcedata)
+	end -- for key, value in pairs(sourceData)
 		
-	return result .. tableending
-end -- function serializetypes.table
+	return result .. tableEnding
+end -- function serializeTypes.table
 
 return {name = 'serialize', module = serialize}

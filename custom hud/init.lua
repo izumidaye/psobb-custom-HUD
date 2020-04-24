@@ -3,66 +3,54 @@ psobb dynamic info addon
 catherine s (izumidaye/neonluna)
 2018-10-05
 ]] ----------------------------------------------------------------------------
-require'custom hud.customhud'
+require 'custom hud.CustomHUD'
 
-local coremodules = {'serialize', 'logger', 'tasks', 'displaylist'}
-local function loadcoremodule(modulename)
-	local tempmodule = require('custom hud.core.' .. modulename)
+local coreModules = {'serialize', 'logger', 'displayList', 'tasks'}
+local function loadCoreModule(modulename)
+	local tempmodule = CustomHUD.loadModule('core.' .. modulename)
 	if tempmodule then
-		customhud[tempmodule.name] = tempmodule.module
+		CustomHUD[tempmodule.name] = tempmodule.module
 		-- print('custom hud > loaded core module [' .. tempmodule.name .. ']')
 		return true
 	else
 		print('custom hud > failed loading core module [' .. modulename .. ']')
 		return false
 	end -- if tempmodule
-end -- local function loadcoremodule
-local function loadallcoremodules()
+end -- local function loadCoreModule
+local function loadAllCoreModules()
 	local success = true
-	for _, modulename in ipairs(coremodules) do
-		success = success and loadcoremodule(modulename)
+	for _, modulename in ipairs(coreModules) do
+		success = success and loadCoreModule(modulename)
 	end -- for _, modulename in ipairs(coremodules)
 	return success
-end -- local function loadallcoremodules
-local function loadbasicmodules()
-	for _, modulename in ipairs(modules) do
-		customhud.tasks.addtask{
-			name = modulename,
-			description = 'load module [' .. modulename .. ']',
-			run = function() return require('custom hud.' .. modulename) end,
-		} -- customhud.tasks.addtask{...}
-	end -- for _, modulename in ipairs(modules)
-end -- local function loadbasicmodules
+end -- local function loadAllCoreModules
 
 local function present()
-	customhud.displaylist.runall()
-	customhud.tasks.run()
+	CustomHUD.present()
 end -- local function present
-local customhudaddon = {
+local addonCustomHUD = {
 	name = 'custom hud',
 	version = '0.6',
 	author = 'izumidaye',
 	description = 'build your own customized hud',
-}
+} -- local addonCustomHUD = {...}
 local function init()
 	-- customhud.displaylist['show startup progress window'] = showstartupprogresswindow
-	local coreloadstarttime = os.clock()
-	local success = loadallcoremodules()
-	local coreloadtimetaken = os.clock() - coreloadstarttime
+	local coreLoadTimeStart = os.clock()
+	local success = loadAllCoreModules()
+	local coreloadtimetaken = os.clock() - coreLoadTimeStart
 	if success then
-		customhud.logmain(string.format('successfully loaded core modules %s in %.3fs', customhud.serialize(coremodules), coreloadtimetaken))
-		customhud.logger.enablelogging('error', 5)
-		customhud.logger.enablelogging('main', 5)
-		customhudaddon.present = present
-		require'core_mainmenu'.add_button('custom hud', function()
-			customhud.displaylist.toggle'mainwindow'
-		end)
-		customhud.init()
+		CustomHUD.logMain(string.format('loaded core modules %s in %.3fs', CustomHUD.serialize(coreModules), coreloadtimetaken))
+		CustomHUD.logger.enablelogging('error', 5)
+		CustomHUD.logger.enablelogging('main', 5)
+		CustomHUD.logger.enablelogging('debug', 5)
+		addonCustomHUD.present = CustomHUD.present
+		CustomHUD.init()
 	else
 		print'custom hud > startup failed - one or more core modules failed to load.'
-		customhudaddon.present = customhud.nilfunction
-	end
-	return customhudaddon
+		addonCustomHUD.present = CustomHUD.nilFunction
+	end -- if success
+	return addonCustomHUD
 end -- local function init
 
 return {__addon = {init = init}}

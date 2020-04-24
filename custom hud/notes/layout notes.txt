@@ -1,0 +1,21 @@
+custom hud editor layouts
+
+* main menu:
+- save
+- global options
+- main window options
+- debug window
+- style editor window
+
+* window editor
+- window list / add new window
+- add preset window
+- window options
+- window widget list
+- add new or preset widget
+- widget options
+
+* group editor
+- group list / create new group
+- manage group members
+- edit group options

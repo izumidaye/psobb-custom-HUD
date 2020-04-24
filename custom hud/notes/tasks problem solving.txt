@@ -1,0 +1,5 @@
+2020-04-07
+CustomHUD tasks (task queue and handler)
+
+currently, the queue is a table. a local variable contains the index of the current task. if the task completes successfully, then it is removed from the queue, shifting the following tasks toward the beginning of the queue, so that the index indicates the next task without being incremented.
+this seems better than other ways i've considered of implementing the queue, since one of the main reasons a task might not complete is due to having unmet dependencies, and this way it's less likely that the task will be tried again before its dependency is loaded.

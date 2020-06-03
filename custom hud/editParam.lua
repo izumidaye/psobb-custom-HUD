@@ -1,27 +1,60 @@
 local imgui = imgui
 local editParam = {}
 local text, translate, logPcall, xLimit, yLimit--, layoutScale
-editParam.defaultParamValues = {
-	inputTextWidth  = -1,
-	inputTextLength = 72,
-	dragFloatWidth  = 44,
-} -- local defaultOptions = {...}
+function editParam.init()
+	basicWidgets = CustomHUD.basicWidgets
+	translate = CustomHUD.translate
+	logPcall = CustomHUD.logPcall
+	xLimit = CustomHUD.gameWindowSize.w
+	yLimit = CustomHUD.gameWindowSize.h
+	editParam.widgetList = CustomHUD.widgetListEditor
+	-- layoutScale = CustomHUD.layoutScale
+end -- function editParam.init
+
 editParam.paramSet = {
-	-- args: {name=, type=, value=, args={}, callback=function()}
-	{name = 'inputTextWidth', type = 'number', args = {1, .1, 24, 420, '%u'}},
-	{name = 'inputTextLength', type = 'number', args = {1, .1, 24, 420, '%u'}},
-	{name = 'dragFloatWidth', type = 'number', args = {1, .1, 24, 420, '%u'}},
-} -- editParam.optionSet = {...} --------------------------------------
+	inputTextWidth = {
+		edit = true,
+		optional = true,
+		type = 'number',
+		defaultValue = 0,
+		args = {1, .1, 0, 420, '%u'},
+		category = 'paramEditing',
+	}, -- inputTextWidth = {...},
+	inputTextLength = {
+		edit = true,
+		optional = true,
+		type = 'number',
+		defaultValue = 72,
+		args = {1, .1, 24, 420, '%u'},
+		category = 'paramEditing',
+	}, -- inputTextLength = {...},
+	dragFloatWidth = {
+		edit = true,
+		optional = true,
+		type = 'number',
+		defaultValue = 44,
+		args = {1, .1, 36, 420, '%u'},
+		category = 'paramEditing',
+	}, -- dragFloatWidth = {...},
+	colorComponentWidth = {
+		edit = true,
+		optional = true,
+		type = 'number',
+		defaultValue = 44,
+		args = {1, .1, 36, 420, '%u'},
+		category = 'paramEditing',
+	}, -- colorComponentWidth = {...},
+} -- editParam.paramSet = {...} --------------------------------------
 local function showLabel(param)
 	if param then
-		text(translate('label', param))
+		basicWidgets.text(translate('label', param))
 		imgui.SameLine()
 	end -- if label
 end -- local function showLabel
 function editParam.string(container, param)
 	showLabel(param)
-	imgui.PushItemWidth(editParam.state.inputTextWidth)
-	local changed, newValue = logPcall(imgui.InputText, 'editparam.string(container, param)', '##' .. param, container[param], editParam.state.inputTextLength)
+	imgui.PushItemWidth(editParam.inputTextWidth)
+	local changed, newValue = logPcall(imgui.InputText, 'editparam.string(container, param)', '##' .. param, container[param], editParam.inputTextLength)
 	imgui.PopItemWidth()
 	if changed then container[param] = newValue end
 	return changed
@@ -29,7 +62,7 @@ end -- function editparam.string ----------------------------------------------
 function editParam.number(container, param, step, smallStep, min, max, formatString)
 	local value = container[param]
 	showLabel(param)
-	imgui.PushItemWidth(editParam.state.dragFloatWidth)
+	imgui.PushItemWidth(editParam.dragFloatWidth)
 	local changed1, newValue1 = logPcall(imgui.DragFloat, 'editParam.number(container, param, step, min, max, formatString)', '##' .. param, value, step, min, max, string.format(formatString, value))
 	imgui.SameLine()
 	local changed2, newValue2 = logPcall(imgui.DragFloat, 'editParam.number(container, param, step, min, max, formatString) - finetune', '##finetune' .. param, value, smallStep, min, max, smallStep .. 'x')
@@ -43,9 +76,15 @@ function editParam.number(container, param, step, smallStep, min, max, formatStr
 end -- function editParam.number
 function editParam.listSelectOne(container, param, list, orientation)
 	-- orientation defaults to vertical
+	local changed = false
 	imgui.BeginGroup()
 		for _, itemName in ipairs(list) do
 			local selected = itemName == container[param]
+			if basicWidgets.toggleButton(translate('label', itemName), selected) then
+				container[param] = itemName
+				changed = true
+			end -- if basicWidgets.toggleButton(translate(itemName))
+			if orientation == 'horizontal' then imgui.SameLine() end
 		end -- for _, itemName in ipairs(list)
 	imgui.EndGroup()
 	return changed
@@ -53,7 +92,7 @@ end -- function editparam.listSelectOne
 local function editLayoutParam(container, param, limit)
 	local value = container[param]
 	showLabel(param)
-	imgui.PushItemWidth(editParam.state.dragFloatWidth)
+	imgui.PushItemWidth(editParam.dragFloatWidth)
 	local changed1, newValue1 = logPcall(imgui.DragFloat, 'editParam.size(container, param, limit)', '##' .. param, value, .01, 0, 1, string.format('%.2f%%', value * 100))
 	imgui.SameLine()
 	local changed2, newValue2 = logPcall(imgui.DragFloat, 'editParam.size(container, param, limit) - fineTune', '##fineTune' .. param, value, .2 / limit, 0, 1, container.layout[param] .. 'px')
@@ -155,25 +194,29 @@ function editParam.windowFlagSet(container)
 	end -- if not windowFlagSet[5] == 'AlwaysAutoResize'
 	return anychange
 end -- editParam.windowFlagSet
+function editParam.color(container, param)
+	showLabel(param)
+	imgui.PushItemWidth(editParam.colorComponentWidth)
+		for i = 1, 4 do
+			imgui.SameLine()
+			local changed, newValue = imgui.DragFloat('##' .. param .. i, container[param][i] * 255, 1, 0, 255, translate('label', 'rgba')[i] .. ':%.0f')
+			if changed then container[param][i] = newValue / 255 end
+		end -- for i = 1, 4
+	imgui.PopItemWidth()
+	imgui.SameLine()
+	imgui.ColorButton(unpack(container[param]))
+end -- function editParam.color
 
-function editParam.init()
-	text = CustomHUD.basicWidgets.text
-	translate = CustomHUD.translate
-	logPcall = CustomHUD.logPcall
-	xLimit = CustomHUD.gameWindowSize.w
-	yLimit = CustomHUD.gameWindowSize.h
-	-- layoutScale = CustomHUD.layoutScale
-	-- local stateExists
-	-- stateExists, options = CustomHUD.state.register('editParam')
-	-- if not stateExists then firstTimeInit() end
-	-- editParam.state = CustomHUD.state.register('editParam', defaultOptions)
-end -- function editParam.init
--- task: {name=, description=, dependencies={}, run=function()<task body; everything else is metadata>}
 return {
 	name = 'editParam',
 	module = editParam,
-	dependencies = {'state', 'basicWidgets', 'translate', 'gameWindowSize'},
-	-- usesGlobalOptions = true,
+	dependencies = {
+		'state',
+		'basicWidgets',
+		'translate',
+		'gameWindowSize',
+		-- 'widgetListEditor',
+	}, -- dependencies = {...},
+	usesGlobalOptions = true,
 	persistent = true,
-	-- newtasks = {registerglobaloptionstask}
 } -- return {...}

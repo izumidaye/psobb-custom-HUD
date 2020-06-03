@@ -1,26 +1,55 @@
+local imgui = imgui
 local basicWidgets = {}
-basicWidgets.defaultParamValues = {
-	textColor = {.8, .8, .8, 1},
-	buttonSelectedColor = {.2, .5, 1, 1},
-	buttonHoveredColor = {.3, .7, 1, 1},
-	buttonActiveColor = {.5, .9, 1, 1},
-}
 basicWidgets.paramSet = {
-	{name = 'textColor', type = 'color'},
+	textColor = {
+		edit = true,
+		optional = true,
+		type = 'color',
+		defaultValue = {.8, .8, .8, 1},
+		category = 'defaultColors',
+	}, -- textColor = {...},
+	buttonSelectedColor = {
+		edit = true,
+		optional = true,
+		type = 'color',
+		defaultValue = {.2, .5, 1, 1},
+		category = 'defaultColors',
+	}, -- buttonSelectedColor = {...},
+	buttonHoveredColor = {
+		edit = true,
+		optional = true,
+		type = 'color',
+		defaultValue = {.3, .7, 1, 1},
+		category = 'defaultColors',
+	}, -- buttonHoveredColor = {...},
+	buttonActiveColor = {
+		edit = true,
+		optional = true,
+		type = 'color',
+		defaultValue = {.5, .9, 1, 1},
+		category = 'defaultColors',
+	}, -- buttonActiveColor = {...},
 }
 
 function basicWidgets.text(text, textColor)
-	local color = textColor or basicWidgets.state.textColor
+	local color = textColor or basicWidgets.textColor
 	CustomHUD.logPcall(imgui.TextColored, 'basicWidgets.text(text, textColor)', color[1], color[2], color[3], color[4], text)
 end -- function basicWidgets.text
+function basicWidgets.label(param)
+	if param then
+		basicWidgets.text(translate('label', param))
+		imgui.SameLine()
+	end -- if label
+end -- function basicWidgets.label
 function basicWidgets.toggleButton(label, selected)
 	if selected then
-		imgui.PushStyleColor('Button', .2, .5, 1, 1)
-		imgui.PushStyleColor('ButtonHovered', .3, .7, 1, 1)
-		imgui.PushStyleColor('ButtonActive', .5, .9, 1, 1)
+		imgui.PushStyleColor('Button', unpack(basicWidgets.buttonSelectedColor))
+		imgui.PushStyleColor('ButtonHovered', unpack(basicWidgets.buttonHoveredColor))
+		imgui.PushStyleColor('ButtonActive', unpack(basicWidgets.buttonActiveColor))
 	end
-	
+	local clicked = imgui.Button(label)
 	if selected then imgui.PopStyleColor(3) end
+	return clicked
 end -- function basicWidgets.toggleButton
 
 local registerGlobalOptions = {
@@ -40,6 +69,6 @@ return {
 	module = basicWidgets,
 	-- newTasks = {registerGlobalOptions},
 	dependencies = {'state'},
-	-- usesGlobalOptions = true,
+	usesGlobalOptions = true,
 	persistent = true,
 }

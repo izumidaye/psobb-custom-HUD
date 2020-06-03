@@ -1,36 +1,58 @@
 -- semi-dependents: mainWindow, editParam, basicWidgets
-local globalOptions, interface, compareIgnoreCase, editParam do
-	globalOptions = {}
-	interface = {}
-end
+local CustomHUD = CustomHUD
+local globalOptions = {}
+local compareIgnoreCase, editParam
+function globalOptions.init()
+	compareIgnoreCase = CustomHUD.utility.compareIgnoreCase
+	editParam = CustomHUD.editParam
+end -- function globalOptions.init
 
-local function presentOption(container, paramIndex)
-	local changed, newValue
-	local paramDef = container.paramSet[paramIndex]
-	local state = container.state
+local function presentOption(category, paramName)
+	local changed
+	local paramDef = category[paramName]
+	local container = CustomHUD[paramDef.container]
+	-- local state = container.state
 	if paramDef.args then
-		changed = editParam[paramDef.type](state, paramDef.name, unpack(paramDef.args))
+		changed = editParam[paramDef.type](container, paramName, unpack(paramDef.args))
 	else
-		changed = editParam[paramDef.type](state, paramDef.name)
+		changed = editParam[paramDef.type](container, paramName)
 	end
 	if changed and paramDef.callback then paramDef.callback() end
 end -- local function presentOption
 local function present()
-	if selectedCategory then
-		local category = globalOptions[selectedCategory]
-		for i = 1, #category.paramSet do
-			presentOption(category, i)
+	editParam.listSelectOne(globalOptions, 'selected', globalOptions, 'horizontal')
+	if globalOptions.selected then
+		local category = globalOptions[globalOptions.selected]
+		for _, paramName in ipairs(category) do
+			presentOption(category, paramName)
 		end -- for _, optionname in ipairs(globaloptions[categoryname])
-	end -- if selectedCategory
+	end -- if globalOptions.selected
 end -- local function present
 local function presentCategoryList()
 	
 end -- local function presentCategoryList
-function interface.register(moduleName)
-	globalOptions[moduleName] = CustomHUD[moduleName]
-	table.insert(globalOptions, moduleName)
-	table.sort(globalOptions, CustomHUD.utility.compareignorecase)
-	if not selectedCategory then selectedCategory = moduleName end
+function globalOptions.register(moduleName)
+	local newCategory = false
+	local modifiedCategories = {}
+	for paramName, paramDef in pairs(CustomHUD[moduleName].paramSet) do
+		if paramDef.edit then
+			local category = paramDef.category
+			if not globalOptions[category] then
+				globalOptions[category] = {}
+				table.insert(globalOptions, category)
+				newCategory = true
+			end -- if not globalOptions[category]
+			paramDef.container = moduleName
+			globalOptions[category][paramName] = paramDef
+			table.insert(globalOptions[category], paramName)
+			modifiedCategories[paramDef.category] = true
+		end -- if paramDef.edit
+	end -- for paramName, paramDef in pairs(CustomHUD[moduleName].paramSet)
+	if newCategory then table.sort(globalOptions, compareIgnoreCase) end
+	for category, _ in pairs(modifiedCategories) do
+		table.sort(globalOptions[category], compareIgnoreCase)
+	end -- for category, _ in pairs(modifiedCategories)
+	-- if not globalOptions.selected then globalOptions.selected = moduleName end
 end -- function globalOptions.register
 
 local menuItem = {
@@ -45,19 +67,17 @@ local registerWithMainWindow = {
 	dependencies = {'mainWindow'},
 	run = function()
 		CustomHUD.mainWindow.addView('globalOptions', present)
-		CustomHUD.mainWindow.addMenuItem('CustomHUD', menuItem)
+		CustomHUD.mainWindow.addMenuItem{
+			menuName = 'CustomHUD',
+			menuItem = menuItem,
+		} -- CustomHUD.mainWindow.addMenuItem{...}
 		return 'complete'
 	end, -- run = function
 } -- local registerWithMainWindow = {...}
 
-function interface.init()
-	-- globalOptions = CustomHUD.state.register('globalOptions')
-	compareIgnoreCase = CustomHUD.utility.compareIgnoreCase
-	editParam = CustomHUD.editParam
-end -- function interface.init
 return {
 	name = 'globalOptions',
-	module = interface,
-	newTasks = {registerWithMainWindow},
+	module = globalOptions,
 	dependencies = {'state', 'utility', 'editParam'},
+	newTasks = {registerWithMainWindow},
 } -- return {...}

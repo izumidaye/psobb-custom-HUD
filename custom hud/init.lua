@@ -4,6 +4,7 @@ catherine s (izumidaye/neonluna)
 2018-10-05
 ]] ----------------------------------------------------------------------------
 require 'custom hud.CustomHUD'
+local CustomHUD = CustomHUD
 
 local coreModules = {'serialize', 'logger', 'displayList', 'tasks'}
 local function loadCoreModule(modulename)
@@ -40,10 +41,11 @@ local function init()
 	local success = loadAllCoreModules()
 	local coreloadtimetaken = os.clock() - coreLoadTimeStart
 	if success then
-		CustomHUD.logMain(string.format('loaded core modules %s in %.3fs', CustomHUD.serialize(coreModules), coreloadtimetaken))
-		CustomHUD.logger.enablelogging('error', 5)
-		CustomHUD.logger.enablelogging('main', 5)
-		CustomHUD.logger.enablelogging('debug', 5)
+		CustomHUD.logger.enableLogging('error', 5)
+		CustomHUD.logger.enableLogging('main', 5)
+		CustomHUD.logger.enableLogging('startup', 5)
+		CustomHUD.logger.enableLogging('debug', 5)
+		CustomHUD.logger.log(string.format('loaded core modules %s in %.3fs', CustomHUD.serialize(coreModules), coreloadtimetaken), 'startup')
 		addonCustomHUD.present = CustomHUD.present
 		CustomHUD.init()
 	else

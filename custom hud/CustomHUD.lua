@@ -2,6 +2,7 @@ CustomHUD = {
 	nilFunction = function() end,
 	startTime   = os.clock(),
 	brokenComponents = {},
+	widgets = {},
 }
 local CustomHUD = CustomHUD
 local components = {
@@ -14,10 +15,12 @@ local components = {
 	'editParam',
 	'globalOptions',
 	'mainWindow',
+	'logView',
 }
+local callbacks = {}
 
 function CustomHUD.logMain(message)
-	print('custom hud > ' .. message)
+	-- print('custom hud > ' .. message)
 	CustomHUD.logger.log(message, 'main')
 end -- function CustomHUD.logMain
 function CustomHUD.logPcall(f, desc, ...)
@@ -47,9 +50,24 @@ function CustomHUD.addModule(name, newModule)
 		table.insert(moduleFields, fieldName)
 	end -- for fieldName, _ in newModule
 	CustomHUD.logMain('loaded module [' .. name .. ']')
-	CustomHUD.logger.alwayslog('loaded module [' .. name .. ']', 'debug')
-	CustomHUD.logger.alwayslog('fields: ' .. CustomHUD.serialize(moduleFields), 'debug')
+	CustomHUD.logger.alwaysLog('loaded module [' .. name .. ']', 'startup')
+	CustomHUD.logger.alwaysLog('fields: ' .. CustomHUD.serialize(moduleFields), 'startup')
 end -- function CustomHUD.addModule
+function CustomHUD.addWidget(name, newWidget)
+	CustomHUD.widgets[name] = newWidget
+	CustomHUD.logMain('loaded widget [' .. name .. ']')
+end -- function CustomHUD.addWidget
+function CustomHUD.registerCallback(eventName, callback)
+	if not callbacks[eventName] then callbacks[eventName] = {} end
+	table.insert(callbacks[eventName], callback)
+end -- function CustomHUD.registerCallback
+function CustomHUD.event(eventName, ...)
+if callbacks[eventName] then
+	for _, callback in pairs(callbacks[eventName]) do
+		callback(...)
+	end -- for _, callback in pairs(callbacks[eventName])
+end -- if callbacks[eventName]
+end -- function CustomHUD.event
 function CustomHUD.addToGlobalOptions(moduleName)
 	CustomHUD.tasks.add{
 		name = moduleName .. 'GlobalOptionsRegister',
@@ -77,9 +95,9 @@ function CustomHUD.processTaskResult(result)
 		
 		if result.persistent then CustomHUD.state.register(result.name) end
 		
-		-- if result.inherits then
-			-- setmetatable(result.module
-		-- end -- if result.inherits
+		if result.inherits then
+			setmetatable(result.module, CustomHUD[result.inherits])
+		end -- if result.inherits
 		
 		if result.usesGlobalOptions then
 			CustomHUD.addToGlobalOptions(result.name)
@@ -87,6 +105,11 @@ function CustomHUD.processTaskResult(result)
 		
 		if result.module.init then result.module.init() end
 	end -- if result.module
+	
+	if result.widget then
+		CustomHUD.addWidget(result.name, result.widget)
+		if result.widget.init then result.widget.init() end
+	end -- if result.widget
 end -- function CustomHUD.processTaskResult
 function CustomHUD.loadLanguage(languageName)
 	if not CustomHUD.languageTable then
@@ -130,7 +153,7 @@ function CustomHUD.init()
 		name = 'loadLanguageTable',
 		description = 'load language table',
 		run = function() return CustomHUD.loadLanguage 'english' end,
-	} -- CustomHUD.tasks.add{...}
+	} -- CustomHUD.tasks.add{loadLanguageTable...}
 	-- CustomHUD.init = CustomHUD.nilFunction
 	registerComponentLoaderTasks()
 end -- function CustomHUD.init

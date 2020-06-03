@@ -53,7 +53,7 @@ local function processDepStatusTable(depStatusTable, task)
 			CustomHUD.logger.log('task "' .. task.description .. '" depends on broken component: "' .. dependency .. '"', 'error')
 			dependencyStatus = 'broken dependency'
 		elseif status == 'not ready' and dependencyStatus ~= 'broken dependency' then
-			CustomHUD.logger.log('task "' .. task.description .. '" dependency not yet loaded: "' .. dependency .. '"', 'debug')
+			CustomHUD.logger.log('task "' .. task.description .. '" dependency not yet loaded: "' .. dependency .. '"', 'startup')
 			dependencyStatus = 'not ready'
 		end -- if status == 'broken'
 	end -- for dependency, status in pairs(depStatusTable)
@@ -87,7 +87,7 @@ local function run(task)
 	local taskStartTime = os.clock()
 	local result = CustomHUD.logPcall(task.run, task.description)
 	local taskTimeTaken = os.clock() - taskStartTime
-	CustomHUD.logger.log(string.format('task "%s" run in %.3fs.', task.description, taskTimeTaken), 'debug')
+	CustomHUD.logger.log(string.format('task "%s" run in %.3fs.', task.description, taskTimeTaken), 'startup')
 	return result
 end -- local function run
 local function tryNext(task)
@@ -101,7 +101,7 @@ local function tryNext(task)
 			return result
 		end
 	elseif dependencyStatus == 'not ready' then
-		CustomHUD.logger.log('task "' .. task.description .. '" incomplete; dependencies unmet.', 'debug')
+		CustomHUD.logger.log('task "' .. task.description .. '" incomplete; dependencies unmet.', 'startup')
 		return 'incomplete'
 	elseif dependencyStatus == 'broken dependency' then
 		CustomHUD.logger.log('task "' .. task.description .. '" failed; dependencies broken.', 'error')

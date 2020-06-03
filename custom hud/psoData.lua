@@ -552,18 +552,20 @@ function psoData.retrievepsodata()
 					if owner == -1 and activegamedata.flooritems then
 						floorindex = floorindex + 1
 						local item = readitemdata(itemaddr, "floor")
-						item.index = floorindex
-						table.insert(gamedata.flooritems, item)
+						if item then
+							item.index = floorindex
+							table.insert(gamedata.flooritems, item)
+						end -- if item
 					elseif owner == playerindex and activegamedata.inventory then
-						inventoryindex = inventoryindex + 1
 						local item = readitemdata(itemaddr, "inventory")
 						-- if gamedata.elapsedtime < 2 then
 							-- print(item.name)
 						-- end
-						-- if item then
+						if item then
+							inventoryindex = inventoryindex + 1
 							item.index = inventoryindex
 							table.insert(gamedata.inventory, item)
-						-- end -- if item
+						end -- if item
 					end -- check: inventory item or floor item
 				end -- if itemaddr ~= 0
 			end -- iterate through items array

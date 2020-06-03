@@ -3,6 +3,60 @@ Window.__index = Window
 local imgui = imgui
 local layoutScale
 
+Window.paramSet = {
+	title = {
+		edit = true,
+		optional = true,
+		type = 'string',
+		category = 'general',
+	}, -- title = {...},
+	layout = {
+		edit = true,
+		optional = false,
+		type = 'layout',
+		members = {'x', 'y', 'w', 'h', 'layout'},
+		defaultValues = {x = 1, y = 1, w = .33, h = .12, layout = {}},
+		category = 'layout',
+	}, -- layout = {...},
+	manualSize = {
+		edit = false,
+		defaultValue = {},
+	}, -- manualSize = {...},
+	windowFlagSet = {
+		edit = true,
+		optional = false,
+		type = 'windowFlagSet',
+		defaultValue = {'', 'NoResize', '', '', 'AlwaysAutoResize'},
+		category = 'layout',
+	}, -- windowFlagSet = {...},
+	hideWhen = {
+		edit = true,
+		optional = false,
+		type = 'hideConditions',
+		defaultValue = {fullMenu = true, mainMenu = true, inLobby = true},
+		category = 'hideConditions',
+	}, -- hideWhen = {...},
+} -- Window.paramSet = {...}
+
+function Window:swapAutoSize()
+	local manualSize = self.manualSize
+	if self.autoResize then
+		manualSize.w = self.w
+		manualSize.h = self.h
+		self.dragActive = true
+	else
+		self.x = layoutScale.fromX(self.layout.x, manualSize.w)
+		self.y = layoutScale.fromY(self.layout.y, manualSize.h)
+		self:setWidth(manualSize.w)
+		self:setHeight(manualSize.h)
+	end -- if self.autoResize
+end -- function Window:swapAutoSize
+function Window:initLayout()
+	self:setX(self.x)
+	self:setY(self.y)
+	self:setWidth(self.w)
+	self:setHeight(self.h)
+end -- function Window:initLayout(
 function Window:refreshLayout()
 	if self.layout.positionChanged then
 		imgui.SetNextWindowPos(self.layout.x, self.layout.y, 'Always')

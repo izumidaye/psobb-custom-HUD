@@ -1,58 +1,65 @@
 local logger = {}
-local loggingenabled = false
+local loggingEnabled = false
 local timeout = {}
-local timeoutlength = 5
-local enabledtypes = {}
-local starttime = os.clock()
+local timeoutLength = 5
+local enabledTypes = {}
+local startTime = os.clock()
+logger.logs = {}
 
-logger.loadlanguage = function(languagetable)
+logger.loadLanguage = function(languagetable)
 	windowtitle = languagetable.windowtitle.logger
-end -- logger.loadlanguage
-local function buildfilename(debugtype)
-	return os.date('addons/custom hud/log/%F ') .. debugtype .. '.txt'
-end -- local function buildfilename
-local function writetolog(text, debugtype)
-	debugtype = debugtype or ''
-	local file = io.open(buildfilename(debugtype), 'a')
+end -- logger.loadLanguage
+local function buildFileName(debugType)
+	return os.date('addons/custom hud/log/%F ') .. debugType .. '.txt'
+end -- local function buildFileName
+local function writeToLog(text, debugType)
+	debugType = debugType or ''
+	local file = io.open(buildFileName(debugType), 'a')
 	if file then
 		io.output(file)
 		io.write(text)
 		io.close(file)
 	end
-end -- local function writetolog
-local function timestamp()
-	local milliseconds = string.format('%.3f', os.clock() - starttime)
+	table.insert(logger.logs[debugType], text)
+end -- local function writeToLog
+local function timeStamp()
+	local milliseconds = string.format('%.3f', os.clock() - startTime)
 	return os.date('%T|' .. milliseconds .. '> ')
 end
--- local function timestamp() return os.clock() .. '> ' end
-logger.enablelogging = function(debugtype, newtimeoutlength)
-	enabledtypes[debugtype] = true
-	timeoutlength = newtimeoutlength or timeoutlength
-	loggingenabled = true
-	debugtype = debugtype or ''
-	local file = io.open(buildfilename(debugtype), 'w')
+-- local function timeStamp() return os.clock() .. '> ' end
+function logger.enableLogging(debugType, newTimeoutLength)
+	enabledTypes[debugType] = true
+	logger.logs[debugType] = {}
+	table.insert(logger.logs, debugType)
+	-- maybe sort logger.logs?
+	timeoutLength = newTimeoutLength or timeoutLength
+	loggingEnabled = true
+	debugType = debugType or ''
+	local logStartText = timeStamp() .. 'session log start\n'
+	local file = io.open(buildFileName(debugType), 'w')
 	if file then
 		io.output(file)
-		io.write(timestamp() .. 'session log start\n')
+		io.write(logStartText)
 		io.close(file)
 	end
-	-- writetolog('\n\n'.. timestamp() .. 'session log start\n')
-end -- logger.enablelogging = function
-logger.alwayslog = function(message, debugtype)
-	if loggingenabled and enabledtypes[debugtype] then
-		writetolog(timestamp() .. message .. '\n', debugtype)
+	table.insert(logger.logs[debugType], logStartText)
+	-- writeToLog('\n\n'.. timeStamp() .. 'session log start\n')
+end -- function logger.enableLogging
+function logger.alwaysLog(message, debugType)
+	if loggingEnabled and enabledTypes[debugType] then
+		writeToLog(timeStamp() .. message .. '\n', debugType)
 	end
-end -- logger.alwayslog = function
-logger.log = function(message, debugtype)
-	if loggingenabled and enabledtypes[debugtype] then
+end -- function logger.alwaysLog
+function logger.log(message, debugType)
+	if loggingEnabled and enabledTypes[debugType] then
 		if timeout[message] and os.time() < timeout[message] then
 			-- too soon to log another message
 			return
 		else -- timeout expired; restart timeout
-			writetolog(timestamp() .. message .. '\n', debugtype)
-			timeout[message] = os.time() + timeoutlength
+			writeToLog(timeStamp() .. message .. '\n', debugType)
+			timeout[message] = os.time() + timeoutLength
 		end
 	end
-end -- logger.log = function
+end -- function logger.log
 
 return {name = 'logger', module = logger}

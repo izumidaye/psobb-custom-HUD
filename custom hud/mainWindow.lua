@@ -3,54 +3,79 @@ custom hud main window
 catherine s (izumidaye/neonluna)
 2020-04-03
 ]] ----------------------------------------------------------------------------
-local mainWindow, state, menuBar, mainViews, translate, layoutScale do
+local mainWindow, menuBar, mainViews, translate, layoutScale do
 	mainWindow = {}
 	menuBar = {}
 	mainViews = {}
 end
-mainWindow.defaultParamValues = {
-	-- windowLayout = {x = .5, y = .5, w = .65, h = .65,},
-	layout = {},
-	x = 1,
-	y = 0,
-	w = .65,
-	h = .65,
-	manualSize = {},
-	autoResize = false,
-	showAllWhenActive = true,
-	enabled = true,
-} -- local defaultOptions = {...}
+local function toggleMainWindow()
+	mainWindow.enabled = not mainWindow.enabled
+end -- local function toggleMainWindow
+function mainWindow.init()
+	translate = CustomHUD.translate
+	layoutScale = CustomHUD.layoutScale
+	-- setmetatable(mainWindow, CustomHUD.Window)
+	mainWindow:initLayout()
+	require 'core_mainmenu'.add_button('Custom HUD', toggleMainWindow)
+	CustomHUD.logger.log('finished mainWindow.init()', 'debug')
+end -- function mainWindow.init
+
 local function swapAutoSize()
-	if state.autoResize then
-		state.manualSize.w, state.manualSize.h = state.w, state.h
-		state.dragActive = true
-	else
-		-- state.w, state.h = state.manualSize.w, state.manualSize.h
-		state.x = layoutScale.fromX(state.layout.x, state.manualSize.w)
-		state.y = layoutScale.fromY(state.layout.y, state.manualSize.h)
-		state:setWidth(state.manualSize.w)
-		state:setHeight(state.manualSize.h)
-	end -- if state.autoResize
-	-- state:updateLayout()
+	mainWindow:swapAutoSize()
 end -- local function swapAutoSize
 mainWindow.paramSet = {
-	{name = 'windowLayout', type = 'layout'},
-	{name = 'autoResize', type = 'boolean', callback = swapAutoSize},
-	{name = 'showAllWhenActive', type = 'boolean'},
-} -- mainWindow.optionSet = {...}
-function mainWindow.addMenuItem(menuName, menuItem)
-	if not menuBar[menuName] then menuBar[menuName] = {} end
-	table.insert(menuBar[menuName], menuItem)
+	windowLayout = {
+		edit = true,
+		optional = false,
+		type = 'layout',
+		members = {'x', 'y', 'w', 'h', 'layout'},
+		defaultValues = {x = 1, y = 0, w = .65, h = .65, layout = {}},
+		category = 'mainWindow',
+	}, -- layout = {...},
+	manualSize = {
+		edit = false,
+		defaultValue = {},
+	}, -- manualSize = {...},
+	enabled = {
+		edit = false,
+		defaultValue = true,
+	}, -- enabled = {...},
+	autoResize = {
+		edit = true,
+		optional = false,
+		type = 'boolean',
+		defaultValue = false,
+		callback = swapAutoSize,
+		category = 'mainWindow',
+	}, -- autoResize = {...},
+	showAllWhenActive = {
+		edit = true,
+		optional = false,
+		type = 'boolean',
+		defaultValue = true,
+		category = 'mainWindow',
+	}, -- showAllWhenActive = {...},
+} -- mainWindow.paramSet = {...}
+
+function mainWindow.addMenuItem(args)
+	if args.menuName then
+		if not menuBar[args.menuName] then menuBar[args.menuName] = {} end
+		table.insert(menuBar[args.menuName], args.menuItem)
+	else
+		table.insert(menuBar, args.menuItem)
+	end -- if args.menuName
 end -- function mainWindow.addMenuItem
 function mainWindow.addView(viewName, view)
 	mainViews[viewName] = view
 end -- function mainWindow.addView
 function mainWindow.setActiveView(viewName)
-	state.lastView, state.activeView = state.activeView, viewName
+	mainWindow.lastView = mainWindow.activeView
+	mainWindow.activeView = viewName
 	print('set active view to: ' .. viewName)
 end -- local function setActiveView
 local function revertView()
-	state.lastView, state.activeView = state.activeView, state.lastView
+	mainWindow.lastView = mainWindow.activeView
+	mainWindow.activeView = mainWindow.lastView
 end -- local function revertView
 
 local registerBbmodMenuButton = {
@@ -71,16 +96,12 @@ local registerMainWindowGlobalOptions = {
 	end,
 } -- local registerMainWindowGlobalOptions
 local function present()
-	if not state.enabled then return end
-	state:refreshLayout()
-	-- imgui.SetNextWindowPos(layoutScale.toX(state.x, state.w), layoutScale.toY(state.y, state.h), 'Always')
-	-- if not state.autoResize then
-		-- imgui.SetNextWindowSize(layoutScale.toWidth(state.w), layoutScale.toHeight(state.h), 'Always')
-	-- end -- if not state.autoResize
+	if not mainWindow.enabled then return end
+	mainWindow:refreshLayout()
 	local success
 	local windowFlags = {'MenuBar'}
-	if state.autoResize then table.insert(windowFlags, 'AlwaysAutoResize') end
-	success, state.enabled = imgui.Begin(translate('windowTitle', 'mainWindow'), true, windowFlags)
+	if mainWindow.autoResize then table.insert(windowFlags, 'AlwaysAutoResize') end
+	success, mainWindow.enabled = imgui.Begin(translate('windowTitle', 'mainWindow'), true, windowFlags)
 	if not success then
 		imgui.End()
 		return
@@ -105,42 +126,23 @@ local function present()
 	end -- for menuName, menu in pairs(menuBar)
 	imgui.EndMenuBar() end
 	
-	state:detectMouseDrag()
+	mainWindow:detectMouseDrag()
 	
-	if state.activeView and mainViews[state.activeView] then
-		imgui.Text(state.activeView)
-		mainViews[state.activeView]()
-	end -- if state.activeView and mainViews[state.activeView]
+	if mainWindow.activeView and mainViews[mainWindow.activeView] then
+		imgui.Text(mainWindow.activeView)
+		mainViews[mainWindow.activeView]()
+	end -- if mainWindow.activeView and mainViews[mainWindow.activeView]
 	
 	imgui.End()
 end -- local function present
 
-local function toggleMainWindow() state.enabled = not state.enabled end
-local function initLayout()
-	state:setX(state.x)
-	state:setY(state.y)
-	state:setWidth(state.w)
-	state:setHeight(state.h)
-end -- local function initLayout(
-function mainWindow.init()
-	translate = CustomHUD.translate
-	layoutScale = CustomHUD.layoutScale
-	-- state = CustomHUD.state.register('mainWindow', defaultOptions)
-	setmetatable(mainWindow.state, CustomHUD.Window)
-	-- mainWindow.options = state
-	state = mainWindow.state
-	-- setmetatable(state, CustomHUD.Window)
-	initLayout()
-	require 'core_mainmenu'.add_button('Custom HUD', toggleMainWindow)
-	CustomHUD.logger.log('finished mainWindow.init()', 'debug')
-end -- function mainWindow.init
 return {
 	name = 'mainWindow',
 	module = mainWindow,
 	-- newTasks = {registerBbmodMenuButton,},
-	window = {name = 'mainWindow', displayFunction = present},
-	dependencies = {'state', 'layoutScale'},
-	inherits = 'Window',
 	usesGlobalOptions = true,
 	persistent = true,
+	inherits = 'Window',
+	window = {name = 'mainWindow', displayFunction = present},
+	dependencies = {'state', 'layoutScale'},
 }

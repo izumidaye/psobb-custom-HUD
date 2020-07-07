@@ -25,33 +25,21 @@ local function swapAutoSize()
 end -- local function swapAutoSize
 mainWindow.paramSet = {
 	windowLayout = {
-		edit = true,
-		optional = false,
-		type = 'layout',
+		editor = 'layout',
 		members = {'x', 'y', 'w', 'h', 'layout'},
 		defaultValues = {x = 1, y = 0, w = .65, h = .65, layout = {}},
 		category = 'mainWindow',
 	}, -- layout = {...},
-	manualSize = {
-		edit = false,
-		defaultValue = {},
-	}, -- manualSize = {...},
-	enabled = {
-		edit = false,
-		defaultValue = true,
-	}, -- enabled = {...},
+	manualSize = {defaultValue = {}},
+	enabled = {defaultValue = true},
 	autoResize = {
-		edit = true,
-		optional = false,
-		type = 'boolean',
+		editor = 'boolean',
 		defaultValue = false,
 		callback = swapAutoSize,
 		category = 'mainWindow',
 	}, -- autoResize = {...},
 	showAllWhenActive = {
-		edit = true,
-		optional = false,
-		type = 'boolean',
+		editor = 'boolean',
 		defaultValue = true,
 		category = 'mainWindow',
 	}, -- showAllWhenActive = {...},
@@ -144,5 +132,5 @@ return {
 	persistent = true,
 	inherits = 'Window',
 	window = {name = 'mainWindow', displayFunction = present},
-	dependencies = {'state', 'layoutScale'},
+	dependencies = {'layoutScale'},
 }

@@ -1,16 +1,14 @@
 local editList = {}
-local dragAndDrop, detectDragStart, startDrag, editParam
+local dragAndDrop, detectDragStart, startDrag, updateDragDest, editParam
 function editList.init()
+	local CustomHUD = CustomHUD
 	dragAndDrop = CustomHUD.dragAndDrop
 	detectDragStart = CustomHUD.dragAndDrop.detectDragStart
 	startDrag = CustomHUD.dragAndDrop.startDrag
+	updateDragDest = CustomHUD.dragAndDrop.updateDragDest
 	editParam = CustomHUD.editParam
 end -- function editList.init
 
-local function justEdit(list)
-end -- local function justEdit
-local function editAndMap(list)
-end -- local function editAndMap
 local function isRemapNeeded(editorState)
 	local remap = false
 	if dragAndDrop.dragActive and imgui.IsWindowHovered() then
@@ -25,9 +23,14 @@ local function isRemapNeeded(editorState)
 			or editorState.windowH ~= windowH
 			then
 				remap = true
+				editorState.cursorX = cursorX
+				editorState.cursorY = cursorY
+				editorState.windowW = windowW
+				editorState.windowH = windowH
 			end -- if layout changed
 		end -- if editorState.remap
 	end -- if dragAndDrop.dragActive and imgui.IsWindowHovered()
+	return remap
 end -- local function isRemapNeeded
 local function showAndMapItem(list, index, listItem)
 	local editorState = list.editorState
@@ -41,40 +44,59 @@ local function showAndMapItem(list, index, listItem)
 	end -- if (not editorState.currentY) or editorState.currentY < y
 	table.insert(editorState.map[#editorState.map], itemPos)
 end -- local function showAndMapItem
-function showDestIndicator(list)
+local function showDestIndicator(list)
 	if dragAndDrop.destList == list then
+		local indicatorX, indicatorY
 		local realPos = {imgui.GetCursorScreenPos()}
 		local destIndex = dragAndDrop.destIndex
+		local item
 		if destIndex <= #list then
-			local item = list[1]
-			imgui.SetCursorScreenPos(item.x - (item.w / 2), item.y - (item.h / 2))
-			if item.sameLine then
-				imgui.Text'|'
-			else
-				imgui.Separator()
-			end -- if item.sameLine
+			item = list[1]
+			-- imgui.SetCursorScreenPos(item.x - (item.w / 2), item.y - (item.h / 2))
+			indicatorX = item.x - (item.w / 2)
+			indicatorY = item.y - (item.h / 2)
+			-- if item.sameLine then
+				-- imgui.Text'|'
+			-- else
+				-- imgui.Separator()
+			-- end -- if item.sameLine
 		else -- destIndex > #list
-			local item = list[#list]
+			item = list[#list]
 			if item.sameLine then
-				imgui.SetCursorScreenPos(item.x + (item.w / 2), item.y - (item.h / 2))
-				imgui.Text'|'
+				-- imgui.SetCursorScreenPos(item.x + (item.w / 2), item.y - (item.h / 2))
+				indicatorX = item.x - (item.w / 2)
+				indicatorY = item.y - (item.h / 2)
+				-- imgui.Text'|'
 			else
-				imgui.SetCursorScreenPos(realPos.x, item.y + (item.h / 2))
-				imgui.Separator()
+				indicatorX = realPos[1]
+				indicatorY = item.y + (item.h / 2)
+				-- imgui.SetCursorScreenPos(realPos[1], item.y + (item.h / 2))
+				-- imgui.Separator()
 			end -- if item.sameLine
 		end -- destIndex switch
+		imgui.SetCursorScreenPos(indicatorX, indicatorY)
+		if item.sameLine then
+			imgui.Text'|'
+		else
+			imgui.Separator()
+		end -- if item.sameLine
 		imgui.SetCursorScreenPos(unpack(realPos))
+		imgui.Text('showing drop indicator at: (' .. indicatorX .. ', ' .. indicatorY .. ')')
 	end -- if dragAndDrop.destList == list
 end -- function showDestIndicator
 function editList.edit(list)
+	local editorState = list.editorState
 	imgui.BeginGroup()
-		local listEditor = editParam[list.type]
-		local remap = isRemapNeeded(list.editorState)
-		if remap then editorState.map = {} end
+		local listItem = list.interface.listItem
+		local remap = isRemapNeeded(editorState)
+		if remap then
+			editorState.map = {}
+			editorState.currentY = nil
+		end
 		for index, item in ipairs(list) do
 			if remap then
-				showAndMapItem(list, index, listEditor.listItem)
-			elseif listEditor.listItem(list, index) and detectDragStart() then
+				showAndMapItem(list, index, listItem)
+			elseif listItem(list, index) and detectDragStart() then
 				startDrag(list, index)
 			end -- if remap
 		end -- for index, item in ipairs(list)
@@ -82,7 +104,10 @@ function editList.edit(list)
 	imgui.EndGroup()
 	if remap then editorState.remap = nil end
 	
-	dragAndDrop.updateDragDest(list)
+	updateDragDest(list)
+	showDestIndicator(list)
+	-- imgui.TextWrapped('editorState: ' .. CustomHUD.serialize(editorState))
+	-- imgui.TextWrapped('dragAndDrop: ' .. CustomHUD.serialize(dragAndDrop))
 end -- function editList.edit
 
 return {

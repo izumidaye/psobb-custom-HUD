@@ -1,14 +1,13 @@
 local dragAndDrop = {}
 local isMouseDragging
 function dragAndDrop.init()
-	isMouseDragging = imgui.isMouseDragging
+	isMouseDragging = imgui.IsMouseDragging
 end -- function dragAndDrop.init
 
 dragAndDrop.paramSet = {
 	dragThreshold = {
-		edit = true,
-		optional = true,
-		type = 'number',
+		editor = 'number',
+		-- optional = true,
 		defaultValue = 24,
 		args = {1, .2, 6, 72, '%u'},
 		category = 'paramEditing',
@@ -29,7 +28,7 @@ end -- function dragAndDrop.startDrag
 function mapMouseToList(list)
 	local x, y = imgui.GetMousePos()
 	local hoveredRow
-	for i, row in ipairs(list.map) do
+	for i, row in ipairs(list.editorState.map) do
 		if y < row.y then
 			hoveredRow = row
 			break
@@ -49,20 +48,23 @@ function mapMouseToList(list)
 	end -- if hoveredRow
 end -- function mapMouseToList
 function dragAndDrop.updateDragDest(list, x, y)
-	if dragAndDrop.dragActive
-		if imgui.IsItemHovered()
-		and list.contentType == dragAndDrop.sourceList.contentType
-		then
-			dragAndDrop.destList = list
-			dragAndDrop.destIndex = mapMouseToList(list.editorState.map)
-		else
-			dragAndDrop.numberInactive = dragAndDrop.numberInactive + 1
-		end -- if windowHovered, and if content types match
-	end -- if dragActive
+	if dragAndDrop.dragActive then
+		if imgui.IsItemHovered() then
+			if list.contentType == dragAndDrop.sourceList.contentType then
+				dragAndDrop.destList = list
+				dragAndDrop.destIndex = mapMouseToList(list)
+			end -- if list.contentType == dragAndDrop.sourceList.contentType
+		elseif dragAndDrop.destList == list then
+			-- this *was* hovered, but the mouse moved away.
+			dragAndDrop.destList = nil
+			dragAndDrop.destIndex = nil
+		end -- if imgui.IsItemHovered()
+	end -- if dragAndDrop.dragActive
 end -- function dragAndDrop.updateDragDest
 
 return {
 	name = 'dragAndDrop',
 	module = dragAndDrop,
 	usesGlobalOptions = true,
+	persistent = true,
 }

@@ -1,26 +1,39 @@
 -- semi-dependents: mainWindow, editParam, basicWidgets
 local CustomHUD = CustomHUD
 local globalOptions = {}
-local compareIgnoreCase, editParam
+local compareIgnoreCase, listSelectOne, editParam
 function globalOptions.init()
 	compareIgnoreCase = CustomHUD.utility.compareIgnoreCase
+	listSelectOne = CustomHUD.editParam.listSelectOne
 	editParam = CustomHUD.editParam
 end -- function globalOptions.init
 
+-- local function iterateCategoryNames()
+	-- local i = 0
+	-- return function()
+		-- i = i + 1
+		-- return i, globalOptions[i]
+	-- end -- return function
+-- end -- local function iterateCategoryNames
+local function isSelected(i)
+	return globalOptions.selected == globalOptions[i]
+end -- local function isSelected
+local function setSelected(i) globalOptions.selected = globalOptions[i] end
 local function presentOption(category, paramName)
 	local changed
 	local paramDef = category[paramName]
+	if paramDef.editor == nil then return end
 	local container = CustomHUD[paramDef.container]
 	-- local state = container.state
 	if paramDef.args then
-		changed = editParam[paramDef.type](container, paramName, unpack(paramDef.args))
+		changed = editParam[paramDef.editor](container, paramName, unpack(paramDef.args))
 	else
-		changed = editParam[paramDef.type](container, paramName)
+		changed = editParam[paramDef.editor](container, paramName)
 	end
 	if changed and paramDef.callback then paramDef.callback() end
 end -- local function presentOption
 local function present()
-	editParam.listSelectOne(globalOptions, 'selected', globalOptions, 'horizontal')
+	listSelectOne(globalOptions, isSelected, setSelected, 'horizontal')
 	if globalOptions.selected then
 		local category = globalOptions[globalOptions.selected]
 		for _, paramName in ipairs(category) do
@@ -28,14 +41,11 @@ local function present()
 		end -- for _, optionname in ipairs(globaloptions[categoryname])
 	end -- if globalOptions.selected
 end -- local function present
-local function presentCategoryList()
-	
-end -- local function presentCategoryList
 function globalOptions.register(moduleName)
 	local newCategory = false
 	local modifiedCategories = {}
 	for paramName, paramDef in pairs(CustomHUD[moduleName].paramSet) do
-		if paramDef.edit then
+		if paramDef.editor ~= nil then
 			local category = paramDef.category
 			if not globalOptions[category] then
 				globalOptions[category] = {}
@@ -60,7 +70,7 @@ local menuItem = {
 	activate = function()
 		CustomHUD.mainWindow.setActiveView('globalOptions')
 	end -- activate = function
-} -- menuItem = {...}
+} -- local menuItem = {...}
 local registerWithMainWindow = {
 	name = 'registerGlobalOptionsWithMainWindow',
 	description = 'register global options with main window',

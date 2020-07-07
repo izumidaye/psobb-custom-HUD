@@ -6,16 +6,23 @@ CustomHUD = {
 }
 local CustomHUD = CustomHUD
 local components = {
-	'state',
-	'utility',
-	'Window',
-	'basicWidgets',
 	'psoData',
 	'layoutScale',
+	'utility',
+	'state',
+	'dragAndDrop',
+	'basicWidgets',
 	'editParam',
-	'globalOptions',
+	'Window',
+	'CustomWindow',
 	'mainWindow',
+	'globalOptions',
+	'editList',
+	'basicListInterface',
+	'paramTypes',
+	'elementBuilder',
 	'logView',
+	'windowSet',
 }
 local callbacks = {}
 
@@ -23,16 +30,21 @@ function CustomHUD.logMain(message)
 	-- print('custom hud > ' .. message)
 	CustomHUD.logger.log(message, 'main')
 end -- function CustomHUD.logMain
+local debugPcall = false
 function CustomHUD.logPcall(f, desc, ...)
-	local results = {pcall(f, ...)}
-	local success = table.remove(results, 1)
-	if not success then
-		local errorMessage = CustomHUD.serialize({desc, results, ...})
-		print(errorMessage)
-		CustomHUD.logger.log(errorMessage, 'error')
+	if debugPcall then
+		local results = {pcall(f, ...)}
+		local success = table.remove(results, 1)
+		if not success then
+			local errorMessage = CustomHUD.serialize({desc, results, ...})
+			print(errorMessage)
+			CustomHUD.logger.log(errorMessage, 'error')
+		else
+			return unpack(results)
+		end -- if not success
 	else
-		return unpack(results)
-	end -- if not success
+		return f(...)
+	end -- if debugPcall
 end -- function CustomHUD.logPcall
 function CustomHUD.loadModule(moduleName)
 	local tempModule = CustomHUD.logPcall(require, 'CustomHUD.loadModule/require(moduleName)', 'custom hud.' .. moduleName)
@@ -79,10 +91,22 @@ function CustomHUD.addToGlobalOptions(moduleName)
 		end, -- run = function
 	} -- CustomHUD.tasks.add{...}
 end -- function CustomHUD.addToGlobalOptions
+function CustomHUD.registerState(moduleName)
+-- add a task to register a module with state, once the state module is loaded.
+	CustomHUD.tasks.add{
+		name = moduleName .. 'StateRegister',
+		description = 'register ' .. moduleName .. ' state',
+		dependencies = {'state'},
+		run = function()
+			CustomHUD.state.register(moduleName)
+			return 'complete'
+		end, -- run = function
+	} -- CustomHUD.tasks.add{...}
+end -- function CustomHUD.registerState
 function CustomHUD.processTaskResult(result)
 	if result.newTasks then
 		for _, newTask in ipairs(result.newTasks) do
-			CustomHUD.tasks.add(newTask)
+			CustomHUD.tasks.add(newTask, true)
 		end
 	end -- if result.newTasks
 	
@@ -93,6 +117,7 @@ function CustomHUD.processTaskResult(result)
 	if result.module then
 		CustomHUD.addModule(result.name, result.module)
 		
+		-- if result.persistent then CustomHUD.registerState(result.name) end
 		if result.persistent then CustomHUD.state.register(result.name) end
 		
 		if result.inherits then

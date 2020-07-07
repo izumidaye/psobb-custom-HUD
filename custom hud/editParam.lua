@@ -1,7 +1,10 @@
 local imgui = imgui
 local editParam = {}
-local text, translate, logPcall, xLimit, yLimit--, layoutScale
+local toggleButton, text, translate, logPcall, xLimit, yLimit--, layoutScale
 function editParam.init()
+	local CustomHUD = CustomHUD
+	toggleButton = CustomHUD.basicWidgets.toggleButton
+	text = CustomHUD.basicWidgets.text
 	basicWidgets = CustomHUD.basicWidgets
 	translate = CustomHUD.translate
 	logPcall = CustomHUD.logPcall
@@ -13,33 +16,29 @@ end -- function editParam.init
 
 editParam.paramSet = {
 	inputTextWidth = {
-		edit = true,
+		editor = 'number',
 		optional = true,
-		type = 'number',
 		defaultValue = 0,
 		args = {1, .1, 0, 420, '%u'},
 		category = 'paramEditing',
 	}, -- inputTextWidth = {...},
 	inputTextLength = {
-		edit = true,
+		editor = 'number',
 		optional = true,
-		type = 'number',
 		defaultValue = 72,
 		args = {1, .1, 24, 420, '%u'},
 		category = 'paramEditing',
 	}, -- inputTextLength = {...},
 	dragFloatWidth = {
-		edit = true,
+		editor = 'number',
 		optional = true,
-		type = 'number',
 		defaultValue = 44,
 		args = {1, .1, 36, 420, '%u'},
 		category = 'paramEditing',
 	}, -- dragFloatWidth = {...},
 	colorComponentWidth = {
-		edit = true,
+		editor = 'number',
 		optional = true,
-		type = 'number',
 		defaultValue = 44,
 		args = {1, .1, 36, 420, '%u'},
 		category = 'paramEditing',
@@ -47,7 +46,7 @@ editParam.paramSet = {
 } -- editParam.paramSet = {...} --------------------------------------
 local function showLabel(param)
 	if param then
-		basicWidgets.text(translate('label', param))
+		text(translate('label', param))
 		imgui.SameLine()
 	end -- if label
 end -- local function showLabel
@@ -74,20 +73,20 @@ function editParam.number(container, param, step, smallStep, min, max, formatStr
 	end -- if changed1
 	return changed1 or changed2
 end -- function editParam.number
-function editParam.listSelectOne(container, param, list, orientation)
+function editParam.listSelectOne(itemList, isSelected, callback, orientation)
 	-- orientation defaults to vertical
 	local changed = false
 	imgui.BeginGroup()
-		for _, itemName in ipairs(list) do
-			local selected = itemName == container[param]
-			if basicWidgets.toggleButton(translate('label', itemName), selected) then
-				container[param] = itemName
-				changed = true
-			end -- if basicWidgets.toggleButton(translate(itemName))
+		for i, itemName in ipairs(itemList) do
+			-- print('i, itemName: ' .. i .. ', ' .. tostring(itemName))
+			-- local selected = itemName == container[param]
+			if toggleButton(translate('label', itemName), isSelected(i)) then
+				callback(i)
+			end -- toggleButton(translate('label', itemName), isSelected(i))
 			if orientation == 'horizontal' then imgui.SameLine() end
-		end -- for _, itemName in ipairs(list)
+		end -- for i, itemName in iter()
 	imgui.EndGroup()
-	return changed
+	-- return changed
 end -- function editparam.listSelectOne
 local function editLayoutParam(container, param, limit)
 	local value = container[param]

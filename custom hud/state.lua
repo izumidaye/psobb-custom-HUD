@@ -27,6 +27,12 @@ function interface.setCharacter(newCharacterName)
 		profile = tempProfile
 	end
 end -- function interface.setCharacter
+function interface.updateModuleData(moduleName)
+	utility.copyIntoTable{
+		source = state[moduleName],
+		dest = CustomHUD[moduleName]
+	} -- utility.copyIntoTable{...}
+end -- function interface.updateModuleData
 function interface.register(moduleName)
 	local module = CustomHUD[moduleName]
 	if not state[moduleName] then
@@ -46,7 +52,7 @@ function interface.register(moduleName)
 			end -- if paramDef.defaultValues
 		end -- for paramName, paramDef in pairs(module.paramSet)
 	end -- if not state[moduleName]
-	utility.copyIntoTable{source = state[moduleName], dest = module}
+	interface.updateModuleData(moduleName)
 end -- function interface.register
 local function saveString(fileName, stringToSave)
 	local outputFile = io.open('addons/custom hud/' .. fileName .. '.lua', 'w')

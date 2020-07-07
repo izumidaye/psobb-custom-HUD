@@ -1,7 +1,16 @@
 local logView = {}
 local listSelectOne, logs
+-- local function iterateLogNames()
+	-- local i = 0
+	-- return function()
+		-- i = i + 1
+		-- return i, logs[i]
+	-- end -- return function
+-- end -- local function iterateLogNames
+local function isSelected(i) return logs[i] == logView.selected end
+local function setSelected(i) logView.selected = logs[i] end
 local function present()
-	listSelectOne(logView, 'selected', logs, 'horizontal')
+	listSelectOne(logs, isSelected, setSelected, 'horizontal')
 	if imgui.BeginChild('logView') then
 		if logView.selected then
 			for _, textLine in ipairs(logs[logView.selected]) do

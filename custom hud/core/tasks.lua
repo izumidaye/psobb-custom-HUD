@@ -59,7 +59,8 @@ local function processDepStatusTable(depStatusTable, task)
 	end -- for dependency, status in pairs(depStatusTable)
 	return dependencyStatus
 end -- local function processDepStatusTable
-local function areDependenciesMet(task)
+local function checkDependencies(task)
+	if task.dependencyStatus == 'ready' then return end
 	local depStatusTable = {}
 	if task.dependencies then
 		for _, dependency in ipairs(task.dependencies) do
@@ -69,10 +70,14 @@ local function areDependenciesMet(task)
 	if task.inherits then
 		depStatusTable[task.inherits] = getDepStatus(task.inherits)
 	end -- if task.inherits
-	return processDepStatusTable(depStatusTable, task)
-end -- local function areDependenciesMet
+	if task.persistent then
+		depStatusTable.state = getDepStatus('state')
+	end -- if task.persistent
+	-- return processDepStatusTable(depStatusTable, task)
+	task.dependencyStatus = processDepStatusTable(depStatusTable, task)
+end -- local function checkDependencies
 local function processWhenReady(result)
-	tasks.add{
+	tasks.add({
 		name = result.name,
 		description = 'process result: [' .. result.name .. '] when ready',
 		dependencies = result.dependencies,
@@ -81,9 +86,10 @@ local function processWhenReady(result)
 			CustomHUD.processTaskResult(result)
 			return 'complete'
 		end, -- run = function()
-	} -- tasks.add{...}
+	}, true) -- tasks.add(...)
 end -- local function processWhenReady
 local function run(task)
+	CustomHUD.logger.log(string.format('attempting task "%s"', task.description), 'startup')
 	local taskStartTime = os.clock()
 	local result = CustomHUD.logPcall(task.run, task.description)
 	local taskTimeTaken = os.clock() - taskStartTime
@@ -91,8 +97,8 @@ local function run(task)
 	return result
 end -- local function run
 local function tryNext(task)
-	local dependencyStatus = areDependenciesMet(task)
-	if dependencyStatus == 'ready' then
+	checkDependencies(task)
+	if task.dependencyStatus == 'ready' then
 		local result = run(task)
 		if type(result) == 'table' then
 			processWhenReady(result)
@@ -100,16 +106,22 @@ local function tryNext(task)
 		else
 			return result
 		end
-	elseif dependencyStatus == 'not ready' then
+	elseif task.dependencyStatus == 'not ready' then
 		CustomHUD.logger.log('task "' .. task.description .. '" incomplete; dependencies unmet.', 'startup')
 		return 'incomplete'
-	elseif dependencyStatus == 'broken dependency' then
+	elseif task.dependencyStatus == 'broken dependency' then
 		CustomHUD.logger.log('task "' .. task.description .. '" failed; dependencies broken.', 'error')
 		return 'failure'
 	end -- if dependencyStatus == 'ready'
 end -- local function tryNext
-function tasks.add(newTask)
-	table.insert(taskQueue, newTask)
+function tasks.add(newTask, tryNext)
+	checkDependencies(newTask)
+	if tryNext and newTask.dependencyStatus == 'ready' and #taskQueue > 0 then
+		-- print('adding new task "' .. newTask.description .. '" at taskIndex ' .. taskIndex)
+		table.insert(taskQueue, taskIndex + 1, newTask)
+	else
+		table.insert(taskQueue, newTask)
+	end -- if newTask.dependencyStatus == 'ready'
 	totalStartupTasks = totalStartupTasks + 1
 end -- function tasks.add
 function tasks.run()

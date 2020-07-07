@@ -1,4 +1,8 @@
 local paramTypes = {}
+local translate
+function paramTypes.init()
+	translate = CustomHUD.translate
+end -- function paramTypes.init
 
 paramTypes.hideWhen = {
 	editor = 'hideConditions',
@@ -36,7 +40,9 @@ paramTypes.textColor = {
 } -- paramTypes.textColor = {...}
 paramTypes.title = {
 	editor = 'string',
-	optional = true,
+	defaultValue = function()
+		return translate('windowTitle', 'newWindow')
+	end,
 } -- paramTypes.title = {...}
 paramTypes.windowFlagSet = {
 	editor = 'windowFlagSet',
@@ -46,5 +52,6 @@ paramTypes.windowFlagSet = {
 
 return {
 	name = 'paramTypes',
-	module = 'paramTypes',
+	module = paramTypes,
+	dependencies = {'translate'},
 }

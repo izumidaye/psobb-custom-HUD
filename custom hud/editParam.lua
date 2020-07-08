@@ -1,8 +1,9 @@
 local imgui = imgui
 local editParam = {}
-local toggleButton, text, translate, logPcall, xLimit, yLimit--, layoutScale
+local paramTypes, toggleButton, text, translate, logPcall, xLimit, yLimit--, layoutScale
 function editParam.init()
 	local CustomHUD = CustomHUD
+	paramTypes = CustomHUD.paramTypes
 	toggleButton = CustomHUD.basicWidgets.toggleButton
 	text = CustomHUD.basicWidgets.text
 	basicWidgets = CustomHUD.basicWidgets
@@ -206,6 +207,44 @@ function editParam.color(container, param)
 	imgui.ColorButton(unpack(container[param]))
 end -- function editParam.color
 
+local function genericEdit(container, param)
+	local changed
+	local paramDef = container.paramSet[param] or paramTypes[param]
+	if paramDef.editor == nil then return end
+	if paramDef.args then
+		changed = editParam[paramDef.editor](container, param, unpack(paramDef.args))
+	else
+		changed = editParam[paramDef.editor](container, param)
+	end -- if paramDef.args
+	if changed and paramDef.callback then paramDef.callback() end
+end -- local function genericEdit
+function editParam.editParamSet(container)
+	local paramSet = container.paramSet
+	if paramSet.categories then
+		local function isSelected(i) return container.selected == i end
+		local function callback(i) container.selected = i end
+		editParam.listSelectOne(paramSet, isSelected, callback, 'horizontal')
+		imgui.Separator()
+		if container.selected then
+			-- local changed
+			-- local paramDef = paramSet[param]
+			-- if paramDef.editor == nil then return end
+			-- local type = paramSet[param].listItemClass
+			genericEdit(container, container.selected)
+		end -- if container.selected
+	else
+		for name, def in pairs(paramSet) do
+			local paramName
+			if type(def) == 'string' then
+				paramName = def
+			else
+				paramName = name
+			end -- if type(def) == 'string'
+			genericEdit(container, paramName)
+		end -- for name, def in pairs(paramSet)
+	end -- if paramSet.categories
+end -- function editParam.editParamSet
+
 return {
 	name = 'editParam',
 	module = editParam,
@@ -214,6 +253,7 @@ return {
 		'basicWidgets',
 		'translate',
 		'gameWindowSize',
+		'paramTypes',
 		-- 'widgetListEditor',
 	}, -- dependencies = {...},
 	usesGlobalOptions = true,

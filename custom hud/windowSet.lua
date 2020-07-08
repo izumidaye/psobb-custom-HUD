@@ -22,7 +22,11 @@ windowSet.paramSet = {
 		callback = nil,
 		category = 'general',
 	}, -- characterSpecific = {...}
-	generalSet = {defaultValue = {editorState = {}}},
+	generalSet = {
+		-- editor = 'list',
+		listItemClass = 'CustomWindow',
+		defaultValue = {editorState = {}}
+	},
 } -- windowSet.paramSet = {...}
 windowSet.characterParamSet = {
 	characterSet = {defaultValue = {editorState = {}}},

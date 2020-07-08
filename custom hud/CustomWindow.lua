@@ -1,7 +1,7 @@
 local CustomWindow = {}
 CustomWindow.__index = CustomWindow
 
-CustomWindow.paramSet = {'windowFlagSet', 'layout', 'title', 'hideWhen', 'manualSize'}
+CustomWindow.paramSet = {'windowFlagSet', 'layout', 'title', 'hideWhen', 'manualSize', categories = true}
 -- CustomWindow.childSet = {
 	-- {name = 'contentList', className = 'WidgetSet'},
 -- } -- CustomWindow.childSet = {...}

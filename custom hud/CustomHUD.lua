@@ -62,8 +62,8 @@ function CustomHUD.addModule(name, newModule)
 		table.insert(moduleFields, fieldName)
 	end -- for fieldName, _ in newModule
 	CustomHUD.logMain('loaded module [' .. name .. ']')
-	CustomHUD.logger.alwaysLog('loaded module [' .. name .. ']', 'startup')
-	CustomHUD.logger.alwaysLog('fields: ' .. CustomHUD.serialize(moduleFields), 'startup')
+	CustomHUD.logger.log('loaded module [' .. name .. ']', 'startup')
+	CustomHUD.logger.log('fields: ' .. CustomHUD.serialize(moduleFields), 'startup')
 end -- function CustomHUD.addModule
 function CustomHUD.addWidget(name, newWidget)
 	CustomHUD.widgets[name] = newWidget

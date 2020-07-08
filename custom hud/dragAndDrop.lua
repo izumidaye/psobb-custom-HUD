@@ -25,6 +25,22 @@ function dragAndDrop.startDrag(list, index)
 	dragAndDrop.sourceIndex = index
 	dragAndDrop.sourceList = list
 end -- function dragAndDrop.startDrag
+function dragAndDrop.endDrag()
+	if dragAndDrop.destList and dragAndDrop.destIndex then
+		if dragAndDrop.sourceList == dragAndDrop.destList then
+			dragAndDrop.sourceList.interface.moveItem(dragAndDrop.sourceList, dragAndDrop.sourceIndex, dragAndDrop.destIndex)
+		else
+			local movingItem = dragAndDrop.sourceList.interface.removeItem(dragAndDrop.sourceList, dragAndDrop.sourceIndex)
+			dragAndDrop.destList.interface.addItem(dragAndDrop.destList, dragAndDrop.destIndex, movingItem)
+		end -- if dragAndDrop.sourceList == dragAndDrop.destList
+	-- else
+	end -- if dragAndDrop.destList and dragAndDrop.destIndex
+	dragAndDrop.sourceList = nil
+	dragAndDrop.sourceIndex = nil
+	dragAndDrop.destList = nil
+	dragAndDrop.destIndex = nil
+	dragAndDrop.dragActive = false
+end -- function dragAndDrop.endDrag
 function mapMouseToList(list)
 	local x, y = imgui.GetMousePos()
 	local hoveredRow
@@ -49,7 +65,9 @@ function mapMouseToList(list)
 end -- function mapMouseToList
 function dragAndDrop.updateDragDest(list, x, y)
 	if dragAndDrop.dragActive then
-		if imgui.IsItemHovered() then
+		if not imgui.IsMouseDown(0) then
+			dragAndDrop.endDrag()
+		elseif imgui.IsItemHovered() then
 			if list.contentType == dragAndDrop.sourceList.contentType then
 				dragAndDrop.destList = list
 				dragAndDrop.destIndex = mapMouseToList(list)
@@ -58,7 +76,7 @@ function dragAndDrop.updateDragDest(list, x, y)
 			-- this *was* hovered, but the mouse moved away.
 			dragAndDrop.destList = nil
 			dragAndDrop.destIndex = nil
-		end -- if imgui.IsItemHovered()
+		end -- if not imgui.IsMouseDown(0)
 	end -- if dragAndDrop.dragActive
 end -- function dragAndDrop.updateDragDest
 

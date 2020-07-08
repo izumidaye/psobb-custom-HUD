@@ -106,6 +106,10 @@ function editList.edit(list)
 	
 	updateDragDest(list)
 	showDestIndicator(list)
+	imgui.Separator()
+	if editorState.selected then
+		editParam.editParamSet(list[editorState.selected])
+	end -- if editorState.selected
 	-- imgui.TextWrapped('editorState: ' .. CustomHUD.serialize(editorState))
 	-- imgui.TextWrapped('dragAndDrop: ' .. CustomHUD.serialize(dragAndDrop))
 end -- function editList.edit

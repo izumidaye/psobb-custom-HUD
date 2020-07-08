@@ -36,7 +36,7 @@ function basicListInterface.addItem(list, index, newItem)
 	end -- if list.selected and index <= list.selected
 end -- function basicListInterface.addItem
 function basicListInterface.removeItem(list, index)
-	table.remove(list, index) -- change this to move to 'trash' or something
+	local removedItem = table.remove(list, index) -- change this to move to 'trash' or something
 	if list.editorState.selected then
 		if list.editorState.selected == index then
 			list.editorState.selected = nil
@@ -44,6 +44,7 @@ function basicListInterface.removeItem(list, index)
 			list.editorState.selected = list.editorState.selected - 1
 		end -- if list.selected == index
 	end -- if list.selected
+	return removedItem
 end -- function basicListInterface.removeItem
 function basicListInterface.moveItem(list, sourceIndex, destIndex)
 	local sourceOffset = 0

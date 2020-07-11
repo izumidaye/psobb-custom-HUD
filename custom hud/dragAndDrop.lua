@@ -41,8 +41,8 @@ function dragAndDrop.endDrag()
 	dragAndDrop.destIndex = nil
 	dragAndDrop.dragActive = false
 end -- function dragAndDrop.endDrag
-function mapMouseToList(list)
-	local x, y = imgui.GetMousePos()
+function mapMouseToList(list, x, y)
+	-- local x, y = imgui.GetMousePos()
 	local hoveredRow
 	for i, row in ipairs(list.editorState.map) do
 		if y < row.y then
@@ -63,14 +63,19 @@ function mapMouseToList(list)
 		return #list + 1
 	end -- if hoveredRow
 end -- function mapMouseToList
+local function isWithinRect(x, y, rect)
+	return (x > rect.left and x < rect.right) and (y > rect.top and y < rect.bottom)
+end -- local function isWithinRect
 function dragAndDrop.updateDragDest(list, x, y)
 	if dragAndDrop.dragActive then
 		if not imgui.IsMouseDown(0) then
 			dragAndDrop.endDrag()
-		elseif imgui.IsItemHovered() then
+		-- elseif imgui.IsItemHovered() then
+		elseif isWithinRect(x, y, list.editorState.dropZone) then
+			print('valid drop zone')
 			if list.contentType == dragAndDrop.sourceList.contentType then
 				dragAndDrop.destList = list
-				dragAndDrop.destIndex = mapMouseToList(list)
+				dragAndDrop.destIndex = mapMouseToList(list, x, y)
 			end -- if list.contentType == dragAndDrop.sourceList.contentType
 		elseif dragAndDrop.destList == list then
 			-- this *was* hovered, but the mouse moved away.

@@ -50,14 +50,18 @@ function basicListInterface.moveItem(list, sourceIndex, destIndex)
 	local sourceOffset = 0
 	local selectionOffset = 0
 	if destIndex < sourceIndex then sourceOffset = 1 end
-	if destIndex < list.editorState.selected and list.editorState.selected < sourceIndex then
-		selectionOffset = 1
-	elseif sourceIndex < list.editorState.selected and list.editorState.selected < destIndex then
-		selectionOffset = -1
-	end
 	table.insert(list, destIndex, list[sourceIndex])
 	table.remove(list, sourceIndex + sourceOffset)
-	list.editorState.selected = list.editorState.selected + selectionOffset
+	print('moved list item from ' .. sourceIndex .. ' to ' .. destIndex)
+	if list.editorState.selected then
+		local selected = list.editorState.selected
+		if destIndex < selected and selected < sourceIndex then
+			selectionOffset = 1
+		elseif sourceIndex < selected and selected < destIndex then
+			selectionOffset = -1
+		end
+		list.editorState.selected = selected + selectionOffset
+	end -- if list.editorState.selected
 end -- function basicListInterface.moveItem
 
 return {

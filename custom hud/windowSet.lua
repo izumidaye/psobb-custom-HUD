@@ -25,7 +25,7 @@ windowSet.paramSet = {
 	generalSet = {
 		-- editor = 'list',
 		listItemClass = 'CustomWindow',
-		defaultValue = {editorState = {}}
+		defaultValue = {contentType = 'widget', editorState = {}}
 	},
 } -- windowSet.paramSet = {...}
 windowSet.characterParamSet = {

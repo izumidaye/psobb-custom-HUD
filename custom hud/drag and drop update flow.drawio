@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2020-08-26T21:40:32.866Z" agent="5.0 (Windows)" etag="qgNavTED63yFCMCCUJMU" version="13.6.5" type="github">
+<mxfile host="app.diagrams.net" modified="2020-08-26T21:42:50.178Z" agent="5.0 (Windows)" etag="ToF24nCeVWEW8V-uLK-y" version="13.6.5" type="github">
   <diagram id="thIgzYFtaQDVgoQTWbwC" name="Page-1">
     <mxGraphModel dx="2062" dy="1151" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="1100" math="0" shadow="0">
       <root>
@@ -49,8 +49,8 @@
             <mxPoint x="320" y="280" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-12" value="&lt;div&gt;is mouse over&lt;/div&gt;&lt;div&gt;draggable widget?&lt;br&gt;&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
-          <mxGeometry x="200" y="240" width="120" height="80" as="geometry" />
+        <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-12" value="&lt;div&gt;is mouse&lt;/div&gt;&lt;div&gt;over draggable&lt;/div&gt;&lt;div&gt;widget?&lt;br&gt;&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="220" width="120" height="120" as="geometry" />
         </mxCell>
         <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-13" value="no" style="shape=flexArrow;endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="yxSxBAnPC_Bgq3mYWuoJ-12" target="yxSxBAnPC_Bgq3mYWuoJ-14">
           <mxGeometry width="50" height="50" relative="1" as="geometry">

@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2020-08-26T20:50:37.685Z" agent="5.0 (Windows)" etag="EQtQp6nCzPsKGDn21aqu" version="13.6.5" type="github">
+<mxfile host="app.diagrams.net" modified="2020-08-26T21:03:48.306Z" agent="5.0 (Windows)" etag="5CIcbcjYCFs9TYKUFQEE" version="13.6.5" type="github">
   <diagram id="thIgzYFtaQDVgoQTWbwC" name="Page-1">
     <mxGraphModel dx="2062" dy="1151" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
@@ -40,8 +40,26 @@
         <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-9" value="process drag and drop event" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
           <mxGeometry x="520" y="240" width="120" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-10" value="" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+        <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-10" value="&lt;div&gt;is drag&lt;/div&gt;&lt;div&gt;source set?&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
           <mxGeometry x="360" y="240" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-11" value="no" style="shape=flexArrow;endArrow=classic;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="yxSxBAnPC_Bgq3mYWuoJ-10" target="yxSxBAnPC_Bgq3mYWuoJ-12">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="400" y="610" as="sourcePoint" />
+            <mxPoint x="320" y="280" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-12" value="&lt;div&gt;is mouse over&lt;/div&gt;&lt;div&gt;draggable widget?&lt;br&gt;&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="240" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-13" value="yes" style="shape=flexArrow;endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="yxSxBAnPC_Bgq3mYWuoJ-12" target="yxSxBAnPC_Bgq3mYWuoJ-14">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="400" y="610" as="sourcePoint" />
+            <mxPoint x="260" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-14" value="set drag source" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="360" width="120" height="80" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

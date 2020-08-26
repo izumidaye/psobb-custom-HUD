@@ -1,1 +1,49 @@
-<mxfile host="app.diagrams.net" modified="2020-08-26T20:34:19.018Z" agent="5.0 (Windows)" etag="3tyyEydDC6SXh74SfZ-O" version="13.6.5" type="github"><diagram id="thIgzYFtaQDVgoQTWbwC" name="Page-1">5VZNj5swEP01OabiY0lyTcNuW6lVG0VVu3vzwgRcGYyMCdBf3yHYfDmrtLto99ATM288Y+bNs2Hh7pLqgyBZ/IWHwBaOFVYL1184jmOtHHw0SN0itu3ZLRIJGiqsBw70NyjQUmhBQ8hHCyXnTNJsDAY8TSGQI4wIwcvxsiNn410zEoEBHALCTPQHDWXcohvP6vGPQKNY72xbKpIQvVgBeUxCXg4g93bh7gTnsrWSagesYU/z0ubdPRHtXkxAKv8moXxg20/reB8tP38PHvfL/a/j16WqciKsUA3nkgist0W0yEIiAQ1fkGibhr7gWdOIJLLIVVOy1kzhbjgUdN6XMZVwyEjQREoUBmKxTBh6NppqSxASqid7sTuGUFvAE5CixiUqwV0pUst+JrYmOh7MY6MwomQQdaV6ptBQZP0DcY5BHM0bnSNT+IBT0whuG0h6wvidwZaIefKILF5lK8cITSP01jNzV094ezMuXYNLgy48PFljHhlU2+ZYIxeQhsr0A0bynAZj5qCi8ifa1jtPefeDiN/QYWmn1k6KDQ2SGvd+GOvTzp7Oa18YQuMymUwFm+KFCOD6kcRjGIG8pkBzyoMpeheGqDEBjLTaHF6YFyardvjG6VnRSkQ31lhE3lQcbZsqa3grTQt5k0LupFDLg1HoLLSu7edr78bQXsrnVd9Ae70SL6tvRhW9qTqc9eSK2XjPU0d35+hCq9dVh2eoowbzy/cSedj/oTw8ZyZ5eNNP2WzyQLf/M2uX9z+47u0f</diagram></mxfile>
+<mxfile host="app.diagrams.net" modified="2020-08-26T20:50:37.685Z" agent="5.0 (Windows)" etag="EQtQp6nCzPsKGDn21aqu" version="13.6.5" type="github">
+  <diagram id="thIgzYFtaQDVgoQTWbwC" name="Page-1">
+    <mxGraphModel dx="2062" dy="1151" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="wZlAI7hQg-LUcbQ-QjfO-1" value="start: update DragAndDrop status" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="360" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="wZlAI7hQg-LUcbQ-QjfO-2" value="is main mouse button pressed?" style="rhombus;whiteSpace=wrap;html=1;spacing=7;" parent="1" vertex="1">
+          <mxGeometry x="360" y="120" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="wZlAI7hQg-LUcbQ-QjfO-3" value="" style="shape=flexArrow;endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="wZlAI7hQg-LUcbQ-QjfO-1" target="wZlAI7hQg-LUcbQ-QjfO-2" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="400" y="580" as="sourcePoint" />
+            <mxPoint x="450" y="530" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-2" value="yes" style="shape=flexArrow;endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="wZlAI7hQg-LUcbQ-QjfO-2">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="400" y="610" as="sourcePoint" />
+            <mxPoint x="420" y="240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-3" value="no" style="shape=flexArrow;endArrow=classic;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="wZlAI7hQg-LUcbQ-QjfO-2" target="yxSxBAnPC_Bgq3mYWuoJ-4">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="400" y="610" as="sourcePoint" />
+            <mxPoint x="520" y="160" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-4" value="is drag dest set?" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="520" y="120" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-8" value="yes" style="shape=flexArrow;endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="yxSxBAnPC_Bgq3mYWuoJ-4" target="yxSxBAnPC_Bgq3mYWuoJ-9">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="400" y="610" as="sourcePoint" />
+            <mxPoint x="580" y="240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-9" value="process drag and drop event" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="520" y="240" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="yxSxBAnPC_Bgq3mYWuoJ-10" value="" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="240" width="120" height="80" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
